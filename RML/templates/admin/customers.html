@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Customers - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <div class="text-muted small">Ops Console &middot; Customers</div>
+  <h2 class="fw-bold">Customer Directory</h2>
+  <p class="text-muted">Manage customer profiles, contact information, and order history.</p>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Customer</th>
+          <th>Contact</th>
+          <th>Address</th>
+          <th>Orders</th>
+          <th>Total Spent</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in customers %}
+        <tr>
+          <td class="fw-semibold">{{ c.name }}</td>
+          <td class="small">{{ c.email }}<br><span class="text-muted">{{ c.phone }}</span></td>
+          <td class="small text-muted">{{ c.address }}</td>
+          <td>{{ c.order_count }}</td>
+          <td class="fw-semibold">&#8369;{{ "{:,.2f}".format(c.total_spent) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

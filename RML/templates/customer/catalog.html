@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Product Catalog - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <div class="text-muted small">Customer Portal &middot; Product Catalog</div>
+  <h2 class="fw-bold">Construction Materials</h2>
+  <p class="text-muted">Select high-quality materials for your site with live pricing and stock confirmation.</p>
+</div>
+
+<form method="GET" action="{{ url_for('main.customer_catalog') }}" class="row g-2 mb-4">
+  <div class="col-md-8">
+    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search materials, tools, or supplies...">
+  </div>
+  <div class="col-md-4 d-flex gap-2">
+    <button type="submit" class="btn btn-outline-secondary">Search</button>
+    <a href="{{ url_for('main.customer_checkout') }}" class="btn btn-rml flex-grow-1">Proceed to Checkout ({{ cart_count }})</a>
+  </div>
+</form>
+
+<div class="row g-3 mb-4">
+  {% for p in products %}
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <img src="{{ p.image_url }}" class="card-img-top product-img" alt="{{ p.name }}">
+      <div class="card-body d-flex flex-column">
+        <h6 class="fw-bold mb-1">{{ p.name }}</h6>
+        <p class="text-muted small mb-3">{{ p.description }}</p>
+        <div class="d-flex justify-content-between align-items-center mb-3 mt-auto">
+          <span class="fw-bold fs-5">&#8369;{{ "{:,.2f}".format(p.price) }}</span>
+          {% if p.stock_quantity <= p.low_stock_threshold %}
+            <span class="badge text-bg-warning">Low Stock ({{ p.stock_quantity }})</span>
+          {% else %}
+            <span class="badge text-bg-success">In Stock ({{ p.stock_quantity }})</span>
+          {% endif %}
+        </div>
+        <form method="POST" action="{{ url_for('main.cart_add') }}" class="d-flex gap-2">
+          <input type="hidden" name="product_id" value="{{ p.id }}">
+          <input type="number" name="quantity" value="1" min="1" max="{{ p.stock_quantity if p.stock_quantity > 0 else 1 }}" class="form-control form-control-sm" style="width: 70px;">
+          <button type="submit" class="btn btn-rml btn-sm flex-grow-1" {% if p.stock_quantity <= 0 %}disabled{% endif %}>
+            + Add to Cart
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

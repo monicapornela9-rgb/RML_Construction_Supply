@@ -1,0 +1,112 @@
+:root {
+  --rml-red: #C83126;
+  --rml-light: #E9ECEE;
+  --rml-blue: #1F5776;
+  --bs-primary: var(--rml-red);
+  --bs-primary-rgb: 200, 49, 38;
+  --bs-secondary: var(--rml-blue);
+  --bs-secondary-rgb: 31, 87, 118;
+  --bs-body-bg: var(--rml-light);
+  --bs-link-color: var(--rml-blue);
+  --bs-link-hover-color: #17435B;
+}
+
+body {
+  background-color: var(--rml-light);
+  color: #1c2833;
+}
+
+.navbar-brand {
+  color: var(--rml-blue);
+}
+
+.rml-logo-box {
+  background-color: var(--rml-red);
+  color: #ffffff;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.rml-brand-badge {
+  background-color: var(--rml-red);
+  color: #ffffff;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.rml-sidebar {
+  background-color: var(--rml-blue);
+  min-height: calc(100vh - 57px);
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.rml-sidebar .nav-link {
+  color: #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 4px;
+}
+
+.rml-sidebar .nav-link:hover {
+  background-color: #17435B;
+  color: #ffffff;
+}
+
+.rml-sidebar .nav-link.active {
+  background-color: #17435B;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.btn-rml {
+  background-color: var(--rml-red);
+  border-color: var(--rml-red);
+  color: #ffffff;
+}
+
+.btn-rml:hover {
+  background-color: #A9261E;
+  border-color: #A9261E;
+  color: #ffffff;
+}
+
+.text-rml {
+  color: var(--rml-red);
+}
+
+.rml-login-panel {
+  background-color: var(--rml-blue);
+}
+
+.rml-login-panel .text-secondary {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.product-img {
+  height: 170px;
+  object-fit: cover;
+}
+
+.gps-map {
+  height: 300px;
+  width: 100%;
+  border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+  .rml-sidebar {
+    width: 100%;
+    min-height: auto;
+  }
+}

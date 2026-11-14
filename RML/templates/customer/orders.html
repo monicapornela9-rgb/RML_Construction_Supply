@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}My Orders - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="fw-bold mb-1">My Orders</h2>
+    <p class="text-muted mb-0">Track order approval, payment verification, and live truck delivery.</p>
+  </div>
+  <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-rml">New Order</a>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Order</th>
+          <th>Date</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Order Status</th>
+          <th>Delivery</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td class="fw-semibold">#{{ o.order_code }}</td>
+          <td class="small text-muted">{{ o.created_at }}</td>
+          <td class="fw-semibold">&#8369;{{ "{:,.2f}".format(o.total_amount) }}</td>
+          <td>
+            {% if o.payment_method %}
+              <span class="badge text-bg-light border text-uppercase">{{ o.payment_method }}</span>
+              <span class="small text-muted">{{ o.payment_status }}</span>
+            {% else %}
+              <a href="{{ url_for('main.customer_payment', order_id=o.id) }}" class="small text-rml">Pay now</a>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge {% if o.order_status in ['approved', 'dispatched', 'completed'] %}text-bg-success{% elif o.order_status == 'rejected' %}text-bg-danger{% else %}text-bg-warning{% endif %}">
+              {{ o.order_status|title }}
+            </span>
+          </td>
+          <td>{{ o.delivery_status|replace('_', ' ')|title if o.delivery_status else 'Pending dispatch' }}</td>
+          <td class="text-end">
+            <a href="{{ url_for('main.customer_order_tracking', order_id=o.id) }}" class="btn btn-outline-secondary btn-sm">Track Order</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center py-4 text-muted">No orders placed yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

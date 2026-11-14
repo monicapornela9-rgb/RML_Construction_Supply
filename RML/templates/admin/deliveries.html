@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Delivery Tracking · RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <div class="text-muted small">Ops Console &middot; Deliveries</div>
+  <h2 class="fw-bold mb-1">Delivery Tracking</h2>
+  <p class="text-muted small">Assign trucks/drivers and keep an eye on delivery progress.</p>
+</div>
+
+<!-- Status Counters -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">Queued</div>
+      <div class="fs-3 fw-bold">{{ counts.queued }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">Assigned</div>
+      <div class="fs-3 fw-bold">{{ counts.assigned }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">En Route</div>
+      <div class="fs-3 fw-bold text-rml">{{ counts.en_route }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">Delivered</div>
+      <div class="fs-3 fw-bold text-success">{{ counts.delivered }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- Schedule Delivery Form -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm p-4">
+      <h5 class="fw-bold mb-3">Schedule Delivery</h5>
+      <form method="POST">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Approved Order</label>
+          <select name="order_id" class="form-select" required>
+            {% for o in ready_orders %}
+              <option value="{{ o.id }}">{{ o.order_code }} &middot; {{ o.customer_name }}</option>
+            {% else %}
+              <option value="" disabled>No approved orders awaiting dispatch</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Truck</label>
+          <select name="truck_id" class="form-select" required>
+            {% for t in trucks %}
+              <option value="{{ t.id }}">{{ t.truck_code }} &middot; {{ t.plate_number }} ({{ t.capacity }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Driver</label>
+          <select name="driver_id" class="form-select" required>
+            {% for d in drivers %}
+              <option value="{{ d.id }}">{{ d.name }} &middot; {{ d.staff_id }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Delivery Window</label>
+          <input type="text" name="delivery_window" class="form-control" value="09:00 - 11:00" required>
+        </div>
+        <button type="submit" class="btn btn-rml" {% if not ready_orders %}disabled{% endif %}>Assign Delivery</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Live Map of First Active Delivery -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="fw-bold mb-0">Live Fleet GPS</h5>
+        <span id="gps-last-update" class="badge bg-light text-dark border">Auto-refresh 5s</span>
+      </div>
+      <div id="admin-gps-map" class="rml-map"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Deliveries Table -->
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Delivery ID</th>
+          <th>Order</th>
+          <th>Destination</th>
+          <th>Driver / Truck</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in deliveries %}
+          <tr>
+            <td class="fw-bold">{{ d.delivery_code }}</td>
+            <td>{{ d.order_code }}</td>
+            <td class="small">{{ d.recipient_name }}<br><span class="text-muted">{{ d.delivery_address }}</span></td>
+            <td class="small">{{ d.driver_name }}<br><span class="text-muted">{{ d.truck_code }} ({{ d.plate_number }})</span></td>
+            <td><span class="badge bg-dark text-uppercase">{{ d.delivery_status }}</span></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if deliveries %}
+<script>
+  initLiveGpsMap("admin-gps-map", {{ deliveries[0].id }}, {{ deliveries[0].current_lat or 13.9411 }}, {{ deliveries[0].current_lng or 121.1631 }});
+</script>
+{% endif %}
+{% endblock %}

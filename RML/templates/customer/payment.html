@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Payment Method - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <div class="text-muted small">Customer Portal / Checkout / Payments</div>
+  <h2 class="fw-bold">Payment Method</h2>
+  <p class="text-muted">Choose one payment method to continue.</p>
+</div>
+
+<div class="card border-0 shadow-sm p-3 mb-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <div class="small text-muted">ORDER #{{ order.order_code }}</div>
+      <div class="fw-semibold">
+        {% for item in items %}
+          {{ item.quantity }} {{ item.unit }} {{ item.name }}{% if not loop.last %} + {% endif %}
+        {% endfor %}
+      </div>
+      <div class="small text-muted">Includes delivery and estimated VAT</div>
+    </div>
+    <div class="text-end">
+      <div class="small text-muted">Total to pay</div>
+      <div class="fw-bold fs-3">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="text-muted small mb-1">OPTION 01</div>
+      <h4 class="fw-bold mb-2">Cash Payment</h4>
+      <p class="fw-semibold small mb-1">Pay on delivery</p>
+      <p class="text-muted small mb-4">Prepare the exact amount and pay the authorized RML collector when your materials arrive. No online transfer required.</p>
+      <form method="POST" action="{{ url_for('main.customer_payment', order_id=order.id) }}" class="mt-auto">
+        <input type="hidden" name="method" value="cash">
+        <button type="submit" class="btn btn-rml w-100 py-2">Confirm Cash on Delivery</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="text-muted small mb-1">OPTION 02</div>
+      <h4 class="fw-bold mb-2">Online Payment via QR Code</h4>
+      <p class="fw-semibold small mb-1">Pay with your bank or e-wallet</p>
+      <p class="text-muted small mb-3">Scan the RML merchant QR (GCash / Maya / InstaPay) and enter your transaction reference number below.</p>
+      <div class="bg-light border rounded p-3 text-center mb-3">
+        <i class="bi bi-qr-code fs-1"></i>
+        <div class="small fw-semibold mt-1">RML Construction Supply QR</div>
+        <div class="small text-muted">Amount: &#8369;{{ "{:,.2f}".format(order.total_amount) }}</div>
+      </div>
+      <form method="POST" action="{{ url_for('main.customer_payment', order_id=order.id) }}">
+        <input type="hidden" name="method" value="qr">
+        <div class="mb-2">
+          <input type="text" name="reference_no" class="form-control form-control-sm" required placeholder="Reference Number (e.g. GCASH-981234)">
+        </div>
+        <div class="mb-3">
+          <input type="text" name="receipt_note" class="form-control form-control-sm" placeholder="Sender name or receipt note (optional)">
+        </div>
+        <button type="submit" class="btn btn-rml w-100 py-2">Submit QR Payment Reference</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

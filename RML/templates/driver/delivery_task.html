@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Delivery Task {{ delivery.delivery_code }} - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('main.driver_schedule') }}" class="small text-decoration-none text-muted">&larr; Back to my daily schedule</a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h2 class="fw-bold mb-1">{{ delivery.recipient_name }}</h2>
+    <div class="text-muted small">{{ delivery.delivery_code }} &middot; Order #{{ delivery.order_code }}</div>
+  </div>
+  <span class="badge fs-6 {% if delivery.delivery_status == 'delivered' %}text-bg-success{% elif delivery.delivery_status == 'en_route' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">
+    {{ delivery.delivery_status|replace('_', ' ')|title }}
+  </span>
+</div>
+
+<div class="card border-0 shadow-sm p-4 mb-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h6 class="fw-bold mb-0">Update delivery progress</h6>
+    <div class="d-flex gap-2">
+      {% if delivery.delivery_status != 'delivered' %}
+      <form method="POST" action="{{ url_for('main.driver_delivery_task', delivery_id=delivery.id) }}">
+        <input type="hidden" name="action" value="update_status">
+        <input type="hidden" name="delivery_status" value="en_route">
+        <button type="submit" class="btn btn-outline-primary btn-sm">Mark En Route</button>
+      </form>
+      <button type="button" class="btn btn-rml btn-sm" onclick="startDriverGps({{ delivery.id }}, 'gpsStatus')">
+        <i class="bi bi-geo-alt me-1"></i>Start Live GPS
+      </button>
+      {% endif %}
+    </div>
+  </div>
+  <div id="gpsStatus" class="small text-muted">Click "Start Live GPS" while en route to share truck location with customer and dispatch.</div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm p-4 mb-3">
+      <h5 class="fw-bold mb-3">Customer &amp; drop-off site</h5>
+      <div class="small text-muted">Construction site address</div>
+      <div class="fw-semibold mb-3">{{ delivery.delivery_address }}</div>
+      <div class="small text-muted">Delivery window</div>
+      <div class="fw-semibold mb-3">{{ delivery.delivery_window or 'Scheduled' }}</div>
+      <div class="small text-muted">Recipient contact</div>
+      <div class="fw-semibold">{{ delivery.recipient_name }} &middot; {{ delivery.recipient_phone }}</div>
+      {% if delivery.special_instructions %}
+      <div class="alert alert-warning small mt-3 mb-0">
+        <strong>Site instructions:</strong> {{ delivery.special_instructions }}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card border-0 shadow-sm p-4">
+      <h5 class="fw-bold mb-3">Assigned load</h5>
+      {% for i in items %}
+      <div class="d-flex justify-content-between small mb-1">
+        <span>{{ i.name }}</span>
+        <span class="fw-semibold">{{ i.quantity }} {{ i.unit }}</span>
+      </div>
+      {% endfor %}
+      <div class="small text-muted mt-3">Truck: {{ delivery.truck_code }} ({{ delivery.plate_number }})</div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm p-4">
+      <h5 class="fw-bold mb-2">Confirm delivery at site</h5>
+      <p class="text-muted small mb-3">Complete after unloading. The recipient must acknowledge the materials received before you submit.</p>
+
+      {% if delivery.delivery_status == 'delivered' %}
+        <div class="alert alert-success mb-0">
+          <strong>Delivered!</strong> Received by {{ delivery.recipient_received_by }} ({{ delivery.recipient_role }}).
+          {% if delivery.delivery_notes %}<div class="small mt-1">{{ delivery.delivery_notes }}</div>{% endif %}
+        </div>
+      {% else %}
+      <form method="POST" action="{{ url_for('main.driver_delivery_task', delivery_id=delivery.id) }}">
+        <input type="hidden" name="action" value="confirm_delivered">
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Recipient full name *</label>
+            <input type="text" name="recipient_received_by" class="form-control" required placeholder="e.g. Engr. Paolo Santos">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Role / relationship *</label>
+            <input type="text" name="recipient_role" class="form-control" required placeholder="e.g. Site engineer">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Condition / delivery notes</label>
+          <textarea name="delivery_notes" class="form-control" rows="3" placeholder="All materials unloaded dry and intact."></textarea>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="confirmCheck" required>
+          <label class="form-check-label small" for="confirmCheck">
+            I confirm unloading is complete and these delivery details are accurate.
+          </label>
+        </div>
+        <button type="submit" class="btn btn-rml">Confirm as Delivered</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Admin Overview · RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <div class="text-muted small">Ops Console &middot; Dashboard</div>
+  <h2 class="fw-bold mb-1">Admin overview</h2>
+  <p class="text-muted small">Oversee customer activity, inventory, and driver deliveries from one workspace.</p>
+</div>
+
+<!-- Quick Actions -->
+<div class="d-flex flex-wrap gap-2 mb-4">
+  <a href="{{ url_for('main.admin_inventory') }}" class="btn btn-outline-dark btn-sm">Log Stock Movement</a>
+  <a href="{{ url_for('main.admin_orders') }}" class="btn btn-rml btn-sm">Go to Orders</a>
+  <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-outline-secondary btn-sm">Customer Workspace</a>
+  <a href="{{ url_for('main.driver_schedule') }}" class="btn btn-outline-secondary btn-sm">Driver Workspace</a>
+</div>
+
+<!-- 6 KPI Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">Orders Pending Approval</div>
+      <div class="fs-2 fw-bold">{{ pending_orders }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">Low-Stock Items</div>
+      <div class="fs-2 fw-bold text-warning">{{ low_stock }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">Deliveries In Progress</div>
+      <div class="fs-2 fw-bold">{{ in_progress_deliveries }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">Total Stock-In Logged</div>
+      <div class="fs-2 fw-bold text-success">{{ stock_in }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">Total Stock-Out Logged</div>
+      <div class="fs-2 fw-bold">{{ stock_out }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">Payments Recorded</div>
+      <div class="fs-2 fw-bold">{{ payments_count }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Oversight Cards -->
+<h5 class="fw-bold mb-3">Customer &amp; driver oversight</h5>
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm p-3">
+      <h6 class="fw-bold mb-1">Customer orders &amp; approvals</h6>
+      <p class="text-muted small mb-2">Review customer orders and stock availability.</p>
+      <a href="{{ url_for('main.admin_orders', tab='pending') }}" class="text-rml text-decoration-none small fw-semibold">
+        {{ pending_orders }} pending review &rarr;
+      </a>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm p-3">
+      <h6 class="fw-bold mb-1">Low-Stock Alerts</h6>
+      <p class="text-muted small mb-2">Review replenishment for construction materials.</p>
+      <a href="{{ url_for('main.admin_inventory') }}" class="text-rml text-decoration-none small fw-semibold">
+        Items: {{ low_stock }} under threshold &rarr;
+      </a>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm p-3">
+      <h6 class="fw-bold mb-1">Driver activity &amp; dispatch</h6>
+      <p class="text-muted small mb-2">Assign trucks and monitor live delivery GPS.</p>
+      <a href="{{ url_for('main.admin_deliveries') }}" class="text-rml text-decoration-none small fw-semibold">
+        {{ ready_dispatch }} orders ready to dispatch &rarr;
+      </a>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm p-3">
+      <h6 class="fw-bold mb-1">Cash &amp; QR verification</h6>
+      <p class="text-muted small mb-2">Review collections and submitted transfer references.</p>
+      <a href="{{ url_for('main.admin_payments') }}" class="text-rml text-decoration-none small fw-semibold">
+        Awaiting {{ pending_receipts }} receipts &rarr;
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

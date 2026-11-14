@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Inventory Management · RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <div class="text-muted small">Ops Console &middot; Inventory</div>
+  <h2 class="fw-bold mb-1">Inventory Management</h2>
+  <p class="text-muted small">Maintain products, categories, units, and prices. Review stock-in and stock-out.</p>
+</div>
+
+<div class="d-flex gap-2 mb-3">
+  <button class="btn btn-rml btn-sm" data-bs-toggle="modal" data-bs-target="#stockModal">Log Stock Movement</button>
+  <button class="btn btn-outline-dark btn-sm" data-bs-toggle="modal" data-bs-target="#productModal">Add Product</button>
+</div>
+
+{% if low_stock_count > 0 %}
+  <div class="alert alert-warning">
+    <strong>{{ low_stock_count }} items under threshold.</strong> Review replenishment for low-stock products before approving new orders.
+  </div>
+{% endif %}
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Product</th>
+          <th>Category</th>
+          <th>Unit</th>
+          <th>Price</th>
+          <th>Stock</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+          <tr>
+            <td class="fw-semibold">{{ p.name }}</td>
+            <td class="small text-muted">{{ p.category_name }}</td>
+            <td>{{ p.unit }}</td>
+            <td>&#8369;{{ "%.2f"|format(p.price) }}</td>
+            <td class="fw-bold">{{ p.stock_quantity }}</td>
+            <td>
+              {% if p.stock_quantity == 0 %}
+                <span class="badge bg-danger">Out of Stock</span>
+              {% elif p.stock_quantity <= p.low_stock_threshold %}
+                <span class="badge bg-warning text-dark">Low Stock</span>
+              {% else %}
+                <span class="badge bg-success-subtle text-success">In Stock</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Recent Stock Movements -->
+<h5 class="fw-bold mb-2">Recent Stock Movements</h5>
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Product</th>
+          <th>Type</th>
+          <th>Qty</th>
+          <th>Remarks</th>
+          <th>Staff</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in logs %}
+          <tr>
+            <td>{{ l.product_name }}</td>
+            <td>
+              <span class="badge {% if l.movement_type == 'stock_in' %}bg-success{% else %}bg-secondary{% endif %}">
+                {{ l.movement_type }}
+              </span>
+            </td>
+            <td>{{ l.quantity }}</td>
+            <td class="small text-muted">{{ l.remarks }}</td>
+            <td class="small">{{ l.staff_name or 'System' }}</td>
+            <td class="small text-muted">{{ l.created_at }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal: Log Stock Movement -->
+<div class="modal fade" id="stockModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" class="modal-content">
+      <input type="hidden" name="action" value="stock_movement">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Log Stock Movement</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Product</label>
+          <select name="product_id" class="form-select" required>
+            {% for p in products %}
+              <option value="{{ p.id }}">{{ p.name }} (Current: {{ p.stock_quantity }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Movement Type</label>
+          <select name="movement_type" class="form-select">
+            <option value="stock_in">Stock-In (Replenishment)</option>
+            <option value="stock_out">Stock-Out (Manual Adjustment)</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Quantity</label>
+          <input type="number" name="quantity" min="1" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Remarks</label>
+          <input type="text" name="remarks" class="form-control" placeholder="e.g., Supplier delivery / Damaged bags" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-rml">Save Movement</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Add Product -->
+<div class="modal fade" id="productModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" class="modal-content">
+      <input type="hidden" name="action" value="add_product">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Add New Material</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Product Name</label>
+          <input type="text" name="name" class="form-control" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Category</label>
+          <select name="category_id" class="form-select">
+            {% for c in categories %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Description</label>
+          <input type="text" name="description" class="form-control" required>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small fw-semibold">Unit</label>
+            <input type="text" name="unit" class="form-control" placeholder="bag / pc / ton" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-semibold">Price (&#8369;)</label>
+            <input type="number" step="0.01" name="price" class="form-control" required>
+          </div>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small fw-semibold">Initial Stock</label>
+            <input type="number" name="stock_quantity" class="form-control" value="50" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-semibold">Low Stock Threshold</label>
+            <input type="number" name="low_stock_threshold" class="form-control" value="20" required>
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Image URL (Optional)</label>
+          <input type="url" name="image_url" class="form-control" placeholder="https://...">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-rml">Save Product</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

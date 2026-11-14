@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Order Processing · RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <div class="text-muted small">Ops Console &middot; Orders</div>
+  <h2 class="fw-bold mb-1">Order Processing &amp; Dispatch</h2>
+  <p class="text-muted small">Review incoming orders, verify available stock, then approve or reject.</p>
+</div>
+
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item">
+    <a class="nav-link {% if tab == 'pending' %}active bg-dark{% else %}text-dark{% endif %}" href="{{ url_for('main.admin_orders', tab='pending') }}">
+      Pending approval ({{ pending_count }})
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if tab == 'ready' %}active bg-dark{% else %}text-dark{% endif %}" href="{{ url_for('main.admin_orders', tab='ready') }}">
+      Ready to dispatch ({{ ready_count }})
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if tab == 'all' %}active bg-dark{% else %}text-dark{% endif %}" href="{{ url_for('main.admin_orders', tab='all') }}">
+      All orders
+    </a>
+  </li>
+</ul>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Order</th>
+          <th>Customer</th>
+          <th>Total</th>
+          <th>Stock Check</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+          <tr>
+            <td class="fw-bold">{{ o.order_code }}</td>
+            <td>{{ o.customer_name }}<br><small class="text-muted">{{ o.delivery_address }}</small></td>
+            <td class="fw-semibold">&#8369;{{ "%.2f"|format(o.total_amount) }}</td>
+            <td>
+              {% if o.all_in_stock %}
+                <span class="badge bg-success-subtle text-success">Available</span>
+              {% else %}
+                <span class="badge bg-warning-subtle text-warning-emphasis">Check required</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge bg-secondary text-uppercase">{{ o.order_status }}</span>
+            </td>
+            <td>
+              <button class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#orderModal{{ o.id }}">
+                Review order &rarr;
+              </button>
+            </td>
+          </tr>
+
+          <!-- Order Review Modal -->
+          <div class="modal fade" id="orderModal{{ o.id }}" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title fw-bold">Review Order {{ o.order_code }}</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                  <p class="small mb-3">
+                    <strong>Customer:</strong> {{ o.customer_name }} ({{ o.phone }})<br>
+                    <strong>Address:</strong> {{ o.delivery_address }}<br>
+                    <strong>Preferred Date:</strong> {{ o.preferred_date or 'N/A' }} &middot; {{ o.delivery_slot }}
+                  </p>
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Material</th>
+                        <th>Ordered Qty</th>
+                        <th>In Stock</th>
+                        <th>Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for item in items_by_order.get(o.id, []) %}
+                        <tr>
+                          <td>{{ item.name }}</td>
+                          <td>{{ item.quantity }} {{ item.unit }}</td>
+                          <td>{{ item.stock_quantity }}</td>
+                          <td>&#8369;{{ "%.2f"|format(item.subtotal) }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                <div class="modal-footer justify-content-between">
+                  {% if o.order_status == 'pending' %}
+                    <form method="POST" action="{{ url_for('main.admin_order_decision', order_id=o.id) }}" class="d-flex gap-2">
+                      <input type="hidden" name="decision" value="reject">
+                      <input type="text" name="rejection_reason" class="form-control form-control-sm" placeholder="Reason if rejecting...">
+                      <button type="submit" class="btn btn-outline-danger btn-sm">Reject</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('main.admin_order_decision', order_id=o.id) }}">
+                      <input type="hidden" name="decision" value="approve">
+                      <button type="submit" class="btn btn-rml btn-sm">Approve Order</button>
+                    </form>
+                  {% else %}
+                    <span class="text-muted small">Status: {{ o.order_status }}</span>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        {% else %}
+          <tr>
+            <td colspan="6" class="text-center py-4 text-muted">No orders in this category.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<a href="{{ url_for('main.admin_deliveries') }}" class="btn btn-rml">Manage Deliveries &rarr;</a>
+{% endblock %}

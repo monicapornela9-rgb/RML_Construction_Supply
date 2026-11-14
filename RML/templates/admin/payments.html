@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Payments - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <div class="text-muted small">Ops Console &middot; Payments</div>
+  <h2 class="fw-bold">Payment Verification</h2>
+  <p class="text-muted">Review cash on delivery collections and QR payment references.</p>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Order</th>
+          <th>Customer</th>
+          <th>Method</th>
+          <th>Reference</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in payments %}
+        <tr>
+          <td class="fw-semibold">#{{ p.order_code }}</td>
+          <td>{{ p.recipient_name }}</td>
+          <td class="text-uppercase small">{{ p.method }}</td>
+          <td class="small">{{ p.reference_no or '-' }}</td>
+          <td class="fw-semibold">&#8369;{{ "{:,.2f}".format(p.amount) }}</td>
+          <td>
+            <span class="badge {% if p.payment_status == 'verified' %}text-bg-success{% else %}text-bg-warning{% endif %}">
+              {{ p.payment_status|title }}
+            </span>
+          </td>
+          <td>
+            {% if p.payment_status != 'verified' %}
+            <form method="POST" action="{{ url_for('main.admin_payments') }}">
+              <input type="hidden" name="payment_id" value="{{ p.id }}">
+              <input type="hidden" name="status" value="verified">
+              <button type="submit" class="btn btn-success btn-sm">Verify</button>
+            </form>
+            {% else %}
+              <span class="text-muted small">Recorded</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
