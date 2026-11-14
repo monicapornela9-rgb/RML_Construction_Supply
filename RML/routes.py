@@ -742,7 +742,17 @@ def admin_dashboard():
     stock_in = conn.execute("SELECT COALESCE(SUM(quantity), 0) FROM inventory_logs WHERE movement_type = 'stock_in'").fetchone()[0]
     stock_out = conn.execute("SELECT COALESCE(SUM(quantity), 0) FROM inventory_logs WHERE movement_type = 'stock_out'").fetchone()[0]
     payments_count = conn.execute("SELECT COUNT(*) FROM payments").fetchone()[0]
-    ready_dispatch = conn.execute("SELECT COUNT(*) FROM orders WHERE order_status = 'approved'").fetchone()[0]
+    ready_dispatch = conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM orders o
+        WHERE o.order_status = 'approved'
+          AND NOT EXISTS (
+              SELECT 1 FROM deliveries d
+              WHERE d.order_id = o.id AND d.delivery_status != 'queued'
+          )
+        """
+    ).fetchone()[0]
     pending_receipts = conn.execute("SELECT COUNT(*) FROM payments WHERE payment_status = 'pending'").fetchone()[0]
     conn.close()
 
@@ -776,7 +786,13 @@ def admin_orders():
     if tab == "pending":
         where = " WHERE o.order_status = 'pending'"
     elif tab == "ready":
-        where = " WHERE o.order_status = 'approved'"
+        where = """
+            WHERE o.order_status = 'approved'
+              AND NOT EXISTS (
+                  SELECT 1 FROM deliveries d
+                  WHERE d.order_id = o.id AND d.delivery_status != 'queued'
+              )
+        """
     else:
         where = ""
 
@@ -786,7 +802,17 @@ def admin_orders():
 
     counts = {
         "pending": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status='pending'").fetchone()[0],
-        "ready": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status='approved'").fetchone()[0],
+        "ready": conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM orders o
+            WHERE o.order_status = 'approved'
+              AND NOT EXISTS (
+                  SELECT 1 FROM deliveries d
+                  WHERE d.order_id = o.id AND d.delivery_status != 'queued'
+              )
+            """
+        ).fetchone()[0],
         "all": conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0],
     }
 
@@ -997,7 +1023,17 @@ def admin_deliveries():
         return redirect(url_for("main.admin_deliveries"))
 
     counts = {
-        "queued": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status='approved' AND id NOT IN (SELECT order_id FROM deliveries WHERE delivery_status != 'queued')").fetchone()[0],
+        "queued": conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM orders o
+            WHERE o.order_status = 'approved'
+              AND NOT EXISTS (
+                  SELECT 1 FROM deliveries d
+                  WHERE d.order_id = o.id AND d.delivery_status != 'queued'
+              )
+            """
+        ).fetchone()[0],
         "assigned": conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status IN ('assigned', 'loading')").fetchone()[0],
         "en_route": conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status='en_route'").fetchone()[0],
         "delivered": conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status='delivered'").fetchone()[0],
@@ -1006,8 +1042,13 @@ def admin_deliveries():
     ready_orders = conn.execute(
         """
         SELECT o.*, u.name AS customer_name
-        FROM orders o JOIN users u ON o.customer_id = u.id
-        WHERE o.order_status IN ('approved', 'preparing')
+        FROM orders o
+        JOIN users u ON o.customer_id = u.id
+        WHERE o.order_status = 'approved'
+          AND NOT EXISTS (
+              SELECT 1 FROM deliveries d
+              WHERE d.order_id = o.id AND d.delivery_status != 'queued'
+          )
         ORDER BY o.id DESC
         """
     ).fetchall()

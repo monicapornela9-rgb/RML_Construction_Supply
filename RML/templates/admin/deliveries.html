@@ -96,6 +96,58 @@
   </div>
 </div>
 
+<!-- Dispatch Queue -->
+<div class="card border-0 shadow-sm overflow-hidden mb-4">
+  <div class="card-header bg-white border-0 py-3">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="fw-bold mb-0">Dispatch Queue</h5>
+      <span class="badge bg-light text-dark border">{{ ready_orders|length }} approved</span>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Order</th>
+          <th>Customer</th>
+          <th>Delivery Address</th>
+          <th>Stock Check</th>
+          <th>Status</th>
+          <th class="text-end">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in ready_orders %}
+          <tr>
+            <td class="fw-bold">{{ o.order_code|order_code }}</td>
+            <td>
+              <div class="fw-semibold">{{ o.customer_name }}</div>
+            </td>
+            <td class="small text-muted">{{ o.delivery_address }}</td>
+            <td>
+              {% if o.order_status == 'approved' %}
+                <span class="badge badge-instock">Available</span>
+              {% else %}
+                <span class="badge badge-check">Check</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge badge-instock text-uppercase">Approved</span>
+            </td>
+            <td class="text-end">
+              <a href="{{ url_for('main.admin_orders', tab='ready') }}" class="btn btn-sm btn-outline-dark">Review order &rarr;</a>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6" class="text-center py-5 text-muted">No approved orders waiting for dispatch.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <!-- Deliveries Table -->
 <div class="card border-0 shadow-sm overflow-hidden">
   <div class="table-responsive">

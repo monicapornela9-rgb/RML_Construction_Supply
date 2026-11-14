@@ -67,116 +67,6 @@
               </button>
             </td>
           </tr>
-
-          <!-- Order Review Modal (Matching Admin order review.png) -->
-          <div class="modal fade" id="orderModal{{ o.id }}" tabindex="-1">
-            <div class="modal-dialog modal-lg">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <div>
-                    <h5 class="modal-title fw-bold">Review Order {{ o.order_code|order_code }}</h5>
-                    <div class="small text-muted">{{ o.customer_name }} &middot; Verify availability, then finalize decision.</div>
-                  </div>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                  <!-- Customer Details -->
-                  <div class="bg-light p-3 rounded border mb-4 small">
-                    <div class="row g-2">
-                      <div class="col-sm-6">
-                        <strong>Customer:</strong> {{ o.customer_name }} ({{ o.phone or o.customer_phone or 'No phone' }})<br>
-                        <strong>Delivery Address:</strong> {{ o.delivery_address }}
-                      </div>
-                      <div class="col-sm-6">
-                        <strong>Preferred Date:</strong> {{ o.preferred_date or 'N/A' }}<br>
-                        <strong>Delivery Slot:</strong> {{ o.delivery_slot }}
-                        {% if o.special_instructions %}
-                          <br><strong>Instructions:</strong> {{ o.special_instructions }}
-                        {% endif %}
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Stock Availability Table -->
-                  <h6 class="fw-bold mb-2">Stock availability</h6>
-                  <div class="table-responsive mb-3">
-                    <table class="table table-bordered table-sm align-middle mb-0">
-                      <thead class="table-light">
-                        <tr>
-                          <th>Product</th>
-                          <th>Requested</th>
-                          <th>Available</th>
-                          <th>Result</th>
-                          <th>Remaining</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for item in items_by_order.get(o.id, []) %}
-                          <tr>
-                            <td class="fw-semibold">{{ item.name }}</td>
-                            <td>{{ item.quantity }} {{ item.unit }}</td>
-                            <td>{{ item.stock_quantity }} {{ item.unit }}</td>
-                            <td>
-                              {% if item.is_available %}
-                                <span class="badge badge-instock">Available</span>
-                              {% else %}
-                                <span class="badge badge-danger">Insufficient</span>
-                              {% endif %}
-                            </td>
-                            <td>{{ item.remaining_after }} {{ item.unit }}</td>
-                          </tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {% if o.order_status == 'pending' %}
-                    <form id="decisionForm{{ o.id }}" method="POST" action="{{ url_for('main.admin_order_decision', order_id=o.id) }}">
-                      <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                          <label class="form-label small fw-semibold">Approval Notes (Optional)</label>
-                          <input type="text" name="approval_notes" class="form-control form-control-sm" placeholder="e.g. Deliver within agreed time window.">
-                        </div>
-                        <div class="col-md-6">
-                          <label class="form-label small fw-semibold">Rejection Reason (Required if rejecting)</label>
-                          <input type="text" name="rejection_reason" class="form-control form-control-sm" placeholder="e.g. Delivery window unavailable or out of stock">
-                        </div>
-                      </div>
-                    </form>
-                  {% else %}
-                    <div class="p-3 bg-light rounded border small">
-                      <strong>Order Status:</strong> <span class="badge text-uppercase bg-secondary">{{ o.order_status }}</span>
-                      {% if o.rejection_reason %}
-                        <div class="text-danger mt-1"><strong>Rejection Reason:</strong> {{ o.rejection_reason }}</div>
-                      {% endif %}
-                      {% if o.approval_notes %}
-                        <div class="text-success mt-1"><strong>Approval Notes:</strong> {{ o.approval_notes }}</div>
-                      {% endif %}
-                    </div>
-                  {% endif %}
-                </div>
-
-                <div class="modal-footer justify-content-between">
-                  <a href="{{ url_for('main.order_invoice', order_id=o.id) }}" class="btn btn-outline-secondary btn-sm" target="_blank">
-                    <i class="bi bi-receipt me-1"></i> View Invoice
-                  </a>
-
-                  <div class="d-flex gap-2">
-                    {% if o.order_status == 'pending' %}
-                      <button type="submit" form="decisionForm{{ o.id }}" name="decision" value="reject" class="btn btn-outline-danger btn-sm">
-                        Reject Order
-                      </button>
-                      <button type="submit" form="decisionForm{{ o.id }}" name="decision" value="approve" class="btn btn-rml btn-sm">
-                        Approve Order
-                      </button>
-                    {% else %}
-                      <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-                    {% endif %}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         {% else %}
           <tr>
             <td colspan="6" class="text-center py-5 text-muted">
@@ -189,6 +79,114 @@
     </table>
   </div>
 </div>
+
+{% for o in orders %}
+  <div class="modal fade" id="orderModal{{ o.id }}" tabindex="-1" aria-labelledby="orderModalLabel{{ o.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title fw-bold" id="orderModalLabel{{ o.id }}">Review Order {{ o.order_code|order_code }}</h5>
+            <div class="small text-muted">{{ o.customer_name }} &middot; Verify availability, then finalize decision.</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="bg-light p-3 rounded border mb-4 small">
+            <div class="row g-2">
+              <div class="col-sm-6">
+                <strong>Customer:</strong> {{ o.customer_name }} ({{ o.phone or o.customer_phone or 'No phone' }})<br>
+                <strong>Delivery Address:</strong> {{ o.delivery_address }}
+              </div>
+              <div class="col-sm-6">
+                <strong>Preferred Date:</strong> {{ o.preferred_date or 'N/A' }}<br>
+                <strong>Delivery Slot:</strong> {{ o.delivery_slot }}
+                {% if o.special_instructions %}
+                  <br><strong>Instructions:</strong> {{ o.special_instructions }}
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <h6 class="fw-bold mb-2">Stock availability</h6>
+          <div class="table-responsive mb-3">
+            <table class="table table-bordered table-sm align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Product</th>
+                  <th>Requested</th>
+                  <th>Available</th>
+                  <th>Result</th>
+                  <th>Remaining</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in items_by_order.get(o.id, []) %}
+                  <tr>
+                    <td class="fw-semibold">{{ item.name }}</td>
+                    <td>{{ item.quantity }} {{ item.unit }}</td>
+                    <td>{{ item.stock_quantity }} {{ item.unit }}</td>
+                    <td>
+                      {% if item.is_available %}
+                        <span class="badge badge-instock">Available</span>
+                      {% else %}
+                        <span class="badge badge-danger">Insufficient</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ item.remaining_after }} {{ item.unit }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          {% if o.order_status == 'pending' %}
+            <form id="decisionForm{{ o.id }}" method="POST" action="{{ url_for('main.admin_order_decision', order_id=o.id) }}">
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold">Approval Notes (Optional)</label>
+                  <input type="text" name="approval_notes" class="form-control form-control-sm" placeholder="e.g. Deliver within agreed time window.">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold">Rejection Reason (Required if rejecting)</label>
+                  <input type="text" name="rejection_reason" class="form-control form-control-sm" placeholder="e.g. Delivery window unavailable or out of stock">
+                </div>
+              </div>
+            </form>
+          {% else %}
+            <div class="p-3 bg-light rounded border small">
+              <strong>Order Status:</strong> <span class="badge text-uppercase bg-secondary">{{ o.order_status }}</span>
+              {% if o.rejection_reason %}
+                <div class="text-danger mt-1"><strong>Rejection Reason:</strong> {{ o.rejection_reason }}</div>
+              {% endif %}
+              {% if o.approval_notes %}
+                <div class="text-success mt-1"><strong>Approval Notes:</strong> {{ o.approval_notes }}</div>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="modal-footer justify-content-between">
+          <a href="{{ url_for('main.order_invoice', order_id=o.id) }}" class="btn btn-outline-secondary btn-sm" target="_blank">
+            <i class="bi bi-receipt me-1"></i> View Invoice
+          </a>
+          <div class="d-flex gap-2">
+            {% if o.order_status == 'pending' %}
+              <button type="submit" form="decisionForm{{ o.id }}" name="decision" value="reject" class="btn btn-outline-danger btn-sm">
+                Reject Order
+              </button>
+              <button type="submit" form="decisionForm{{ o.id }}" name="decision" value="approve" class="btn btn-rml btn-sm">
+                Approve Order
+              </button>
+            {% else %}
+              <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endfor %}
 
 <a href="{{ url_for('main.admin_deliveries') }}" class="btn btn-rml">
   Manage Deliveries &rarr;

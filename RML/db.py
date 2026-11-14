@@ -13,6 +13,200 @@ def get_db():
     return conn
 
 
+CATALOG_PRODUCTS = [
+    # Paints & Thinners
+    ("Paints & Thinners", "KB Denatured Alcohol", "Standard alcohol solvent for cleaning and thinning", "bottle", 45.00, 80, 15, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Paints & Thinners", "KB Paint Thinner", "Standard mineral spirit paint thinner", "bottle", 65.00, 120, 20, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Paints & Thinners", "Tower Lacquer Thinner", "High grade automotive and wood lacquer thinner", "bottle", 45.00, 90, 20, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Paints & Thinners", "Centro Varnish Maple", "Wood finish varnish in maple shade", "bottle", 70.00, 60, 10, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Paints & Thinners", "Centro Varnish Brown", "Wood finish varnish in brown shade", "bottle", 70.00, 60, 10, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Paints & Thinners", "Centro Varnish Natural", "Wood finish varnish in natural clear shade", "bottle", 70.00, 60, 10, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Paints & Thinners", "Centro Varnish Mahogany", "Wood finish varnish in mahogany red-brown shade", "bottle", 70.00, 60, 10, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Paints & Thinners", "Solignum Wood Preservative (1L)", "All-weather anti-termite wood preservative 1 Liter", "can", 860.00, 35, 10, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Paints & Thinners", "Solignum Wood Preservative (4L)", "All-weather anti-termite wood preservative 1 Gallon", "can", 1850.00, 20, 5, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+
+    # Adhesives & Sealants
+    ("Adhesives & Sealants", "Rugby Contact Cement (Small)", "High strength general purpose contact adhesive small can", "can", 45.00, 150, 25, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "Rugby Contact Cement (Big)", "High strength general purpose contact adhesive big can", "can", 110.00, 100, 20, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "Vulcaseal Elastomeric Sealant (75ml)", "Elastomeric roof and gutter sealant 75ml pouch", "pouch", 90.00, 200, 30, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "Vulcaseal Elastomeric Sealant (1/4L)", "Elastomeric roof and gutter sealant 1/4 Liter can", "can", 295.00, 80, 15, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "Vulcaseal Elastomeric Sealant (1/2L)", "Elastomeric roof and gutter sealant 1/2 Liter can", "can", 498.00, 50, 10, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "Vulcaseal Elastomeric Sealant (1L)", "Elastomeric roof and gutter sealant 1 Liter can", "can", 800.00, 40, 10, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "ElastoSeal (Small)", "High-grade waterproofing elastomeric sealant small pouch", "pouch", 85.00, 120, 20, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "ElastoSeal (Medium)", "High-grade waterproofing elastomeric sealant medium pouch", "pouch", 170.00, 90, 15, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "No More Nails Adhesive (Small)", "Heavy duty instant grab construction adhesive small tube", "tube", 65.00, 80, 15, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "No More Nails Adhesive (Medium)", "Heavy duty instant grab construction adhesive medium tube", "tube", 110.00, 75, 15, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "No More Nails Adhesive (Large)", "Heavy duty instant grab construction adhesive large tube", "tube", 255.00, 50, 10, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "Solvent Cement Pipe Glue", "Standard solvent cement for PVC pipes", "can", 95.00, 100, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Adhesives & Sealants", "Neltex PVC Pipe Cement (Small)", "Premium solvent cement for pressure and drain pipes small", "can", 145.00, 85, 15, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Adhesives & Sealants", "Neltex PVC Pipe Cement (Medium)", "Premium solvent cement for pressure and drain pipes medium", "can", 175.00, 70, 15, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Adhesives & Sealants", "Neltex PVC Pipe Cement (Large)", "Premium solvent cement for pressure and drain pipes large", "can", 275.00, 55, 10, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Adhesives & Sealants", "Stikwel Wood Glue (250g)", "Fast bonding water-resistant PVA wood glue 250g", "bottle", 65.00, 90, 15, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "Stikwel Wood Glue (500g)", "Fast bonding water-resistant PVA wood glue 500g", "bottle", 170.00, 75, 15, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "Stikwel Wood Glue (1kg)", "Fast bonding water-resistant PVA wood glue 1kg jar", "jar", 350.00, 60, 10, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Adhesives & Sealants", "Stikwel Wood Glue (4kg)", "Fast bonding water-resistant PVA wood glue 4kg gallon", "gallon", 900.00, 30, 5, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+
+    # Tapes, Wires & Fasteners
+    ("Tapes, Wires & Fasteners", "E-Tape Electrical Tape (Small)", "PVC flame-retardant electrical insulating tape small", "roll", 25.00, 250, 40, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Tapes, Wires & Fasteners", "E-Tape Electrical Tape (Medium)", "PVC flame-retardant electrical insulating tape medium", "roll", 70.00, 150, 30, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Tapes, Wires & Fasteners", "Masking Tape 1/2\"", "General purpose painter masking tape 1/2 inch", "roll", 40.00, 180, 25, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Tapes, Wires & Fasteners", "Masking Tape 3/4\"", "General purpose painter masking tape 3/4 inch", "roll", 55.00, 160, 25, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Tapes, Wires & Fasteners", "Masking Tape 1\"", "General purpose painter masking tape 1 inch", "roll", 65.00, 140, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Tapes, Wires & Fasteners", "Teflon Tape (Small)", "PTFE plumbing thread seal tape small spool", "roll", 15.00, 300, 50, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Tapes, Wires & Fasteners", "Teflon Tape (Medium)", "PTFE plumbing thread seal tape medium spool", "roll", 20.00, 250, 40, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Tapes, Wires & Fasteners", "G.I. Tie Wire #16", "Galvanized iron tie wire gauge 16 per kilo", "kg", 100.00, 500, 50, "https://images.unsplash.com/photo-1535813547-99c456a41d4a?w=500"),
+    ("Tapes, Wires & Fasteners", "G.I. Tie Wire #18", "Galvanized iron tie wire gauge 18 per kilo", "kg", 110.00, 450, 50, "https://images.unsplash.com/photo-1535813547-99c456a41d4a?w=500"),
+    ("Tapes, Wires & Fasteners", "Bistayan Wire Mesh Screen", "Galvanized screen wire mesh 1 meter length", "meter", 100.00, 180, 20, "https://images.unsplash.com/photo-1535813547-99c456a41d4a?w=500"),
+
+    # Cement & Aggregates
+    ("Cement & Aggregates", "Fortune Cement (40kg)", "High performance Portland Pozzolan cement 40kg bag", "bag", 220.00, 400, 60, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Cement & Aggregates", "Holcim Cement (40kg)", "Premium structural blended cement 40kg bag", "bag", 220.00, 450, 60, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Cement & Aggregates", "Panambak Regular Filling Material", "Soil and earth backfill material per load", "load", 1900.00, 25, 5, "https://images.unsplash.com/photo-1508873535684-277a3cbcc4e8?w=500"),
+    ("Cement & Aggregates", "Panambak Dump Truck Load", "Heavy dump truckload site filling material", "truckload", 8000.00, 15, 3, "https://images.unsplash.com/photo-1508873535684-277a3cbcc4e8?w=500"),
+    ("Cement & Aggregates", "Boulder Mini Dump Load", "Foundation and riprap boulders mini dump load", "load", 4800.00, 18, 4, "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500"),
+    ("Cement & Aggregates", "White Sand Truckload", "Plastering and masonry white sand full truckload", "truckload", 6000.00, 20, 5, "https://images.unsplash.com/photo-1508873535684-277a3cbcc4e8?w=500"),
+    ("Cement & Aggregates", "S1 Screened Sand Truckload", "Fine concrete screened S1 sand full truckload", "truckload", 5000.00, 22, 5, "https://images.unsplash.com/photo-1508873535684-277a3cbcc4e8?w=500"),
+    ("Cement & Aggregates", "Crushed Gravel 3/4\" (Truckload)", "Coarse aggregate 3/4 inch crushed gravel truckload", "truckload", 5000.00, 25, 5, "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500"),
+    ("Cement & Aggregates", "Crushed Gravel 3/8\" (Truckload)", "Fine pea gravel 3/8 inch crushed aggregate truckload", "truckload", 4800.00, 20, 5, "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500"),
+
+    # Steel & Rebar
+    ("Steel & Rebar", "Steel Rebar 9mm x 6m", "Grade 33/40 deformed steel rebar 9mm diameter 6m", "pc", 130.00, 220, 30, "https://images.unsplash.com/photo-1535813547-99c456a41d4a?w=500"),
+    ("Steel & Rebar", "Steel Rebar 10mm x 6m", "Grade 33/40 deformed steel rebar 10mm diameter 6m", "pc", 170.00, 280, 35, "https://images.unsplash.com/photo-1535813547-99c456a41d4a?w=500"),
+    ("Steel & Rebar", "Steel Rebar 16mm x 6m", "Grade 40 deformed steel rebar 16mm diameter 6m", "pc", 440.00, 180, 25, "https://images.unsplash.com/photo-1535813547-99c456a41d4a?w=500"),
+    ("Steel & Rebar", "Yero Corrugated G.I. Sheet 8ft", "Galvanized corrugated metal roof sheet 8 feet", "sheet", 464.00, 120, 20, "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=500"),
+    ("Steel & Rebar", "Yero Corrugated G.I. Sheet 10ft", "Galvanized corrugated metal roof sheet 10 feet", "sheet", 580.00, 100, 15, "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=500"),
+    ("Steel & Rebar", "Yero Corrugated G.I. Sheet 12ft", "Galvanized corrugated metal roof sheet 12 feet", "sheet", 696.00, 90, 15, "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=500"),
+    ("Steel & Rebar", "Plain G.I. Sheet 3' x 8'", "Smooth galvanized sheet metal 3ft x 8ft gauge", "sheet", 580.00, 75, 15, "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=500"),
+    ("Steel & Rebar", "Plain G.I. Sheet 4' x 8'", "Smooth galvanized sheet metal 4ft x 8ft gauge", "sheet", 680.00, 65, 10, "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=500"),
+    ("Steel & Rebar", "Welding Rod (Ordinary)", "E6013 mild steel welding electrode per kilo", "kg", 130.00, 160, 20, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Steel & Rebar", "Welding Rod (Special)", "High tensile specialized welding electrode per kilo", "kg", 200.00, 80, 15, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Steel & Rebar", "Welding Rod (Stainless)", "Stainless steel welding electrode per piece", "pc", 20.00, 300, 40, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+
+    # Boards & Lumber
+    ("Boards & Lumber", "Ordinary Plywood 1/4\"", "Standard interior grade ordinary plywood 4'x8' 1/4 inch", "sheet", 550.00, 140, 20, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Boards & Lumber", "Ordinary Plywood 1/2\"", "Standard interior grade ordinary plywood 4'x8' 1/2 inch", "sheet", 950.00, 95, 15, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Boards & Lumber", "Ordinary Plywood 3/4\"", "Standard interior grade ordinary plywood 4'x8' 3/4 inch", "sheet", 1800.00, 60, 10, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Boards & Lumber", "Marine Plywood 1/4\"", "Waterproof phenolic resin bonded marine plywood 4'x8' 1/4\"", "sheet", 600.00, 130, 20, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Boards & Lumber", "Marine Plywood 1/2\"", "Waterproof phenolic resin bonded marine plywood 4'x8' 1/2\"", "sheet", 1100.00, 90, 15, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Boards & Lumber", "Marine Plywood 3/4\"", "Waterproof phenolic resin bonded marine plywood 4'x8' 3/4\"", "sheet", 2000.00, 55, 10, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Boards & Lumber", "Shena Board 1/4\"", "Composite decorative ceiling and wall board 1/4 inch", "sheet", 500.00, 70, 15, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+
+    # Lighting & Fixtures
+    ("Lighting & Fixtures", "Opple LED Bulb 5W", "Energy saving Opple daylight LED bulb 5 Watts", "pc", 70.00, 180, 25, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Opple LED Bulb 15W", "Energy saving Opple daylight LED bulb 15 Watts", "pc", 170.00, 120, 20, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Opple LED Bulb 18W", "High lumen Opple daylight LED bulb 18 Watts", "pc", 190.00, 110, 20, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Alco LED Bulb 7W", "Alco bright daylight energy LED bulb 7 Watts", "pc", 85.00, 160, 25, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Alco LED Bulb 9W", "Alco bright daylight energy LED bulb 9 Watts", "pc", 95.00, 150, 20, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Alco LED Bulb 12W", "Alco bright daylight energy LED bulb 12 Watts", "pc", 110.00, 140, 20, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Alco LED Bulb 15W", "Alco bright daylight energy LED bulb 15 Watts", "pc", 120.00, 130, 20, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Alco LED Bulb 18W", "Alco bright daylight energy LED bulb 18 Watts", "pc", 190.00, 100, 15, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Focus LED Bulb 5W", "Focus brand high lumen LED bulb 5 Watts", "pc", 75.00, 120, 20, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Focus LED Bulb 7W", "Focus brand high lumen LED bulb 7 Watts", "pc", 90.00, 110, 20, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Focus LED Bulb 12W", "Focus brand high lumen LED bulb 12 Watts", "pc", 130.00, 95, 15, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Philips LED Bulb 3W", "Philips genuine eye comfort LED bulb 3 Watts", "pc", 95.00, 140, 20, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Philips LED Bulb 5W", "Philips genuine eye comfort LED bulb 5 Watts", "pc", 105.00, 150, 20, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Philips LED Bulb 7W", "Philips genuine eye comfort LED bulb 7 Watts", "pc", 115.00, 160, 20, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Philips LED Bulb 9W", "Philips genuine eye comfort LED bulb 9 Watts", "pc", 125.00, 170, 25, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Philips LED Bulb 12W", "Philips genuine eye comfort LED bulb 12 Watts", "pc", 189.00, 120, 20, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Fluorescent Tube 18W/20W", "T8 daylight straight fluorescent tube 18W/20W", "pc", 150.00, 90, 15, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Fluorescent Tube 36W", "T8 daylight straight fluorescent tube 36W (4ft)", "pc", 210.00, 80, 15, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Fluorescent Ballast 20W", "Standard ballast for 20W fluorescent lamps", "pc", 250.00, 60, 10, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Lighting & Fixtures", "Fluorescent Ballast 40W", "Standard ballast for 40W fluorescent lamps", "pc", 310.00, 50, 10, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Lighting & Fixtures", "Fluorescent Fixture Set 20W", "Complete 20W lamp fixture housing with starter & ballast", "set", 360.00, 45, 10, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Fluorescent Fixture Set 36W", "Complete 36W 4ft lamp fixture housing set", "set", 420.00, 40, 10, "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500"),
+    ("Lighting & Fixtures", "Octagonal Junction Box (Without Cover)", "PVC octagonal ceiling junction box without cover", "pc", 35.00, 300, 40, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Lighting & Fixtures", "Octagonal Junction Box (With Cover)", "PVC octagonal ceiling junction box with snap cover", "pc", 65.00, 250, 30, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Lighting & Fixtures", "Utility Box 2x4 (PVC)", "Standard electrical flush surface utility box 2x4", "pc", 35.00, 400, 50, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+
+    # Plumbing & Fittings
+    ("Plumbing & Fittings", "Neltex PVC Pipe Black 1/2\"", "Neltex polyethylene high-density water pipe 1/2 inch", "pc", 130.00, 150, 25, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex PVC Pipe Black 3/4\"", "Neltex polyethylene high-density water pipe 3/4 inch", "pc", 165.00, 130, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex PVC Sanitary Pipe 1/2\"", "Neltex orange sanitary drainage pipe 1/2 inch", "pc", 145.00, 120, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex PVC Sanitary Pipe 1\"", "Neltex orange sanitary drainage pipe 1 inch", "pc", 230.00, 110, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex PVC Sanitary Pipe 2\"", "Neltex orange sanitary drainage pipe 2 inch", "pc", 370.00, 140, 25, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex PVC Sanitary Pipe 3\"", "Neltex orange sanitary drainage pipe 3 inch", "pc", 880.00, 90, 15, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex PVC Sanitary Pipe 4\"", "Neltex orange sanitary drainage pipe 4 inch", "pc", 980.00, 85, 15, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Bio Pipe 2\"", "Eco sanitary drainage conduit pipe 2 inch", "pc", 210.00, 100, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Bio Pipe 3\"", "Eco sanitary drainage conduit pipe 3 inch", "pc", 380.00, 80, 15, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Bio Pipe 4\"", "Eco sanitary drainage conduit pipe 4 inch", "pc", 420.00, 75, 15, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "PVC Elbow Black 2\"", "Black poly drain elbow 90 degrees 2 inch", "pc", 20.00, 200, 30, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "PVC Elbow Black 3\"", "Black poly drain elbow 90 degrees 3 inch", "pc", 40.00, 170, 25, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "PVC Elbow Black 4\"", "Black poly drain elbow 90 degrees 4 inch", "pc", 55.00, 150, 25, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "PVC Tee Black 2 x 2", "Black poly pipe tee joint 2x2", "pc", 20.00, 180, 25, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "PVC Tee Black 2 x 3", "Black poly pipe tee joint 2x3 reducer", "pc", 35.00, 140, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "PVC Tee Black 2 x 4", "Black poly pipe tee joint 2x4 reducer", "pc", 45.00, 130, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Clean Out Plug 2\"", "PVC threaded inspection clean out plug 2 inch", "pc", 20.00, 160, 25, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Clean Out Plug 3\"", "PVC threaded inspection clean out plug 3 inch", "pc", 30.00, 140, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Clean Out Plug 4\"", "PVC threaded inspection clean out plug 4 inch", "pc", 40.00, 130, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex Sanitary Elbow 2\" 90°", "Neltex sanitary curve elbow 2 inch 90 degrees", "pc", 95.00, 140, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex Sanitary Elbow 2\" 45°", "Neltex sanitary curve elbow 2 inch 45 degrees", "pc", 65.00, 150, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex Sanitary Elbow 3\" 90°", "Neltex sanitary curve elbow 3 inch 90 degrees", "pc", 120.00, 120, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex Sanitary Elbow 3\" 45°", "Neltex sanitary curve elbow 3 inch 45 degrees", "pc", 90.00, 130, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex Sanitary Elbow 4\" 90°", "Neltex sanitary curve elbow 4 inch 90 degrees", "pc", 145.00, 110, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex Sanitary Elbow 4\" 45°", "Neltex sanitary curve elbow 4 inch 45 degrees", "pc", 110.00, 120, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Sanitary P-Trap with Plug", "Standard self-sealing water seal P-trap fitting", "pc", 90.00, 100, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex Cleanout Cover 2 x 2", "Neltex threaded clean out adapter & cover 2x2", "pc", 75.00, 110, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex Cleanout Cover 3 x 3", "Neltex threaded clean out adapter & cover 3x3", "pc", 90.00, 100, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex Cleanout Cover 3 x 2", "Neltex reducer clean out adapter & cover 3x2", "pc", 130.00, 80, 15, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex WYE Fitting 2 x 2", "Neltex sanitary branch 45 deg WYE fitting 2x2", "pc", 55.00, 130, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex WYE Fitting 3 x 3", "Neltex sanitary branch 45 deg WYE fitting 3x3", "pc", 85.00, 110, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex WYE Fitting 4 x 3", "Neltex sanitary branch 45 deg WYE fitting 4x3", "pc", 120.00, 90, 15, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Neltex WYE Fitting 4 x 4", "Neltex sanitary branch 45 deg WYE fitting 4x4", "pc", 145.00, 85, 15, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Sanitary TEE Fitting 2 x 2", "Sanitary flow curved tee fitting 2x2", "pc", 55.00, 130, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Sanitary TEE Fitting 3 x 2", "Sanitary flow curved tee fitting 3x2", "pc", 75.00, 110, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Sanitary TEE Fitting 3 x 3", "Sanitary flow curved tee fitting 3x3", "pc", 85.00, 100, 20, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Sanitary TEE Fitting 4 x 2", "Sanitary flow curved tee fitting 4x2", "pc", 95.00, 90, 15, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Sanitary TEE Fitting 4 x 3", "Sanitary flow curved tee fitting 4x3", "pc", 110.00, 85, 15, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Sanitary TEE Fitting 4 x 4", "Sanitary flow curved tee fitting 4x4", "pc", 125.00, 80, 15, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+    ("Plumbing & Fittings", "Plastic Faucet (Standard)", "Durable PVC threaded outdoor and garden bibcock faucet", "pc", 50.00, 220, 30, "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500"),
+
+    # Tools, Hardware & Safety
+    ("Tools, Hardware & Safety", "Bisagra Hinges 3\" x 3\"", "Heavy duty steel loose pin door/cabinet hinges 3\"x3\"", "pair", 75.00, 160, 25, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Tools, Hardware & Safety", "Bisagra Hinges 3 1/2\" x 3 1/2\"", "Heavy duty steel loose pin door hinges 3.5\"x3.5\"", "pair", 85.00, 140, 25, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Tools, Hardware & Safety", "Safety Helmet (Hard Hat)", "Industrial high-density site safety helmet with chin strap", "pc", 280.00, 95, 20, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Tools, Hardware & Safety", "Steel Wire Brush (Heavy Duty)", "Hardened steel wire scratch brush for rust and paint removal", "pc", 60.00, 130, 20, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Tools, Hardware & Safety", "Cut-off Blade (Metal Disc)", "Reinforced 14\" metal cut-off chop saw disc", "pc", 200.00, 110, 20, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+    ("Tools, Hardware & Safety", "Paint Roller Brush with Handle", "7-inch paint roller complete with ergonomic cage handle", "pc", 110.00, 140, 25, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Tools, Hardware & Safety", "Paint Roller Brush Refill", "7-inch synthetic nap paint roller replacement refill", "pc", 45.00, 200, 30, "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"),
+    ("Tools, Hardware & Safety", "Heavy Duty Rubber Gloves", "Chemical and abrasion resistant textured rubber work gloves", "pair", 50.00, 250, 40, "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500"),
+]
+
+
+def seed_catalog(cur):
+    """Seed comprehensive catalog categories and products into database."""
+    new_categories = [
+        ("Cement & Aggregates", "Cement, sand, gravel, and concrete mixes"),
+        ("Masonry", "Hollow blocks, culverts, and bricks"),
+        ("Steel & Rebar", "Deformed steel bars and roofing sheets"),
+        ("Boards & Lumber", "Plywood, gypsum boards, and framing"),
+        ("Pipes & Electrical", "PVC pipes, fittings, and electrical supplies"),
+        ("Paints & Thinners", "Paints, thinners, varnishes, and wood preservatives"),
+        ("Adhesives & Sealants", "Contact cement, silicones, gap fillers, and pipe cements"),
+        ("Tapes, Wires & Fasteners", "Electrical tapes, masking tapes, tie wire, and teflon"),
+        ("Lighting & Fixtures", "LED bulbs, fluorescent tubes, fixtures, and enclosures"),
+        ("Plumbing & Fittings", "Pipes, elbows, tees, wyes, cleanouts, and sanitary fittings"),
+        ("Tools, Hardware & Safety", "Hinges, brushes, blades, hard hats, and PPE"),
+    ]
+    for cat_name, cat_desc in new_categories:
+        cur.execute("INSERT OR IGNORE INTO categories (name, description) VALUES (?, ?)", (cat_name, cat_desc))
+
+    cat_map = {row[1]: row[0] for row in cur.execute("SELECT id, name FROM categories").fetchall()}
+
+    for cat_name, name, desc, unit, price, stock, threshold, img in CATALOG_PRODUCTS:
+        cid = cat_map.get(cat_name)
+        if not cid:
+            continue
+        exists = cur.execute("SELECT id FROM products WHERE name = ?", (name,)).fetchone()
+        if not exists:
+            cur.execute(
+                """
+                INSERT INTO products (category_id, name, description, unit, price, stock_quantity, low_stock_threshold, image_url)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (cid, name, desc, unit, price, stock, threshold, img)
+            )
+
+
 def init_db():
     """Create tables if they do not exist, run migrations, and seed sample data."""
     conn = get_db()
@@ -172,7 +366,7 @@ def init_db():
         users_seed = [
             ("RML-ADM-001", "RML Admin", "admin@rml.com", "09175550100", "Purok 6, Brgy. Antipolo del Sur, Lipa City, Batangas", generate_password_hash("admin123"), "admin"),
             ("RML-DRV-014", "Juan Dela Cruz", "driver@rml.com", "09175550140", "Brgy. Marawoy, Lipa City, Batangas", generate_password_hash("driver123"), "driver"),
-            ("RML-DRV-015", "Ricardo Santos", "ricardo@rml.com", "09175551234", "Brgy. Tambo, Lipa City, Batangas", generate_password_hash("driver123"), "driver"),
+            ("RML-he DRV-015", "Ricardo Santos", "ricardo@rml.com", "09175551234", "Brgy. Tambo, Lipa City, Batangas", generate_password_hash("driver123"), "driver"),
             (None, "John Doe", "customer@rml.com", "09123456789", "123 Construction Ave, Lipa City, Batangas", generate_password_hash("customer123"), "customer"),
             (None, "Santos Residence", "santos@example.com", "09175550128", "Lot 12, Purok 3, Brgy. Tambo, Lipa City, Batangas", generate_password_hash("customer123"), "customer"),
             (None, "Mendoza Builders", "mendoza@example.com", "09185550199", "Brgy. Marawoy, Lipa City, Batangas", generate_password_hash("customer123"), "customer"),
@@ -286,6 +480,9 @@ def init_db():
             """,
             (o3,),
         )
+
+    # Seed or expand full hardware catalog
+    seed_catalog(cur)
 
     conn.commit()
     conn.close()
