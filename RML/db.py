@@ -14,7 +14,7 @@ def get_db():
 
 
 def init_db():
-    """Create tables if they do not exist and seed initial sample data."""
+    """Create tables if they do not exist, run migrations, and seed sample data."""
     conn = get_db()
     cur = conn.cursor()
 
@@ -28,7 +28,7 @@ def init_db():
             phone TEXT,
             address TEXT,
             password_hash TEXT NOT NULL,
-            role TEXT NOT NULL CHECK(role IN ('admin', 'customer', 'driver')),
+            role TEXT NOT NULL CHECK(role IN ('admin', 'customer', 'driver', 'staff')),
             is_active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
         );
@@ -89,6 +89,7 @@ def init_db():
             order_status TEXT NOT NULL DEFAULT 'pending'
                 CHECK(order_status IN ('pending', 'approved', 'rejected', 'preparing', 'in_transit', 'delivered')),
             rejection_reason TEXT,
+            approval_notes TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
             FOREIGN KEY (customer_id) REFERENCES users(id)
         );
@@ -110,6 +111,9 @@ def init_db():
             method TEXT NOT NULL CHECK(method IN ('cash', 'qr')),
             reference_number TEXT,
             receipt_note TEXT,
+            payer_name TEXT,
+            bank_used TEXT,
+            proof_file TEXT,
             amount REAL NOT NULL,
             payment_status TEXT NOT NULL DEFAULT 'pending'
                 CHECK(payment_status IN ('pending', 'verified', 'rejected')),
@@ -132,6 +136,10 @@ def init_db():
             recipient_received_by TEXT,
             recipient_role TEXT,
             delivery_notes TEXT,
+            quantity_received TEXT,
+            completion_time TEXT,
+            recipient_acknowledged INTEGER DEFAULT 0,
+            proof_file TEXT,
             delivered_at TEXT,
             FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
             FOREIGN KEY (driver_id) REFERENCES users(id),
@@ -139,6 +147,25 @@ def init_db():
         );
         """
     )
+
+    # Migrations for existing tables if columns are missing
+    table_migrations = [
+        ("orders", "approval_notes", "TEXT"),
+        ("payments", "payer_name", "TEXT"),
+        ("payments", "bank_used", "TEXT"),
+        ("payments", "proof_file", "TEXT"),
+        ("deliveries", "quantity_received", "TEXT"),
+        ("deliveries", "completion_time", "TEXT"),
+        ("deliveries", "recipient_acknowledged", "INTEGER DEFAULT 0"),
+        ("deliveries", "proof_file", "TEXT"),
+    ]
+    for tbl, col, col_def in table_migrations:
+        try:
+            cols = [r[1] for r in cur.execute(f"PRAGMA table_info({tbl})").fetchall()]
+            if col not in cols:
+                cur.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {col_def}")
+        except Exception:
+            pass
 
     user_count = cur.execute("SELECT COUNT(*) FROM users").fetchone()[0]
     if user_count == 0:
@@ -224,7 +251,7 @@ def init_db():
         cur.execute(
             """
             INSERT INTO orders (order_code, customer_id, recipient_name, phone, delivery_address, preferred_date, delivery_slot, subtotal, delivery_fee, vat_amount, total_amount, order_status)
-            VALUES ('#1051', 5, 'Engr. Paolo Santos', '09175550128', 'Lot 12, Purok 3, Brgy. Tambo, Lipa City, Batangas', '2026-11-15', 'Morning (08:00 - 12:00)', 22800.00, 1500.00, 2736.00, 27036.00, 'pending')
+            VALUES ('#1051', 5, 'Engr. Paolo Santos', '09175550128', 'Lot 12, Purok 3, Brgy. Tambo, Lipa City, Batangas', '2026-11-15', 'Morning (08:00 - 12:00)', 22800.00, 1500.00, 2736.00, 27036.00, 'approved')
             """
         )
         o2 = cur.lastrowid

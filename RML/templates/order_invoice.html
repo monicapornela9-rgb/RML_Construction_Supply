@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Invoice {{ order.order_code|order_code }} - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+  <!-- Actions Toolbar -->
+  <div class="d-flex justify-content-between align-items-center mb-4 no-print flex-wrap gap-2">
+    <button onclick="window.history.back()" class="btn btn-outline-secondary btn-sm">
+      &larr; Back
+    </button>
+    <div class="d-flex gap-2">
+      <button onclick="window.print()" class="btn btn-rml btn-sm">
+        <i class="bi bi-printer me-1"></i> Print / Download PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- Printable Invoice Document -->
+  <div class="card border-0 shadow-sm p-4 p-md-5 bg-white">
+    <!-- Header -->
+    <div class="row align-items-center pb-4 mb-4 border-bottom">
+      <div class="col-sm-6">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="rml-logo-box">R</span>
+          <span class="fw-bold fs-4">RML Construction Supply</span>
+        </div>
+        <div class="small text-muted">
+          Purok 6, Brgy. Antipolo del Sur<br>
+          Lipa City, Batangas 4217<br>
+          Hotline: 0917 555 0140 &middot; logistics@rml.example
+        </div>
+      </div>
+      <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
+        <h3 class="fw-bold text-uppercase mb-1">Invoice</h3>
+        <div class="fs-5 fw-bold text-rml">{{ order.order_code|order_code }}</div>
+        <div class="small text-muted">Date: {{ order.created_at }}</div>
+      </div>
+    </div>
+
+    <!-- Client & Delivery Details -->
+    <div class="row mb-4 pb-3 border-bottom">
+      <div class="col-sm-6">
+        <div class="small text-muted fw-bold text-uppercase mb-1">Billed &amp; Delivered To:</div>
+        <div class="fw-bold fs-6">{{ order.recipient_name }}</div>
+        <div class="small text-muted">{{ order.phone }}</div>
+        <div class="small">{{ order.delivery_address }}</div>
+      </div>
+      <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
+        <div class="small text-muted fw-bold text-uppercase mb-1">Delivery Information:</div>
+        <div class="small">Preferred Date: <strong>{{ order.preferred_date or 'N/A' }}</strong></div>
+        <div class="small">Slot: <strong>{{ order.delivery_slot }}</strong></div>
+        <div class="small">Order Status: <span class="badge text-uppercase bg-secondary">{{ order.order_status }}</span></div>
+        {% if delivery %}
+          <div class="small mt-1 text-muted">Truck: {{ delivery.truck_code }} ({{ delivery.plate_number }}) &middot; Driver: {{ delivery.driver_name }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Items Table -->
+    <div class="table-responsive mb-4">
+      <table class="table table-bordered align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 50px;" class="text-center">#</th>
+            <th>Material Description</th>
+            <th class="text-center" style="width: 120px;">Quantity</th>
+            <th class="text-end" style="width: 140px;">Unit Price</th>
+            <th class="text-end" style="width: 150px;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td class="text-center small text-muted">{{ loop.index }}</td>
+            <td class="fw-semibold">{{ item.name }}</td>
+            <td class="text-center">{{ item.quantity }} {{ item.unit }}</td>
+            <td class="text-end">&#8369;{{ "{:,.2f}".format(item.unit_price) }}</td>
+            <td class="text-end fw-semibold">&#8369;{{ "{:,.2f}".format(item.subtotal) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Totals Breakdown -->
+    <div class="row justify-content-end mb-4">
+      <div class="col-md-5">
+        <table class="table table-sm table-borderless">
+          <tr>
+            <td class="text-muted">Subtotal:</td>
+            <td class="text-end fw-semibold">&#8369;{{ "{:,.2f}".format(order.subtotal) }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted">Delivery &amp; Logistics Fee:</td>
+            <td class="text-end fw-semibold">&#8369;{{ "{:,.2f}".format(order.delivery_fee) }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted">Value Added Tax (12% VAT):</td>
+            <td class="text-end fw-semibold">&#8369;{{ "{:,.2f}".format(order.vat_amount) }}</td>
+          </tr>
+          <tr class="border-top border-dark">
+            <td class="fs-5 fw-bold">Total Amount Due:</td>
+            <td class="fs-5 fw-bold text-end text-rml">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Payment Notice -->
+    <div class="p-3 bg-light rounded border">
+      <div class="row align-items-center">
+        <div class="col-sm-8">
+          <div class="small fw-bold text-uppercase text-muted">Payment Information</div>
+          <div class="small">
+            Method: <strong class="text-uppercase">{{ payment.method if payment else 'Not selected' }}</strong>
+            {% if payment and payment.reference_number %}
+              &middot; Ref: <code>{{ payment.reference_number }}</code>
+            {% endif %}
+          </div>
+          {% if payment and payment.paid_at %}
+            <div class="small text-muted">Recorded: {{ payment.paid_at }}</div>
+          {% endif %}
+        </div>
+        <div class="col-sm-4 text-sm-end mt-2 mt-sm-0">
+          <span class="badge fs-6 {% if payment and payment.payment_status == 'verified' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+            {{ payment.payment_status|title if payment else 'Pending' }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Note -->
+    <div class="mt-5 pt-3 border-top text-center text-muted small">
+      Thank you for your business with RML Construction Supply. For inquiries, contact logistics@rml.example.
+    </div>
+  </div>
+</div>
+{% endblock %}

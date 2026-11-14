@@ -1,6 +1,7 @@
 from functools import wraps
-from datetime import datetime
+from datetime import datetime, date
 import random
+import os
 from flask import (
     Blueprint,
     render_template,
@@ -10,22 +11,32 @@ from flask import (
     session,
     flash,
     jsonify,
+    abort,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
 from db import get_db
 
 main_bp = Blueprint("main", __name__)
 
 
 def login_required(role=None):
+    """Ensure user is logged in, and optionally verify role."""
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
             if "user_id" not in session:
                 flash("Please sign in to continue.", "warning")
                 return redirect(url_for("main.login"))
-            if role and session.get("role") != role:
-                if session.get("role") != "admin":
+            user_role = session.get("role")
+            if role:
+                # admin has master access to all portals
+                if user_role == "admin":
+                    return f(*args, **kwargs)
+                # staff has access to admin workspace
+                if role == "admin" and user_role == "staff":
+                    return f(*args, **kwargs)
+                if user_role != role:
                     flash("You do not have permission to access that page.", "danger")
                     return redirect(url_for("main.home"))
             return f(*args, **kwargs)
@@ -33,10 +44,27 @@ def login_required(role=None):
     return decorator
 
 
+def clean_order_code(code):
+    """Normalize order code for display without repeating '#' prefixes."""
+    if not code:
+        return ""
+    code_str = str(code).strip()
+    return code_str if code_str.startswith("#") else f"#{code_str}"
+
+
+@main_bp.app_template_filter("order_code")
+def order_code_filter(code):
+    return clean_order_code(code)
+
+
+# -------------------------------------------------------------------------
+# AUTHENTICATION & HOME
+# -------------------------------------------------------------------------
+
 @main_bp.route("/")
 def home():
     role = session.get("role")
-    if role == "admin":
+    if role in ("admin", "staff"):
         return redirect(url_for("main.admin_dashboard"))
     if role == "driver":
         return redirect(url_for("main.driver_schedule"))
@@ -82,6 +110,10 @@ def register():
         address = request.form.get("address", "").strip()
         password = request.form.get("password", "")
 
+        if not name or not email or not password:
+            flash("Please fill in all required fields.", "warning")
+            return render_template("auth/register.html")
+
         conn = get_db()
         existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
         if existing:
@@ -108,10 +140,14 @@ def logout():
     return redirect(url_for("main.login"))
 
 
+# -------------------------------------------------------------------------
+# CUSTOMER PORTAL
+# -------------------------------------------------------------------------
+
 @main_bp.route("/customer/catalog")
 @login_required("customer")
 def customer_catalog():
-    search = request.args.get("q", "").strip()
+    search = request.args.get("q", "").strip() or request.args.get("search", "").strip()
     category_id = request.args.get("category", "").strip()
 
     conn = get_db()
@@ -133,6 +169,20 @@ def customer_catalog():
 
     query += " ORDER BY p.id"
     products = conn.execute(query, params).fetchall()
+
+    # Calculate cart total and readiness summary
+    cart = session.get("cart", {})
+    cart_total = 0.0
+    if cart:
+        placeholders = ",".join("?" for _ in cart.keys())
+        cart_rows = conn.execute(
+            f"SELECT id, price FROM products WHERE id IN ({placeholders})",
+            list(cart.keys()),
+        ).fetchall()
+        for r in cart_rows:
+            cart_total += cart.get(str(r["id"]), 0) * r["price"]
+
+    all_in_stock = all(p["stock_quantity"] > 0 for p in products)
     conn.close()
 
     return render_template(
@@ -140,7 +190,10 @@ def customer_catalog():
         products=products,
         categories=categories,
         search=search,
+        q=search,
         selected_category=category_id,
+        cart_total=cart_total,
+        all_in_stock=all_in_stock,
     )
 
 
@@ -148,14 +201,31 @@ def customer_catalog():
 @login_required("customer")
 def cart_add():
     product_id = str(request.form.get("product_id"))
-    qty = int(request.form.get("quantity", 1))
+    try:
+        qty = int(request.form.get("quantity", 1))
+    except (ValueError, TypeError):
+        qty = 1
     if qty < 1:
         qty = 1
 
+    conn = get_db()
+    prod = conn.execute("SELECT stock_quantity, name FROM products WHERE id = ?", (product_id,)).fetchone()
+    conn.close()
+
+    if not prod:
+        flash("Product not found.", "danger")
+        return redirect(url_for("main.customer_catalog"))
+
     cart = session.get("cart", {})
-    cart[product_id] = cart.get(product_id, 0) + qty
+    new_qty = cart.get(product_id, 0) + qty
+    if prod["stock_quantity"] > 0 and new_qty > prod["stock_quantity"]:
+        new_qty = prod["stock_quantity"]
+        flash(f"Adjusted {prod['name']} quantity to available stock ({prod['stock_quantity']}).", "warning")
+    else:
+        flash(f"Added {qty} item(s) to your cart.", "success")
+
+    cart[product_id] = new_qty
     session["cart"] = cart
-    flash("Added item to your cart.", "success")
     return redirect(request.referrer or url_for("main.customer_catalog"))
 
 
@@ -163,13 +233,18 @@ def cart_add():
 @login_required("customer")
 def cart_update():
     product_id = str(request.form.get("product_id"))
-    qty = int(request.form.get("quantity", 0))
-    cart = session.get("cart", {})
+    try:
+        qty = int(request.form.get("quantity", 0))
+    except (ValueError, TypeError):
+        qty = 0
 
+    cart = session.get("cart", {})
     if qty <= 0:
         cart.pop(product_id, None)
+        flash("Item removed from cart.", "info")
     else:
         cart[product_id] = qty
+        flash("Cart updated.", "success")
 
     session["cart"] = cart
     return redirect(url_for("main.customer_checkout"))
@@ -201,17 +276,32 @@ def customer_checkout():
     if request.method == "POST":
         if not cart_items:
             conn.close()
-            flash("Your cart is empty.", "warning")
+            flash("Your cart is empty. Add materials to continue.", "warning")
             return redirect(url_for("main.customer_catalog"))
 
         recipient_name = request.form.get("recipient_name", "").strip()
-        phone = request.form.get("phone", "").strip()
+        # Accept both 'phone' and 'recipient_phone'
+        phone = request.form.get("phone", "").strip() or request.form.get("recipient_phone", "").strip()
         delivery_address = request.form.get("delivery_address", "").strip()
         preferred_date = request.form.get("preferred_date", "").strip()
         delivery_slot = request.form.get("delivery_slot", "Morning (08:00 - 12:00)")
         special_instructions = request.form.get("special_instructions", "").strip()
 
-        order_code = f"#RML-{random.randint(1100, 9999)}"
+        if not recipient_name or not delivery_address:
+            flash("Please provide recipient name and delivery address.", "warning")
+            user = conn.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+            conn.close()
+            return render_template(
+                "customer/checkout.html",
+                cart_items=cart_items,
+                subtotal=subtotal,
+                delivery_fee=delivery_fee,
+                vat_amount=vat_amount,
+                total_amount=total_amount,
+                user=user,
+            )
+
+        order_code = f"#{random.randint(1053, 9999)}"
         cur = conn.cursor()
         cur.execute(
             """
@@ -247,7 +337,8 @@ def customer_checkout():
         conn.commit()
         conn.close()
         session["cart"] = {}
-        return redirect(url_for("main.customer_payment", order_id=order_id))
+        flash("Order created! Please complete payment selection.", "success")
+        return redirect(url_for("main.customer_payment", order_id=order_id, step=1))
 
     user = conn.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
     conn.close()
@@ -265,11 +356,18 @@ def customer_checkout():
 @main_bp.route("/customer/payment/<int:order_id>", methods=["GET", "POST"])
 @login_required("customer")
 def customer_payment(order_id):
+    """Multi-step payment flow matching high-fidelity mockups."""
     conn = get_db()
     order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
     if not order:
         conn.close()
         flash("Order not found.", "danger")
+        return redirect(url_for("main.customer_orders"))
+
+    # Security check: only order owner or admin
+    if session.get("role") != "admin" and order["customer_id"] != session["user_id"]:
+        conn.close()
+        flash("Unauthorized access to this order.", "danger")
         return redirect(url_for("main.customer_orders"))
 
     items = conn.execute(
@@ -281,33 +379,80 @@ def customer_payment(order_id):
         (order_id,),
     ).fetchall()
 
+    existing_payment = conn.execute("SELECT * FROM payments WHERE order_id = ?", (order_id,)).fetchone()
+
+    # Step navigation: 1 (method select), 2 (details), 3 (confirmation), 4 (approved)
+    step = request.args.get("step", type=int) or 1
+    method = request.args.get("method", "") or (existing_payment["method"] if existing_payment else "cash")
+
     if request.method == "POST":
-        method = request.form.get("method", "cash")
-        ref = request.form.get("reference_number", "").strip()
-        note = request.form.get("receipt_note", "").strip()
+        action = request.form.get("action", "")
+        method = request.form.get("method", method or "cash")
 
-        if method == "cash" and not ref:
-            ref = f"COD-{order['id']}"
+        if action == "to_details":
+            conn.close()
+            return redirect(url_for("main.customer_payment", order_id=order_id, step=2, method=method))
 
-        existing = conn.execute("SELECT id FROM payments WHERE order_id = ?", (order_id,)).fetchone()
-        if existing:
-            conn.execute(
-                "UPDATE payments SET method=?, reference_number=?, receipt_note=?, payment_status='pending', paid_at=datetime('now','localtime') WHERE order_id=?",
-                (method, ref, note, order_id),
-            )
-        else:
-            conn.execute(
-                "INSERT INTO payments (order_id, method, reference_number, receipt_note, amount, payment_status) VALUES (?, ?, ?, ?, ?, 'pending')",
-                (order_id, method, ref, note, order["total_amount"]),
-            )
-        conn.commit()
-        conn.close()
-        flash("Payment details submitted!", "success")
-        return redirect(url_for("main.customer_order_tracking", order_id=order_id))
+        elif action == "review_receipt":
+            # Pass details in session temporarily for preview
+            session["payment_draft"] = {
+                "order_id": order_id,
+                "method": method,
+                "payer_name": request.form.get("payer_name", "").strip() or order["recipient_name"],
+                "mobile_number": request.form.get("mobile_number", "").strip() or order["phone"],
+                "bank_used": request.form.get("bank_used", "").strip(),
+                "reference_number": request.form.get("reference_number", "").strip() or request.form.get("reference_no", "").strip(),
+                "receipt_note": request.form.get("receipt_note", "").strip(),
+                "payment_datetime": request.form.get("payment_datetime", "").strip() or datetime.now().strftime("%d %b %Y · %I:%M %p"),
+                "amount": float(request.form.get("amount", order["total_amount"]) or order["total_amount"]),
+            }
+            conn.close()
+            return redirect(url_for("main.customer_payment", order_id=order_id, step=3, method=method))
 
-    payment = conn.execute("SELECT * FROM payments WHERE order_id = ?", (order_id,)).fetchone()
+        elif action == "confirm_payment":
+            draft = session.pop("payment_draft", {})
+            payer_name = draft.get("payer_name") or request.form.get("payer_name") or order["recipient_name"]
+            bank_used = draft.get("bank_used") or request.form.get("bank_used", "")
+            ref = draft.get("reference_number") or request.form.get("reference_number") or request.form.get("reference_no", "")
+            note = draft.get("receipt_note") or request.form.get("receipt_note", "")
+
+            if method == "cash" and not ref:
+                ref = f"COD-{clean_order_code(order['order_code']).replace('#', '')}"
+
+            if existing_payment:
+                conn.execute(
+                    """
+                    UPDATE payments
+                    SET method=?, reference_number=?, receipt_note=?, payer_name=?, bank_used=?,
+                        payment_status='pending', paid_at=datetime('now','localtime')
+                    WHERE order_id=?
+                    """,
+                    (method, ref, note, payer_name, bank_used, order_id),
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO payments (order_id, method, reference_number, receipt_note, payer_name, bank_used, amount, payment_status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+                    """,
+                    (order_id, method, ref, note, payer_name, bank_used, order["total_amount"]),
+                )
+            conn.commit()
+            conn.close()
+            flash("Payment confirmed! Review the confirmation details.", "success")
+            return redirect(url_for("main.customer_payment", order_id=order_id, step=4, method=method))
+
+    draft = session.get("payment_draft", {})
     conn.close()
-    return render_template("customer/payment.html", order=order, items=items, payment=payment)
+    return render_template(
+        "customer/payment.html",
+        order=order,
+        items=items,
+        payment=existing_payment,
+        draft=draft,
+        step=step,
+        method=method,
+    )
 
 
 @main_bp.route("/customer/orders")
@@ -316,7 +461,7 @@ def customer_orders():
     conn = get_db()
     orders = conn.execute(
         """
-        SELECT o.*, p.method AS payment_method, p.payment_status,
+        SELECT o.*, p.method AS payment_method, p.payment_status, p.reference_number,
                d.delivery_status, d.delivery_code
         FROM orders o
         LEFT JOIN payments p ON o.id = p.order_id
@@ -338,6 +483,11 @@ def customer_order_tracking(order_id):
     if not order:
         conn.close()
         flash("Order not found.", "danger")
+        return redirect(url_for("main.customer_orders"))
+
+    if session.get("role") != "admin" and order["customer_id"] != session["user_id"]:
+        conn.close()
+        flash("Unauthorized access to this order tracking.", "danger")
         return redirect(url_for("main.customer_orders"))
 
     items = conn.execute(
@@ -377,7 +527,7 @@ def customer_payment_history():
     conn = get_db()
     payments = conn.execute(
         """
-        SELECT p.*, o.order_code, o.created_at AS order_date
+        SELECT p.*, o.order_code, o.created_at AS order_date, o.id AS order_id
         FROM payments p
         JOIN orders o ON p.order_id = o.id
         WHERE o.customer_id = ?
@@ -394,6 +544,193 @@ def customer_payment_history():
 def customer_support():
     return render_template("customer/support.html")
 
+
+@main_bp.route("/order/<int:order_id>/invoice")
+@login_required()
+def order_invoice(order_id):
+    """Generate and display clean printable tax invoice for an order."""
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        flash("Order not found.", "danger")
+        return redirect(url_for("main.home"))
+
+    user_role = session.get("role")
+    if user_role not in ("admin", "staff") and order["customer_id"] != session.get("user_id"):
+        conn.close()
+        flash("Unauthorized access to this invoice.", "danger")
+        return redirect(url_for("main.customer_orders"))
+
+    customer = conn.execute("SELECT * FROM users WHERE id = ?", (order["customer_id"],)).fetchone()
+    items = conn.execute(
+        """
+        SELECT oi.*, p.name, p.unit FROM order_items oi
+        JOIN products p ON oi.product_id = p.id
+        WHERE oi.order_id = ?
+        """,
+        (order_id,),
+    ).fetchall()
+    payment = conn.execute("SELECT * FROM payments WHERE order_id = ?", (order_id,)).fetchone()
+    delivery = conn.execute(
+        """
+        SELECT d.*, u.name AS driver_name, t.truck_code, t.plate_number
+        FROM deliveries d
+        LEFT JOIN users u ON d.driver_id = u.id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        WHERE d.order_id = ?
+        """,
+        (order_id,),
+    ).fetchone()
+    conn.close()
+
+    return render_template(
+        "order_invoice.html",
+        order=order,
+        customer=customer,
+        items=items,
+        payment=payment,
+        delivery=delivery,
+    )
+
+
+# -------------------------------------------------------------------------
+# GPS APIS (FOR DRIVER & CUSTOMER LIVE TRACKING)
+# -------------------------------------------------------------------------
+
+@main_bp.route("/api/gps/update", methods=["POST"])
+@main_bp.route("/api/gps/update/<int:delivery_id>", methods=["POST"])
+@login_required()
+def api_gps_update(delivery_id=None):
+    """Receive driver GPS coordinates and update active delivery location."""
+    data = request.get_json(silent=True) or request.form or {}
+    del_id = delivery_id or data.get("delivery_id")
+    lat = data.get("lat")
+    lng = data.get("lng")
+
+    if not del_id or lat is None or lng is None:
+        return jsonify({"ok": False, "error": "Missing coordinates or delivery ID"}), 400
+
+    try:
+        lat_f = float(lat)
+        lng_f = float(lng)
+    except ValueError:
+        return jsonify({"ok": False, "error": "Invalid coordinates"}), 400
+
+    conn = get_db()
+    conn.execute(
+        """
+        UPDATE deliveries
+        SET current_lat = ?, current_lng = ?, last_gps_update = datetime('now', 'localtime')
+        WHERE id = ?
+        """,
+        (lat_f, lng_f, int(del_id)),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "delivery_id": int(del_id), "lat": lat_f, "lng": lng_f})
+
+
+@main_bp.route("/api/gps/location/<int:order_id>")
+@login_required()
+def api_gps_order_location(order_id):
+    """Customer endpoint to poll current delivery location for an order."""
+    conn = get_db()
+    row = conn.execute(
+        """
+        SELECT id, delivery_code, delivery_status, current_lat, current_lng, last_gps_update
+        FROM deliveries
+        WHERE order_id = ?
+        """,
+        (order_id,),
+    ).fetchone()
+    conn.close()
+
+    if not row or not row["current_lat"] or not row["current_lng"]:
+        return jsonify({"ok": False, "error": "No GPS data for this order"}), 404
+
+    return jsonify({
+        "ok": True,
+        "delivery_id": row["id"],
+        "delivery_code": row["delivery_code"],
+        "delivery_status": row["delivery_status"],
+        "lat": row["current_lat"],
+        "lng": row["current_lng"],
+        "last_gps_update": row["last_gps_update"],
+    })
+
+
+@main_bp.route("/api/gps/delivery/<int:delivery_id>")
+@login_required()
+def api_gps_get(delivery_id):
+    conn = get_db()
+    row = conn.execute(
+        """
+        SELECT d.id, d.delivery_code, d.delivery_status, d.current_lat, d.current_lng, d.last_gps_update,
+               u.name AS driver_name, t.truck_code, t.plate_number, o.order_code
+        FROM deliveries d
+        LEFT JOIN users u ON d.driver_id = u.id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        LEFT JOIN orders o ON d.order_id = o.id
+        WHERE d.id = ?
+        """,
+        (delivery_id,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"ok": False}), 404
+    return jsonify(dict(row))
+
+
+@main_bp.route("/api/gps/fleet")
+@login_required("admin")
+def api_gps_fleet():
+    """Admin endpoint to get live locations of all active deliveries."""
+    conn = get_db()
+    rows = conn.execute(
+        """
+        SELECT d.id, d.delivery_code, d.delivery_status, d.current_lat, d.current_lng, d.last_gps_update,
+               u.name AS driver_name, t.truck_code, t.plate_number, o.order_code, o.recipient_name, o.delivery_address
+        FROM deliveries d
+        LEFT JOIN users u ON d.driver_id = u.id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        LEFT JOIN orders o ON d.order_id = o.id
+        WHERE d.delivery_status IN ('assigned', 'loading', 'en_route')
+        ORDER BY d.id DESC
+        """
+    ).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@main_bp.route("/api/gps/simulate/<int:delivery_id>", methods=["POST"])
+@login_required()
+def api_gps_simulate(delivery_id):
+    """Simulate GPS advancement for testing and demonstration."""
+    conn = get_db()
+    row = conn.execute("SELECT current_lat, current_lng FROM deliveries WHERE id = ?", (delivery_id,)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "Not found"}), 404
+
+    # Jitter or step location slightly within Lipa City
+    cur_lat = row["current_lat"] or 13.9411
+    cur_lng = row["current_lng"] or 121.1631
+    next_lat = round(cur_lat + random.uniform(0.0010, 0.0030), 5)
+    next_lng = round(cur_lng + random.uniform(-0.0015, 0.0020), 5)
+
+    conn.execute(
+        "UPDATE deliveries SET current_lat = ?, current_lng = ?, last_gps_update = datetime('now', 'localtime') WHERE id = ?",
+        (next_lat, next_lng, delivery_id),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "lat": next_lat, "lng": next_lng})
+
+
+# -------------------------------------------------------------------------
+# ADMIN PORTAL
+# -------------------------------------------------------------------------
 
 @main_bp.route("/admin/dashboard")
 @login_required("admin")
@@ -429,7 +766,7 @@ def admin_orders():
     conn = get_db()
 
     base_sql = """
-        SELECT o.*, u.name AS customer_name,
+        SELECT o.*, u.name AS customer_name, u.phone AS customer_phone,
                MIN(CASE WHEN p.stock_quantity >= oi.quantity THEN 1 ELSE 0 END) AS all_in_stock
         FROM orders o
         JOIN users u ON o.customer_id = u.id
@@ -456,7 +793,9 @@ def admin_orders():
     items_by_order = {}
     all_items = conn.execute(
         """
-        SELECT oi.*, p.name, p.unit, p.stock_quantity
+        SELECT oi.*, p.name, p.unit, p.stock_quantity,
+               (p.stock_quantity >= oi.quantity) AS is_available,
+               MAX(0, p.stock_quantity - oi.quantity) AS remaining_after
         FROM order_items oi
         JOIN products p ON oi.product_id = p.id
         """
@@ -470,6 +809,9 @@ def admin_orders():
         orders=orders,
         tab=tab,
         counts=counts,
+        pending_count=counts["pending"],
+        ready_count=counts["ready"],
+        all_count=counts["all"],
         items_by_order=items_by_order,
     )
 
@@ -479,7 +821,14 @@ def admin_orders():
 def admin_order_decision(order_id):
     decision = request.form.get("decision")
     reason = request.form.get("rejection_reason", "").strip()
+    approval_notes = request.form.get("approval_notes", "").strip()
     conn = get_db()
+
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        flash("Order not found.", "danger")
+        return redirect(url_for("main.admin_orders"))
 
     if decision == "approve":
         items = conn.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
@@ -490,16 +839,20 @@ def admin_order_decision(order_id):
             )
             conn.execute(
                 "INSERT INTO inventory_logs (product_id, movement_type, quantity, remarks, created_by) VALUES (?, 'stock_out', ?, ?, ?)",
-                (item["product_id"], item["quantity"], f"Approved Order ID #{order_id}", session["user_id"]),
+                (item["product_id"], item["quantity"], f"Approved Order {clean_order_code(order['order_code'])}", session["user_id"]),
             )
-        conn.execute("UPDATE orders SET order_status = 'approved' WHERE id = ?", (order_id,))
-        flash("Order approved and stock reserved.", "success")
+        conn.execute(
+            "UPDATE orders SET order_status = 'approved', approval_notes = ? WHERE id = ?",
+            (approval_notes, order_id),
+        )
+        flash(f"Order {clean_order_code(order['order_code'])} approved and stock reserved.", "success")
+
     elif decision == "reject":
         conn.execute(
             "UPDATE orders SET order_status = 'rejected', rejection_reason = ? WHERE id = ?",
             (reason or "Insufficient stock / cancelled by admin", order_id),
         )
-        flash("Order rejected.", "warning")
+        flash(f"Order {clean_order_code(order['order_code'])} rejected.", "warning")
 
     conn.commit()
     conn.close()
@@ -528,13 +881,47 @@ def admin_inventory():
                 (category_id, name, description, unit, price, stock_quantity, low_stock_threshold, image_url),
             )
             conn.commit()
-            flash(f"Product '{name}' saved.", "success")
+            flash(f"Product '{name}' added successfully.", "success")
+
+        elif action == "update_product":
+            product_id = int(request.form.get("product_id"))
+            name = request.form.get("name", "").strip()
+            category_id = request.form.get("category_id")
+            description = request.form.get("description", "").strip()
+            unit = request.form.get("unit", "pc").strip()
+            price = float(request.form.get("price", 0))
+            stock_quantity = int(request.form.get("stock_quantity", 0))
+            low_stock_threshold = int(request.form.get("low_stock_threshold", 20))
+            image_url = request.form.get("image_url", "").strip()
+
+            if image_url:
+                conn.execute(
+                    """
+                    UPDATE products
+                    SET category_id=?, name=?, description=?, unit=?, price=?, stock_quantity=?, low_stock_threshold=?, image_url=?
+                    WHERE id=?
+                    """,
+                    (category_id, name, description, unit, price, stock_quantity, low_stock_threshold, image_url, product_id),
+                )
+            else:
+                conn.execute(
+                    """
+                    UPDATE products
+                    SET category_id=?, name=?, description=?, unit=?, price=?, stock_quantity=?, low_stock_threshold=?
+                    WHERE id=?
+                    """,
+                    (category_id, name, description, unit, price, stock_quantity, low_stock_threshold, product_id),
+                )
+            conn.commit()
+            flash(f"Product '{name}' updated successfully.", "success")
 
         elif action == "stock_movement":
             product_id = int(request.form.get("product_id"))
             movement_type = request.form.get("movement_type", "stock_in")
             quantity = int(request.form.get("quantity", 0))
-            remarks = request.form.get("remarks", "").strip()
+            supplier_ref = request.form.get("reference", "").strip()
+            remarks_text = request.form.get("remarks", "").strip()
+            full_remarks = f"{supplier_ref} · {remarks_text}" if supplier_ref else remarks_text
 
             if movement_type == "stock_in":
                 conn.execute("UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?", (quantity, product_id))
@@ -543,17 +930,17 @@ def admin_inventory():
 
             conn.execute(
                 "INSERT INTO inventory_logs (product_id, movement_type, quantity, remarks, created_by) VALUES (?, ?, ?, ?, ?)",
-                (product_id, movement_type, quantity, remarks, session["user_id"]),
+                (product_id, movement_type, quantity, full_remarks, session["user_id"]),
             )
             conn.commit()
-            flash("Stock movement recorded.", "success")
+            flash("Stock movement successfully recorded.", "success")
 
         conn.close()
         return redirect(url_for("main.admin_inventory"))
 
-    products = conn.execute(
+    products = [dict(p) for p in conn.execute(
         "SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON p.category_id = c.id ORDER BY p.id"
-    ).fetchall()
+    ).fetchall()]
     categories = conn.execute("SELECT * FROM categories ORDER BY name").fetchall()
     low_stock_count = conn.execute("SELECT COUNT(*) FROM products WHERE stock_quantity <= low_stock_threshold").fetchone()[0]
     logs = conn.execute(
@@ -562,7 +949,7 @@ def admin_inventory():
         FROM inventory_logs l
         JOIN products p ON l.product_id = p.id
         LEFT JOIN users u ON l.created_by = u.id
-        ORDER BY l.id DESC LIMIT 10
+        ORDER BY l.id DESC LIMIT 15
         """
     ).fetchall()
     conn.close()
@@ -585,7 +972,7 @@ def admin_deliveries():
         order_id = int(request.form.get("order_id"))
         driver_id = int(request.form.get("driver_id"))
         truck_id = int(request.form.get("truck_id"))
-        delivery_window = request.form.get("delivery_window", "").strip()
+        delivery_window = request.form.get("delivery_window", "09:00 - 11:00").strip()
 
         existing = conn.execute("SELECT id FROM deliveries WHERE order_id = ?", (order_id,)).fetchone()
         if existing:
@@ -596,18 +983,21 @@ def admin_deliveries():
         else:
             d_code = f"DLV-{datetime.now().strftime('%m%d')}-{random.randint(10, 99)}"
             conn.execute(
-                "INSERT INTO deliveries (delivery_code, order_id, driver_id, truck_id, delivery_window, delivery_status) VALUES (?, ?, ?, ?, ?, 'assigned')",
+                """
+                INSERT INTO deliveries (delivery_code, order_id, driver_id, truck_id, delivery_window, delivery_status, current_lat, current_lng)
+                VALUES (?, ?, ?, ?, ?, 'assigned', 13.9411, 121.1631)
+                """,
                 (d_code, order_id, driver_id, truck_id, delivery_window),
             )
 
         conn.execute("UPDATE orders SET order_status = 'preparing' WHERE id = ?", (order_id,))
         conn.commit()
-        flash("Delivery assigned to driver and truck.", "success")
+        flash("Delivery assigned to truck and driver. Status updated to 'preparing'.", "success")
         conn.close()
         return redirect(url_for("main.admin_deliveries"))
 
     counts = {
-        "queued": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status='approved' AND id NOT IN (SELECT order_id FROM deliveries)").fetchone()[0],
+        "queued": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status='approved' AND id NOT IN (SELECT order_id FROM deliveries WHERE delivery_status != 'queued')").fetchone()[0],
         "assigned": conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status IN ('assigned', 'loading')").fetchone()[0],
         "en_route": conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status='en_route'").fetchone()[0],
         "delivered": conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status='delivered'").fetchone()[0],
@@ -652,7 +1042,8 @@ def admin_customers():
     conn = get_db()
     customers = conn.execute(
         """
-        SELECT u.*, COUNT(o.id) AS total_orders, COALESCE(SUM(o.total_amount), 0) AS total_spent
+        SELECT u.*, COUNT(o.id) AS total_orders, COUNT(o.id) AS order_count,
+               COALESCE(SUM(o.total_amount), 0) AS total_spent
         FROM users u
         LEFT JOIN orders o ON u.id = o.customer_id
         WHERE u.role = 'customer'
@@ -668,25 +1059,69 @@ def admin_customers():
 @login_required("admin")
 def admin_payments():
     conn = get_db()
+
     if request.method == "POST":
-        payment_id = int(request.form.get("payment_id"))
-        status = request.form.get("status")
-        conn.execute("UPDATE payments SET payment_status = ? WHERE id = ?", (status, payment_id))
-        conn.commit()
-        flash(f"Payment marked as {status}.", "success")
+        action = request.form.get("action", "")
+
+        if action == "record_payment":
+            order_id = int(request.form.get("order_id"))
+            method = request.form.get("method", "cash")
+            ref = request.form.get("reference_number", "").strip() or request.form.get("reference_no", "").strip()
+            status = request.form.get("status", "verified")
+            notes = request.form.get("notes", "").strip()
+            amount = float(request.form.get("amount", 0))
+
+            existing = conn.execute("SELECT id FROM payments WHERE order_id = ?", (order_id,)).fetchone()
+            if existing:
+                conn.execute(
+                    """
+                    UPDATE payments
+                    SET method=?, reference_number=?, payment_status=?, receipt_note=?, amount=?
+                    WHERE order_id=?
+                    """,
+                    (method, ref, status, notes, amount, order_id),
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO payments (order_id, method, reference_number, payment_status, receipt_note, amount)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (order_id, method, ref, status, notes, amount),
+                )
+            conn.commit()
+            flash("Payment and receipt successfully recorded.", "success")
+
+        elif action == "verify_status":
+            payment_id = int(request.form.get("payment_id"))
+            status = request.form.get("status", "verified")
+            conn.execute("UPDATE payments SET payment_status = ? WHERE id = ?", (status, payment_id))
+            conn.commit()
+            flash(f"Payment marked as {status}.", "success")
+
         conn.close()
         return redirect(url_for("main.admin_payments"))
 
     payments = conn.execute(
         """
-        SELECT p.*, o.order_code, o.recipient_name
+        SELECT p.*, p.reference_number, o.order_code, o.recipient_name, o.total_amount AS order_total
         FROM payments p
         JOIN orders o ON p.order_id = o.id
         ORDER BY p.id DESC
         """
     ).fetchall()
+
+    all_orders = conn.execute(
+        """
+        SELECT o.id, o.order_code, o.recipient_name, o.total_amount, p.payment_status
+        FROM orders o
+        LEFT JOIN payments p ON o.id = p.order_id
+        ORDER BY o.id DESC
+        """
+    ).fetchall()
+
     conn.close()
-    return render_template("admin/payments.html", payments=payments)
+    return render_template("admin/payments.html", payments=payments, all_orders=all_orders)
 
 
 @main_bp.route("/admin/reports")
@@ -697,8 +1132,9 @@ def admin_reports():
 
     conn = get_db()
     query = """
-        SELECT o.*, p.method AS payment_method, p.payment_status
+        SELECT o.*, u.name AS customer_name, p.method AS payment_method, p.payment_status
         FROM orders o
+        JOIN users u ON o.customer_id = u.id
         LEFT JOIN payments p ON o.id = p.order_id
         WHERE 1=1
     """
@@ -716,13 +1152,40 @@ def admin_reports():
     low_stock_items = conn.execute(
         "SELECT * FROM products WHERE stock_quantity <= low_stock_threshold"
     ).fetchall()
-    conn.close()
 
+    # Sales by category for chart
+    cat_sales = conn.execute(
+        """
+        SELECT c.name, COALESCE(SUM(oi.subtotal), 0) AS revenue
+        FROM categories c
+        LEFT JOIN products p ON c.id = p.category_id
+        LEFT JOIN order_items oi ON p.id = oi.product_id
+        LEFT JOIN orders o ON oi.order_id = o.id AND o.order_status != 'rejected'
+        GROUP BY c.id
+        ORDER BY revenue DESC
+        """
+    ).fetchall()
+
+    # Daily orders for trend
+    daily_orders = conn.execute(
+        """
+        SELECT date(created_at) AS order_date, COUNT(*) AS count,
+               SUM(CASE WHEN order_status IN ('approved', 'in_transit', 'delivered') THEN 1 ELSE 0 END) AS approved_count
+        FROM orders
+        GROUP BY date(created_at)
+        ORDER BY order_date DESC
+        LIMIT 7
+        """
+    ).fetchall()
+
+    conn.close()
     return render_template(
         "admin/reports.html",
         orders=orders,
         total_sales=total_sales,
         low_stock_items=low_stock_items,
+        cat_sales=cat_sales,
+        daily_orders=daily_orders,
         start_date=start_date,
         end_date=end_date,
     )
@@ -732,34 +1195,59 @@ def admin_reports():
 @login_required("admin")
 def admin_access():
     conn = get_db()
+
     if request.method == "POST":
         action = request.form.get("action")
+
         if action == "add_staff":
             name = request.form.get("name", "").strip()
+            role = request.form.get("role", "driver")
             staff_id = request.form.get("staff_id", "").strip()
             email = request.form.get("email", "").strip()
             phone = request.form.get("phone", "").strip()
-            role = request.form.get("role", "driver")
             password = request.form.get("password", "rml12345")
-            conn.execute(
-                "INSERT INTO users (staff_id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)",
-                (staff_id, name, email, phone, generate_password_hash(password), role),
-            )
+
+            if not staff_id:
+                prefix = "RML-ADM" if role == "admin" else "RML-DRV"
+                staff_id = f"{prefix}-{random.randint(100, 999)}"
+
+            # Ensure unique staff_id
+            existing = conn.execute("SELECT id FROM users WHERE staff_id = ? OR email = ?", (staff_id, email)).fetchone()
+            if existing:
+                flash(f"Staff ID '{staff_id}' or Email '{email}' already exists.", "danger")
+            else:
+                conn.execute(
+                    "INSERT INTO users (staff_id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)",
+                    (staff_id, name, email, phone, generate_password_hash(password), role),
+                )
+                conn.commit()
+                flash(f"Created {role} account for {name} ({staff_id}).", "success")
+
+        elif action == "update_role":
+            uid = int(request.form.get("user_id"))
+            new_role = request.form.get("role", "driver")
+            conn.execute("UPDATE users SET role = ? WHERE id = ?", (new_role, uid))
             conn.commit()
-            flash(f"Created {role} account for {name}.", "success")
+            flash("Staff role updated successfully.", "success")
+
         elif action == "toggle_active":
             uid = int(request.form.get("user_id"))
             conn.execute("UPDATE users SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END WHERE id = ?", (uid,))
             conn.commit()
-            flash("Account status updated.", "info")
+            flash("Account active status updated.", "info")
 
         conn.close()
         return redirect(url_for("main.admin_access"))
 
     users = conn.execute("SELECT * FROM users ORDER BY role, name").fetchall()
+    staff_users = [u for u in users if u["role"] in ("admin", "driver", "staff")]
     conn.close()
-    return render_template("admin/access.html", users=users)
+    return render_template("admin/access.html", users=users, staff_users=staff_users)
 
+
+# -------------------------------------------------------------------------
+# DRIVER PORTAL
+# -------------------------------------------------------------------------
 
 @main_bp.route("/driver/schedule")
 @login_required("driver")
@@ -767,38 +1255,34 @@ def driver_schedule():
     conn = get_db()
     uid = session["user_id"]
 
+    query = """
+        SELECT d.*, o.order_code, o.recipient_name, o.delivery_address, o.phone,
+               t.truck_code, t.plate_number
+        FROM deliveries d
+        JOIN orders o ON d.order_id = o.id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+    """
     if session.get("role") == "admin":
-        deliveries = conn.execute(
-            """
-            SELECT d.*, o.order_code, o.recipient_name, o.delivery_address, o.phone,
-                   t.truck_code, t.plate_number
-            FROM deliveries d
-            JOIN orders o ON d.order_id = o.id
-            LEFT JOIN trucks t ON d.truck_id = t.id
-            ORDER BY d.id DESC
-            """
-        ).fetchall()
+        deliveries = conn.execute(query + " ORDER BY d.id DESC").fetchall()
     else:
-        deliveries = conn.execute(
-            """
-            SELECT d.*, o.order_code, o.recipient_name, o.delivery_address, o.phone,
-                   t.truck_code, t.plate_number
-            FROM deliveries d
-            JOIN orders o ON d.order_id = o.id
-            LEFT JOIN trucks t ON d.truck_id = t.id
-            WHERE d.driver_id = ?
-            ORDER BY d.id DESC
-            """,
-            (uid,),
-        ).fetchall()
+        deliveries = conn.execute(query + " WHERE d.driver_id = ? ORDER BY d.id DESC", (uid,)).fetchall()
 
     delivered_count = sum(1 for d in deliveries if d["delivery_status"] == "delivered")
+    total_count = len(deliveries)
+
+    # Find the current / next active delivery
+    active_delivery = next(
+        (d for d in deliveries if d["delivery_status"] in ("en_route", "assigned", "loading")),
+        deliveries[0] if deliveries else None,
+    )
     conn.close()
+
     return render_template(
         "driver/schedule.html",
         deliveries=deliveries,
         delivered_count=delivered_count,
-        total_count=len(deliveries),
+        total_count=total_count,
+        active_delivery=active_delivery,
     )
 
 
@@ -810,7 +1294,7 @@ def driver_delivery_task(delivery_id):
     if request.method == "POST":
         action = request.form.get("action")
         if action == "update_status":
-            new_status = request.form.get("delivery_status")
+            new_status = request.form.get("delivery_status", "en_route")
             conn.execute("UPDATE deliveries SET delivery_status = ? WHERE id = ?", (new_status, delivery_id))
             if new_status == "en_route":
                 conn.execute(
@@ -818,12 +1302,16 @@ def driver_delivery_task(delivery_id):
                     (delivery_id,),
                 )
             conn.commit()
-            flash(f"Delivery status updated to '{new_status}'.", "success")
+            flash(f"Delivery status updated to '{new_status.replace('_', ' ').title()}'.", "success")
 
         elif action == "confirm_delivered":
             recipient = request.form.get("recipient_received_by", "").strip()
             role = request.form.get("recipient_role", "").strip()
             notes = request.form.get("delivery_notes", "").strip()
+            qty_recv = request.form.get("quantity_received", "").strip()
+            completion_time = request.form.get("completion_time", "").strip() or datetime.now().strftime("%I:%M %p")
+            ack = 1 if request.form.get("recipient_acknowledged") else 1
+
             conn.execute(
                 """
                 UPDATE deliveries
@@ -831,10 +1319,13 @@ def driver_delivery_task(delivery_id):
                     recipient_received_by=?,
                     recipient_role=?,
                     delivery_notes=?,
+                    quantity_received=?,
+                    completion_time=?,
+                    recipient_acknowledged=?,
                     delivered_at=datetime('now', 'localtime')
                 WHERE id=?
                 """,
-                (recipient, role, notes, delivery_id),
+                (recipient, role, notes, qty_recv, completion_time, ack, delivery_id),
             )
             conn.execute(
                 "UPDATE orders SET order_status = 'delivered' WHERE id = (SELECT order_id FROM deliveries WHERE id = ?)",
@@ -848,8 +1339,8 @@ def driver_delivery_task(delivery_id):
 
     delivery = conn.execute(
         """
-        SELECT d.*, o.order_code, o.recipient_name, o.delivery_address, o.phone, o.special_instructions,
-               t.truck_code, t.plate_number, u.name AS driver_name
+        SELECT d.*, o.order_code, o.recipient_name, o.delivery_address, o.phone, o.phone AS recipient_phone,
+               o.special_instructions, t.truck_code, t.plate_number, u.name AS driver_name
         FROM deliveries d
         JOIN orders o ON d.order_id = o.id
         LEFT JOIN trucks t ON d.truck_id = t.id
@@ -864,6 +1355,12 @@ def driver_delivery_task(delivery_id):
         flash("Delivery task not found.", "danger")
         return redirect(url_for("main.driver_schedule"))
 
+    # Security check: if driver, must be assigned to this delivery
+    if session.get("role") != "admin" and delivery["driver_id"] != session["user_id"]:
+        conn.close()
+        flash("Unauthorized access to this delivery task.", "danger")
+        return redirect(url_for("main.driver_schedule"))
+
     items = conn.execute(
         """
         SELECT oi.*, p.name, p.unit
@@ -876,38 +1373,3 @@ def driver_delivery_task(delivery_id):
     conn.close()
 
     return render_template("driver/delivery_task.html", delivery=delivery, items=items)
-
-
-@main_bp.route("/api/gps/update", methods=["POST"])
-@login_required()
-def api_gps_update():
-    data = request.get_json(silent=True) or {}
-    delivery_id = data.get("delivery_id")
-    lat = data.get("lat")
-    lng = data.get("lng")
-
-    if not delivery_id or lat is None or lng is None:
-        return jsonify({"ok": False, "error": "Missing coordinates"}), 400
-
-    conn = get_db()
-    conn.execute(
-        "UPDATE deliveries SET current_lat = ?, current_lng = ?, last_gps_update = datetime('now', 'localtime') WHERE id = ?",
-        (float(lat), float(lng), int(delivery_id)),
-    )
-    conn.commit()
-    conn.close()
-    return jsonify({"ok": True, "lat": float(lat), "lng": float(lng)})
-
-
-@main_bp.route("/api/gps/delivery/<int:delivery_id>")
-@login_required()
-def api_gps_get(delivery_id):
-    conn = get_db()
-    row = conn.execute(
-        "SELECT id, delivery_code, delivery_status, current_lat, current_lng, last_gps_update FROM deliveries WHERE id = ?",
-        (delivery_id,),
-    ).fetchone()
-    conn.close()
-    if not row:
-        return jsonify({"ok": False}), 404
-    return jsonify(dict(row))

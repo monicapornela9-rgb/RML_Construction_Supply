@@ -1,115 +1,187 @@
 {% extends "base.html" %}
-{% block title %}Order Tracking #{{ order.order_code }} - RML Construction Supply{% endblock %}
+{% block title %}Order Tracking {{ order.order_code|order_code }} - RML Construction Supply{% endblock %}
 
 {% block content %}
 <div class="mb-3">
-  <a href="{{ url_for('main.customer_orders') }}" class="small text-decoration-none text-muted">&larr; Back to My Orders</a>
+  <a href="{{ url_for('main.customer_orders') }}" class="small text-decoration-none text-muted">
+    &larr; Back to My Orders
+  </a>
 </div>
 
+<!-- Header Success Banner -->
+<div class="text-center my-4">
+  <div class="d-inline-flex align-items-center justify-content-center bg-success text-white rounded-circle mb-3" style="width: 56px; height: 56px;">
+    <i class="bi bi-check-lg fs-2"></i>
+  </div>
+  <h2 class="fw-bold mb-1">Order Placed Successfully!</h2>
+  <p class="text-muted small">Your construction materials are being processed and will be with you soon.</p>
+</div>
+
+<!-- Main Tracking Card -->
 <div class="card border-0 shadow-sm p-4 mb-4">
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 pb-3 border-bottom">
     <div>
-      <h4 class="fw-bold mb-1">Order Tracking: #{{ order.order_code }}</h4>
-      <div class="text-muted small">Placed on {{ order.created_at }}</div>
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-truck fs-4 text-rml"></i>
+        <h4 class="fw-bold mb-0">Order Tracking: {{ order.order_code|order_code }}</h4>
+      </div>
+      <div class="text-muted small mt-1">Placed on {{ order.created_at }}</div>
     </div>
-    <span class="badge fs-6 {% if order.order_status == 'rejected' %}text-bg-danger{% elif order.order_status == 'completed' %}text-bg-success{% else %}text-bg-warning{% endif %}">
-      {{ order.order_status|title }}
-    </span>
+    <div class="d-flex gap-2 align-items-center">
+      <span class="badge fs-6 {% if order.order_status in ('approved', 'in_transit', 'delivered') %}badge-instock{% elif order.order_status == 'rejected' %}badge-danger{% else %}badge-check{% endif %}">
+        {{ order.order_status|title }}
+      </span>
+      <a href="{{ url_for('main.order_invoice', order_id=order.id) }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-download me-1"></i> Download Invoice
+      </a>
+    </div>
   </div>
 
+  <!-- Stepper (Confirmed -> Preparing -> In Transit -> Delivered) -->
   <div class="row text-center g-2 my-3">
     <div class="col-3">
-      <div class="p-2 rounded bg-light border">
-        <div class="fw-semibold small">1. Placed</div>
-        <div class="text-success small">Done</div>
+      <div class="p-3 rounded bg-light border {% if order.order_status in ('approved', 'preparing', 'in_transit', 'delivered') %}border-success{% endif %}">
+        <div class="step-circle {% if order.order_status != 'rejected' %}bg-success text-white{% endif %} mx-auto mb-2">
+          <i class="bi bi-check-lg"></i>
+        </div>
+        <div class="fw-bold small">Confirmed</div>
+        <div class="text-success small">Approved</div>
       </div>
     </div>
+
     <div class="col-3">
-      <div class="p-2 rounded bg-light border">
-        <div class="fw-semibold small">2. Approved</div>
-        <div class="small {% if order.order_status in ['approved', 'dispatched', 'completed'] %}text-success{% else %}text-muted{% endif %}">
-          {% if order.order_status in ['approved', 'dispatched', 'completed'] %}Confirmed{% else %}Pending{% endif %}
+      <div class="p-3 rounded bg-light border {% if order.order_status in ('preparing', 'in_transit', 'delivered') %}border-success{% endif %}">
+        <div class="step-circle {% if order.order_status in ('preparing', 'in_transit', 'delivered') %}bg-success text-white{% else %}bg-secondary text-white{% endif %} mx-auto mb-2">
+          {% if order.order_status in ('preparing', 'in_transit', 'delivered') %}<i class="bi bi-check-lg"></i>{% else %}2{% endif %}
+        </div>
+        <div class="fw-bold small">Preparing</div>
+        <div class="small {% if order.order_status in ('preparing', 'in_transit', 'delivered') %}text-success{% else %}text-muted{% endif %}">
+          {% if order.order_status in ('preparing', 'in_transit', 'delivered') %}Ready for dispatch{% else %}Pending{% endif %}
         </div>
       </div>
     </div>
+
     <div class="col-3">
-      <div class="p-2 rounded bg-light border">
-        <div class="fw-semibold small">3. In Transit</div>
-        <div class="small {% if delivery and delivery.delivery_status in ['en_route', 'delivered'] %}text-success{% else %}text-muted{% endif %}">
-          {{ delivery.delivery_status|replace('_', ' ')|title if delivery else 'Waiting' }}
+      <div class="p-3 rounded bg-light border {% if order.order_status in ('in_transit', 'delivered') %}border-success{% endif %}">
+        <div class="step-circle {% if order.order_status == 'delivered' %}bg-success text-white{% elif order.order_status == 'in_transit' %}bg-warning text-dark{% else %}bg-secondary text-white{% endif %} mx-auto mb-2">
+          {% if order.order_status == 'delivered' %}<i class="bi bi-check-lg"></i>{% else %}3{% endif %}
+        </div>
+        <div class="fw-bold small">In Transit</div>
+        <div class="small {% if order.order_status in ('in_transit', 'delivered') %}text-success{% else %}text-muted{% endif %}">
+          {{ delivery.delivery_status|replace('_', ' ')|title if delivery else 'Pending assignment' }}
         </div>
       </div>
     </div>
+
     <div class="col-3">
-      <div class="p-2 rounded bg-light border">
-        <div class="fw-semibold small">4. Delivered</div>
-        <div class="small {% if delivery and delivery.delivery_status == 'delivered' %}text-success{% else %}text-muted{% endif %}">
-          {% if delivery and delivery.delivery_status == 'delivered' %}Completed{% else %}Pending{% endif %}
+      <div class="p-3 rounded bg-light border {% if order.order_status == 'delivered' %}border-success{% endif %}">
+        <div class="step-circle {% if order.order_status == 'delivered' %}bg-success text-white{% else %}bg-secondary text-white{% endif %} mx-auto mb-2">
+          {% if order.order_status == 'delivered' %}<i class="bi bi-check-lg"></i>{% else %}4{% endif %}
+        </div>
+        <div class="fw-bold small">Delivered</div>
+        <div class="small {% if order.order_status == 'delivered' %}text-success{% else %}text-muted{% endif %}">
+          {% if order.order_status == 'delivered' %}Completed{% else %}Pending Arrival{% endif %}
         </div>
       </div>
     </div>
   </div>
 
   <div class="row g-4 mt-2">
+    <!-- Delivery Information -->
     <div class="col-md-6">
-      <div class="bg-light rounded p-3 h-100">
-        <h6 class="fw-bold mb-3"><i class="bi bi-truck me-2"></i>Delivery Information</h6>
-        <div class="small text-muted">PREFERRED SCHEDULE</div>
-        <div class="fw-semibold mb-2">{{ order.preferred_date or 'TBD' }} &middot; {{ order.delivery_slot }}</div>
-        <div class="small text-muted">DRIVER &amp; TRUCK</div>
-        {% if delivery %}
-          <div class="fw-semibold mb-2">{{ delivery.driver_name }} &middot; Plate: {{ delivery.plate_number }}</div>
+      <div class="bg-light rounded p-4 h-100 border">
+        <h6 class="fw-bold mb-3"><i class="bi bi-truck text-rml me-2"></i>Delivery Information</h6>
+        <div class="small text-muted fw-semibold">ESTIMATED DELIVERY</div>
+        <div class="fw-semibold mb-3">{{ order.preferred_date or 'Scheduled date' }} &middot; {{ order.delivery_slot }}</div>
+
+        <div class="small text-muted fw-semibold">DRIVER DETAILS</div>
+        {% if delivery and delivery.driver_name %}
+          <div class="d-flex align-items-center gap-2 mb-3 mt-1">
+            <div class="bg-dark text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+              <i class="bi bi-person"></i>
+            </div>
+            <div>
+              <div class="fw-bold">{{ delivery.driver_name }}</div>
+              <div class="small text-muted">{{ delivery.driver_phone or 'Direct dispatch' }} &middot; Plate: {{ delivery.plate_number }} ({{ delivery.truck_code }})</div>
+            </div>
+          </div>
         {% else %}
-          <div class="text-muted mb-2">Waiting for dispatch assignment</div>
+          <div class="text-muted small mb-3">Awaiting truck and driver assignment from Lipa operations.</div>
         {% endif %}
-        <div class="small text-muted">SHIPPING ADDRESS</div>
-        <div class="fw-semibold">{{ order.delivery_address }}</div>
+
+        <div class="small text-muted fw-semibold">SHIPPING ADDRESS</div>
+        <div class="fw-semibold mb-2">{{ order.delivery_address }}</div>
+
+        {% if order.special_instructions %}
+        <div class="small text-muted fw-semibold">SITE INSTRUCTIONS</div>
+        <div class="small text-muted">{{ order.special_instructions }}</div>
+        {% endif %}
       </div>
     </div>
 
+    <!-- Order Summary -->
     <div class="col-md-6">
-      <h6 class="fw-bold mb-3">Order Summary</h6>
-      {% for item in items %}
-      <div class="d-flex justify-content-between small mb-2">
-        <span>{{ item.quantity }} {{ item.unit }} {{ item.name }}</span>
-        <span class="fw-semibold">&#8369;{{ "{:,.2f}".format(item.subtotal) }}</span>
+      <div class="p-4 border rounded h-100">
+        <h6 class="fw-bold mb-3">Order Summary</h6>
+        {% for item in items %}
+        <div class="d-flex justify-content-between small mb-2">
+          <span>{{ item.quantity }} {{ item.unit }} {{ item.name }}</span>
+          <span class="fw-semibold">&#8369;{{ "{:,.2f}".format(item.subtotal) }}</span>
+        </div>
+        {% endfor %}
+        <hr>
+        <div class="d-flex justify-content-between small text-muted mb-1">
+          <span>Subtotal</span>
+          <span>&#8369;{{ "{:,.2f}".format(order.subtotal) }}</span>
+        </div>
+        <div class="d-flex justify-content-between small text-muted mb-2">
+          <span>Delivery &amp; Tax</span>
+          <span>&#8369;{{ "{:,.2f}".format(order.delivery_fee + order.vat_amount) }}</span>
+        </div>
+        <div class="d-flex justify-content-between fw-bold fs-5 pt-2 border-top">
+          <span>Total Amount</span>
+          <span class="text-rml">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</span>
+        </div>
+        {% if payment %}
+        <div class="small text-muted mt-2">
+          Payment Method: <span class="badge text-bg-light border text-uppercase">{{ payment.method }}</span>
+          <span class="badge {% if payment.payment_status == 'verified' %}badge-instock{% else %}badge-check{% endif %}">{{ payment.payment_status|title }}</span>
+        </div>
+        {% endif %}
       </div>
-      {% endfor %}
-      <hr>
-      <div class="d-flex justify-content-between small text-muted">
-        <span>Subtotal</span>
-        <span>&#8369;{{ "{:,.2f}".format(order.subtotal) }}</span>
-      </div>
-      <div class="d-flex justify-content-between small text-muted">
-        <span>Delivery &amp; Tax</span>
-        <span>&#8369;{{ "{:,.2f}".format(order.delivery_fee + order.vat_amount) }}</span>
-      </div>
-      <div class="d-flex justify-content-between fw-bold fs-5 mt-2">
-        <span>Total Amount</span>
-        <span>&#8369;{{ "{:,.2f}".format(order.total_amount) }}</span>
-      </div>
-      {% if payment %}
-      <div class="small text-muted mt-1">Payment Method: {{ payment.method|upper }} ({{ payment.payment_status|title }})</div>
-      {% endif %}
     </div>
   </div>
 </div>
 
-{% if delivery %}
-<div class="card border-0 shadow-sm p-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="fw-bold mb-0"><i class="bi bi-geo-alt text-rml me-2"></i>Real-Time GPS Tracking</h5>
-    <span class="badge text-bg-light border">Auto-refreshing every 8s</span>
+<!-- Real-Time GPS Tracking Map -->
+<div class="card border-0 shadow-sm p-4 mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h5 class="fw-bold mb-0"><i class="bi bi-geo-alt-fill text-rml me-2"></i>Real-Time GPS Tracking</h5>
+      <div class="small text-muted">Tracking Lipa City delivery truck live location</div>
+    </div>
+    <span class="badge text-bg-light border">Auto-refreshing every 5s</span>
   </div>
+
   <div id="trackingMap" class="gps-map"></div>
+
+  <div class="d-flex justify-content-between mt-3 flex-wrap gap-2">
+    <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-outline-secondary btn-sm">
+      Back to Catalog
+    </a>
+    <button type="button" class="btn btn-rml btn-sm" onclick="location.reload();">
+      <i class="bi bi-arrow-clockwise me-1"></i> Refresh Location
+    </button>
+  </div>
 </div>
-{% endif %}
 {% endblock %}
 
 {% block scripts %}
-{% if delivery %}
 <script>
-  initTrackingMap("trackingMap", {{ order.id }}, {{ delivery.current_lat }}, {{ delivery.current_lng }});
+  document.addEventListener("DOMContentLoaded", function () {
+    const lat = {{ delivery.current_lat if delivery and delivery.current_lat else 13.9411 }};
+    const lng = {{ delivery.current_lng if delivery and delivery.current_lng else 121.1631 }};
+    initTrackingMap("trackingMap", {{ order.id }}, lat, lng);
+  });
 </script>
-{% endif %}
 {% endblock %}

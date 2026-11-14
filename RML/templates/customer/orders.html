@@ -2,55 +2,81 @@
 {% block title %}My Orders - RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
   <div>
     <h2 class="fw-bold mb-1">My Orders</h2>
-    <p class="text-muted mb-0">Track order approval, payment verification, and live truck delivery.</p>
+    <p class="text-muted small mb-0">Track order approval, payment verification, and live truck delivery across Batangas.</p>
   </div>
-  <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-rml">New Order</a>
+  <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-rml">
+    <i class="bi bi-plus-lg me-1"></i> New Order
+  </a>
 </div>
 
-<div class="card border-0 shadow-sm">
+<div class="card border-0 shadow-sm overflow-hidden">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
           <th>Order</th>
-          <th>Date</th>
-          <th>Total</th>
+          <th>Date Placed</th>
+          <th>Total Amount</th>
           <th>Payment</th>
           <th>Order Status</th>
-          <th>Delivery</th>
-          <th></th>
+          <th>Delivery Status</th>
+          <th class="text-end">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for o in orders %}
         <tr>
-          <td class="fw-semibold">#{{ o.order_code }}</td>
+          <td class="fw-bold">{{ o.order_code|order_code }}</td>
           <td class="small text-muted">{{ o.created_at }}</td>
-          <td class="fw-semibold">&#8369;{{ "{:,.2f}".format(o.total_amount) }}</td>
+          <td class="fw-bold">&#8369;{{ "{:,.2f}".format(o.total_amount) }}</td>
           <td>
             {% if o.payment_method %}
               <span class="badge text-bg-light border text-uppercase">{{ o.payment_method }}</span>
-              <span class="small text-muted">{{ o.payment_status }}</span>
+              <span class="badge {% if o.payment_status == 'verified' %}badge-instock{% else %}badge-check{% endif %}">
+                {{ o.payment_status|title }}
+              </span>
             {% else %}
-              <a href="{{ url_for('main.customer_payment', order_id=o.id) }}" class="small text-rml">Pay now</a>
+              <a href="{{ url_for('main.customer_payment', order_id=o.id, step=1) }}" class="btn btn-sm btn-outline-rml py-0">Pay now</a>
             {% endif %}
           </td>
           <td>
-            <span class="badge {% if o.order_status in ['approved', 'dispatched', 'completed'] %}text-bg-success{% elif o.order_status == 'rejected' %}text-bg-danger{% else %}text-bg-warning{% endif %}">
+            <span class="badge {% if o.order_status in ('approved', 'in_transit', 'delivered') %}badge-instock{% elif o.order_status == 'rejected' %}badge-danger{% else %}badge-check{% endif %}">
               {{ o.order_status|title }}
             </span>
+            {% if o.rejection_reason %}
+              <div class="small text-danger mt-1">{{ o.rejection_reason }}</div>
+            {% endif %}
           </td>
-          <td>{{ o.delivery_status|replace('_', ' ')|title if o.delivery_status else 'Pending dispatch' }}</td>
+          <td>
+            {% if o.delivery_status %}
+              <span class="badge {% if o.delivery_status == 'delivered' %}badge-instock{% elif o.delivery_status == 'en_route' %}badge-check{% else %}badge-transit{% endif %}">
+                {{ o.delivery_status|replace('_', ' ')|title }}
+              </span>
+            {% else %}
+              <span class="small text-muted">Awaiting dispatch</span>
+            {% endif %}
+          </td>
           <td class="text-end">
-            <a href="{{ url_for('main.customer_order_tracking', order_id=o.id) }}" class="btn btn-outline-secondary btn-sm">Track Order</a>
+            <div class="btn-group btn-group-sm">
+              <a href="{{ url_for('main.customer_order_tracking', order_id=o.id) }}" class="btn btn-outline-dark" title="Live Tracking">
+                <i class="bi bi-geo-alt me-1"></i> Track
+              </a>
+              <a href="{{ url_for('main.order_invoice', order_id=o.id) }}" class="btn btn-outline-secondary" title="View Printable Invoice">
+                <i class="bi bi-receipt"></i> Invoice
+              </a>
+            </div>
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="7" class="text-center py-4 text-muted">No orders placed yet.</td>
+          <td colspan="7" class="text-center py-5 text-muted">
+            <i class="bi bi-bag-x fs-1 d-block mb-2"></i>
+            <h6>No orders placed yet.</h6>
+            <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-rml btn-sm mt-2">Browse Materials Catalog</a>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

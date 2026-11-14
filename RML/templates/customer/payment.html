@@ -1,67 +1,532 @@
 {% extends "base.html" %}
-{% block title %}Payment Method - RML Construction Supply{% endblock %}
+{% block title %}Payment - RML Construction Supply{% endblock %}
 
 {% block content %}
 <div class="mb-3">
   <div class="text-muted small">Customer Portal / Checkout / Payments</div>
-  <h2 class="fw-bold">Payment Method</h2>
-  <p class="text-muted">Choose one payment method to continue.</p>
+  <h2 class="fw-bold mb-1">
+    {% if step == 1 %}Payment Method
+    {% elif step == 2 %}{% if method == 'cash' %}Cash Payment details{% else %}Online Payment via QR Code{% endif %}
+    {% elif step == 3 %}Payment confirmation
+    {% elif step == 4 %}Payment confirmation complete
+    {% endif %}
+  </h2>
+  <p class="text-muted small">
+    {% if step == 1 %}Choose one payment method to continue. Payment fields appear after you choose.
+    {% elif step == 2 %}Confirm details and prepare your payment for verification.
+    {% elif step == 3 %}Review the complete receipt and verify the information before confirming.
+    {% elif step == 4 %}Your payment details have been confirmed. Review the next steps below.
+    {% endif %}
+  </p>
 </div>
 
+<!-- Order Summary Header Card -->
 <div class="card border-0 shadow-sm p-3 mb-4">
   <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
-      <div class="small text-muted">ORDER #{{ order.order_code }}</div>
+      <div class="small text-muted fw-bold">ORDER {{ order.order_code|order_code }}</div>
       <div class="fw-semibold">
         {% for item in items %}
           {{ item.quantity }} {{ item.unit }} {{ item.name }}{% if not loop.last %} + {% endif %}
         {% endfor %}
       </div>
-      <div class="small text-muted">Includes delivery and estimated VAT</div>
+      <div class="small text-muted">Includes delivery fee (&#8369;{{ "{:,.2f}".format(order.delivery_fee) }}) and 12% VAT</div>
     </div>
     <div class="text-end">
       <div class="small text-muted">Total to pay</div>
-      <div class="fw-bold fs-3">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</div>
+      <div class="fw-bold fs-3 text-rml">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</div>
     </div>
   </div>
+</div>
+
+<!-- Step Progress Indicator -->
+<div class="card border-0 shadow-sm p-3 mb-4">
+  <div class="d-flex justify-content-around text-center small">
+    <div class="{% if step >= 1 %}fw-bold text-dark{% else %}text-muted{% endif %}">
+      <span class="badge {% if step == 1 %}bg-dark{% elif step > 1 %}bg-success{% else %}bg-secondary{% endif %} rounded-pill me-1">1</span>
+      Choose payment method
+    </div>
+    <div class="text-muted">&rarr;</div>
+    <div class="{% if step >= 2 %}fw-bold text-dark{% else %}text-muted{% endif %}">
+      <span class="badge {% if step == 2 %}bg-dark{% elif step > 2 %}bg-success{% else %}bg-secondary{% endif %} rounded-pill me-1">2</span>
+      Enter payment details
+    </div>
+    <div class="text-muted">&rarr;</div>
+    <div class="{% if step >= 3 %}fw-bold text-dark{% else %}text-muted{% endif %}">
+      <span class="badge {% if step == 3 %}bg-dark{% elif step > 3 %}bg-success{% else %}bg-secondary{% endif %} rounded-pill me-1">3</span>
+      Review &amp; confirm
+    </div>
+  </div>
+</div>
+
+<!-- STEP 1: METHOD SELECTION -->
+{% if step == 1 %}
+<h4 class="fw-bold mb-3">What is your preferred payment method?</h4>
+<div class="row g-4">
+  <!-- Option 01: Cash -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm p-4 h-100 d-flex flex-column">
+      <div class="text-muted small fw-semibold mb-1">OPTION 01</div>
+      <h4 class="fw-bold mb-2">Cash Payment</h4>
+      <div class="fw-semibold small mb-2 text-dark">Pay on delivery</div>
+      <p class="text-muted small mb-4">
+        Prepare the exact amount and pay the authorized RML collector when your materials arrive at your site.
+        No online transfer or receipt upload required.
+      </p>
+      <div class="mt-auto">
+        <form method="POST" action="{{ url_for('main.customer_payment', order_id=order.id) }}">
+          <input type="hidden" name="action" value="to_details">
+          <input type="hidden" name="method" value="cash">
+          <button type="submit" class="btn btn-rml w-100 py-2 fw-semibold">Choose</button>
+        </form>
+        <div class="small text-muted text-center mt-2">Next: payment details &rarr; review receipt &rarr; confirmation</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option 02: QR -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm p-4 h-100 d-flex flex-column">
+      <div class="text-muted small fw-semibold mb-1">OPTION 02</div>
+      <h4 class="fw-bold mb-2">Online Payment via QR Code</h4>
+      <div class="fw-semibold small mb-2 text-dark">Pay with your bank or e-wallet</div>
+      <p class="text-muted small mb-4">
+        Scan the merchant QR (GCash, Maya, InstaPay) after choosing this option. Enter your transaction details and attach a receipt for review.
+      </p>
+      <div class="mt-auto">
+        <form method="POST" action="{{ url_for('main.customer_payment', order_id=order.id) }}">
+          <input type="hidden" name="action" value="to_details">
+          <input type="hidden" name="method" value="qr">
+          <button type="submit" class="btn btn-rml w-100 py-2 fw-semibold">Choose</button>
+        </form>
+        <div class="small text-muted text-center mt-2">Next: payment details &rarr; review receipt &rarr; confirmation</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between mt-4">
+  <a href="{{ url_for('main.customer_checkout') }}" class="small text-muted text-decoration-none">&larr; Back to Checkout</a>
+  <a href="{{ url_for('main.customer_payment_history') }}" class="small text-rml text-decoration-none fw-semibold">View Payment History &rarr;</a>
+</div>
+
+<!-- STEP 2: ENTER PAYMENT DETAILS -->
+{% elif step == 2 %}
+<div class="alert alert-light border small d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <strong>Selected method:</strong>
+    {% if method == 'cash' %}Cash Payment &middot; Pay on delivery{% else %}Online Payment &middot; QR Code{% endif %}
+  </div>
+  <a href="{{ url_for('main.customer_payment', order_id=order.id, step=1) }}" class="text-rml small text-decoration-none">&larr; Change payment method</a>
 </div>
 
 <div class="row g-4">
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm p-4 h-100">
-      <div class="text-muted small mb-1">OPTION 01</div>
-      <h4 class="fw-bold mb-2">Cash Payment</h4>
-      <p class="fw-semibold small mb-1">Pay on delivery</p>
-      <p class="text-muted small mb-4">Prepare the exact amount and pay the authorized RML collector when your materials arrive. No online transfer required.</p>
-      <form method="POST" action="{{ url_for('main.customer_payment', order_id=order.id) }}" class="mt-auto">
-        <input type="hidden" name="method" value="cash">
-        <button type="submit" class="btn btn-rml w-100 py-2">Confirm Cash on Delivery</button>
-      </form>
+  <div class="col-lg-8">
+    {% if method == 'cash' %}
+      <!-- Cash Details Form -->
+      <div class="card border-0 shadow-sm p-4 mb-4">
+        <h5 class="fw-bold mb-1">1. Enter cash payment details</h5>
+        <p class="text-muted small mb-4">Fields marked * are required. Order information is carried over from checkout.</p>
+
+        <form method="POST" action="{{ url_for('main.customer_payment', order_id=order.id) }}" id="detailsForm">
+          <input type="hidden" name="action" value="review_receipt">
+          <input type="hidden" name="method" value="cash">
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Payer / recipient name *</label>
+              <input type="text" name="payer_name" class="form-control" value="{{ draft.payer_name or order.recipient_name }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Mobile number *</label>
+              <input type="text" name="mobile_number" class="form-control" value="{{ draft.mobile_number or order.phone }}" required>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Order reference</label>
+              <input type="text" class="form-control bg-light" value="{{ order.order_code|order_code }}" readonly>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Amount due (PHP)</label>
+              <input type="text" class="form-control bg-light fw-bold" value="&#8369;{{ '{:,.2f}'.format(order.total_amount) }}" readonly>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Collection method</label>
+            <input type="text" class="form-control bg-light" value="Cash on delivery &middot; Authorized RML collector" readonly>
+          </div>
+
+          <div class="mb-3 p-3 bg-light rounded border small">
+            <div class="text-muted fw-semibold">DELIVERY ADDRESS</div>
+            <div>{{ order.delivery_address }}</div>
+            <div class="text-muted mt-1">Delivery slot: {{ order.delivery_slot }} &middot; {{ order.preferred_date or 'Scheduled' }}</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Collection instructions (optional)</label>
+            <input type="text" name="receipt_note" class="form-control" value="{{ draft.receipt_note or '' }}" placeholder="e.g. Please call 15 minutes before arrival for cash preparation">
+          </div>
+        </form>
+      </div>
+
+      <div class="card border-0 shadow-sm p-4 mb-4">
+        <h5 class="fw-bold mb-3">2. Prepare for collection</h5>
+        <div class="small mb-2"><strong>01</strong> &middot; Prepare <strong>&#8369;{{ "{:,.2f}".format(order.total_amount) }}</strong> in cash before your materials arrive.</div>
+        <div class="small mb-2"><strong>02</strong> &middot; Verify the authorized collector and your order {{ order.order_code|order_code }} before handing over payment.</div>
+        <div class="small"><strong>03</strong> &middot; Pay on delivery and request an official receipt. Keep the receipt for your records.</div>
+      </div>
+
+    {% else %}
+      <!-- QR Details Form -->
+      <div class="card border-0 shadow-sm p-4 mb-4">
+        <h5 class="fw-bold mb-1">1. Scan the QR and complete payment</h5>
+        <p class="text-muted small mb-3">Use your bank or e-wallet app to scan. You can also save the QR code.</p>
+
+        <div class="bg-light border rounded p-4 text-center mb-3">
+          <!-- Stylized QR Display -->
+          <div class="d-inline-block p-3 bg-white rounded border shadow-sm mb-3">
+            <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="180" height="180" fill="white"/>
+              <!-- QR Patterns -->
+              <rect x="15" y="15" width="45" height="45" stroke="#121C2B" stroke-width="6"/>
+              <rect x="27" y="27" width="21" height="21" fill="#121C2B"/>
+              <rect x="120" y="15" width="45" height="45" stroke="#121C2B" stroke-width="6"/>
+              <rect x="132" y="27" width="21" height="21" fill="#121C2B"/>
+              <rect x="15" y="120" width="45" height="45" stroke="#121C2B" stroke-width="6"/>
+              <rect x="27" y="132" width="21" height="21" fill="#121C2B"/>
+              <!-- Data dots -->
+              <rect x="75" y="20" width="10" height="10" fill="#C83126"/>
+              <rect x="95" y="20" width="10" height="10" fill="#121C2B"/>
+              <rect x="75" y="45" width="10" height="10" fill="#121C2B"/>
+              <rect x="95" y="45" width="10" height="10" fill="#C83126"/>
+              <rect x="75" y="75" width="30" height="30" fill="#121C2B"/>
+              <rect x="20" y="75" width="10" height="10" fill="#121C2B"/>
+              <rect x="40" y="85" width="10" height="10" fill="#121C2B"/>
+              <rect x="125" y="75" width="15" height="15" fill="#121C2B"/>
+              <rect x="150" y="85" width="15" height="15" fill="#C83126"/>
+              <rect x="75" y="125" width="15" height="15" fill="#121C2B"/>
+              <rect x="100" y="135" width="15" height="15" fill="#121C2B"/>
+              <rect x="125" y="125" width="35" height="35" fill="#121C2B"/>
+            </svg>
+          </div>
+          <div class="fw-bold fs-5">RML Construction Supply</div>
+          <div class="text-muted small">Merchant Account &middot; Lipa City Branch</div>
+          <div class="fw-bold fs-4 text-rml my-1">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</div>
+          <div class="text-muted small">Order reference: <code>{{ order.order_code|order_code }}</code></div>
+        </div>
+
+        <div class="alert alert-warning small mb-3">
+          <strong>Demo QR only:</strong> In production, scan using GCash, Maya, BDO, or any InstaPay app. Save your transaction receipt and reference number.
+        </div>
+
+        <div class="small mb-2"><strong>01</strong> &middot; Verify the merchant name and enter exactly &#8369;{{ "{:,.2f}".format(order.total_amount) }}.</div>
+        <div class="small mb-2"><strong>02</strong> &middot; Complete payment in your app. Never share your PIN or OTP.</div>
+        <div class="small mb-0"><strong>03</strong> &middot; Save the successful transaction reference number, then complete the form below.</div>
+      </div>
+
+      <div class="card border-0 shadow-sm p-4 mb-4">
+        <h5 class="fw-bold mb-1">2. Enter payment details</h5>
+        <p class="text-muted small mb-4">Enter the details from your bank or e-wallet transfer receipt.</p>
+
+        <form method="POST" action="{{ url_for('main.customer_payment', order_id=order.id) }}" id="detailsForm">
+          <input type="hidden" name="action" value="review_receipt">
+          <input type="hidden" name="method" value="qr">
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Account holder / payer name *</label>
+              <input type="text" name="payer_name" class="form-control" value="{{ draft.payer_name or order.recipient_name }}" required placeholder="e.g. John Doe">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Bank / e-wallet used *</label>
+              <select name="bank_used" class="form-select" required>
+                <option value="GCash" {% if draft.bank_used == 'GCash' %}selected{% endif %}>GCash</option>
+                <option value="Maya" {% if draft.bank_used == 'Maya' %}selected{% endif %}>Maya</option>
+                <option value="BDO Online" {% if draft.bank_used == 'BDO Online' %}selected{% endif %}>BDO Online</option>
+                <option value="BPI" {% if draft.bank_used == 'BPI' %}selected{% endif %}>BPI</option>
+                <option value="UnionBank" {% if draft.bank_used == 'UnionBank' %}selected{% endif %}>UnionBank</option>
+                <option value="InstaPay" {% if draft.bank_used == 'InstaPay' %}selected{% endif %}>InstaPay Transfer</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Transaction reference number *</label>
+            <input type="text" name="reference_number" class="form-control" value="{{ draft.reference_number or '' }}" required placeholder="e.g. GCASH-98234102 or REF-88120">
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Amount paid (PHP) *</label>
+              <input type="number" step="0.01" name="amount" class="form-control" value="{{ order.total_amount }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Payment date &amp; time</label>
+              <input type="text" name="payment_datetime" class="form-control bg-light" value="{{ draft.payment_datetime or 'Now' }}" readonly>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Proof of payment (Receipt file or reference note)</label>
+            <div class="p-3 bg-light rounded border text-center">
+              <i class="bi bi-file-earmark-check fs-2 text-success"></i>
+              <div class="small fw-semibold mt-1">Receipt reference: {{ order.order_code|order_code }}-payment.png</div>
+              <div class="text-muted small">JPG, PNG, or PDF &middot; Up to 5MB</div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Payment notes (optional)</label>
+            <input type="text" name="receipt_note" class="form-control" value="{{ draft.receipt_note or '' }}" placeholder="Sender phone number or transaction remarks">
+          </div>
+        </form>
+      </div>
+    {% endif %}
+
+    <div class="card border-0 shadow-sm p-4">
+      <p class="text-muted small mb-3">Review your payment details before confirming your order.</p>
+      <button type="submit" form="detailsForm" class="btn btn-rml py-2 fw-semibold w-100">
+        Review payment receipt &rarr;
+      </button>
     </div>
   </div>
 
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm p-4 h-100">
-      <div class="text-muted small mb-1">OPTION 02</div>
-      <h4 class="fw-bold mb-2">Online Payment via QR Code</h4>
-      <p class="fw-semibold small mb-1">Pay with your bank or e-wallet</p>
-      <p class="text-muted small mb-3">Scan the RML merchant QR (GCash / Maya / InstaPay) and enter your transaction reference number below.</p>
-      <div class="bg-light border rounded p-3 text-center mb-3">
-        <i class="bi bi-qr-code fs-1"></i>
-        <div class="small fw-semibold mt-1">RML Construction Supply QR</div>
-        <div class="small text-muted">Amount: &#8369;{{ "{:,.2f}".format(order.total_amount) }}</div>
+  <!-- Sidebar Summary -->
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm p-4 mb-3">
+      <h5 class="fw-bold mb-3">Order summary</h5>
+      <div class="small text-muted mb-2">ORDER {{ order.order_code|order_code }}</div>
+      {% for item in items %}
+      <div class="d-flex justify-content-between small mb-1">
+        <span>{{ item.quantity }} {{ item.unit }} {{ item.name }}</span>
+        <span class="fw-semibold">&#8369;{{ "{:,.2f}".format(item.subtotal) }}</span>
       </div>
-      <form method="POST" action="{{ url_for('main.customer_payment', order_id=order.id) }}">
-        <input type="hidden" name="method" value="qr">
-        <div class="mb-2">
-          <input type="text" name="reference_no" class="form-control form-control-sm" required placeholder="Reference Number (e.g. GCASH-981234)">
-        </div>
-        <div class="mb-3">
-          <input type="text" name="receipt_note" class="form-control form-control-sm" placeholder="Sender name or receipt note (optional)">
-        </div>
-        <button type="submit" class="btn btn-rml w-100 py-2">Submit QR Payment Reference</button>
-      </form>
+      {% endfor %}
+      <hr>
+      <div class="d-flex justify-content-between small text-muted mb-1">
+        <span>Subtotal</span>
+        <span>&#8369;{{ "{:,.2f}".format(order.subtotal) }}</span>
+      </div>
+      <div class="d-flex justify-content-between small text-muted mb-1">
+        <span>Delivery fee</span>
+        <span>&#8369;{{ "{:,.2f}".format(order.delivery_fee) }}</span>
+      </div>
+      <div class="d-flex justify-content-between small text-muted mb-2">
+        <span>Estimated VAT (12%)</span>
+        <span>&#8369;{{ "{:,.2f}".format(order.vat_amount) }}</span>
+      </div>
+      <div class="d-flex justify-content-between fw-bold fs-5 pt-2 border-top">
+        <span>Total to pay</span>
+        <span class="text-rml">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</span>
+      </div>
+      <div class="badge badge-pending mt-2 py-2 text-center d-block">
+        Payment status: Unpaid (Awaiting Confirmation)
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm p-3 small">
+      <div class="fw-semibold mb-1">Need help with payment?</div>
+      <p class="text-muted mb-2">Check your payment history or contact RML dispatch support.</p>
+      <a href="{{ url_for('main.customer_payment_history') }}" class="text-rml fw-semibold text-decoration-none d-block mb-1">View Payment History &rarr;</a>
+      <a href="{{ url_for('main.customer_support') }}" class="text-muted text-decoration-none">Contact Support &rarr;</a>
     </div>
   </div>
 </div>
+
+<!-- STEP 3: REVIEW & CONFIRM -->
+{% elif step == 3 %}
+<div class="row g-4">
+  <div class="col-lg-8">
+    <!-- Payment Receipt Preview Card -->
+    <div class="card border-0 shadow-sm p-4">
+      <div class="border-bottom pb-3 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex align-items-center gap-2">
+            <span class="rml-logo-box">R</span>
+            <span class="fw-bold fs-5">RML Construction Supply</span>
+          </div>
+          <span class="badge text-bg-light border text-uppercase small">Receipt Preview</span>
+        </div>
+        <div class="small text-muted mt-1">PAYMENT RECEIPT PREVIEW &middot; Not an official receipt</div>
+      </div>
+
+      <div class="row g-3 mb-4 pb-3 border-bottom">
+        <div class="col-6">
+          <div class="small text-muted">ORDER REFERENCE</div>
+          <div class="fw-bold">{{ order.order_code|order_code }}</div>
+        </div>
+        <div class="col-6">
+          <div class="small text-muted">CUSTOMER / PAYER</div>
+          <div class="fw-bold">{{ draft.payer_name or order.recipient_name }}</div>
+        </div>
+        <div class="col-6">
+          <div class="small text-muted">CONTACT NUMBER</div>
+          <div class="fw-semibold">{{ draft.mobile_number or order.phone }}</div>
+        </div>
+        <div class="col-6">
+          <div class="small text-muted">PAYMENT METHOD</div>
+          <div class="fw-semibold text-capitalize">
+            {% if method == 'cash' %}Cash Payment &middot; Pay on delivery{% else %}Online QR Payment &middot; {{ draft.bank_used or 'e-Wallet' }}{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <h6 class="fw-bold mb-3">Transaction details</h6>
+      <div class="bg-light rounded p-3 mb-4 border small">
+        <div class="d-flex justify-content-between mb-1">
+          <span class="text-muted">Transaction reference:</span>
+          <span class="fw-semibold">
+            {% if method == 'cash' %}Assigned upon cash collection{% else %}{{ draft.reference_number or 'REF-PENDING' }}{% endif %}
+          </span>
+        </div>
+        <div class="d-flex justify-content-between mb-1">
+          <span class="text-muted">Payment date &amp; time:</span>
+          <span>{{ draft.payment_datetime or 'On delivery / pending' }}</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Collection / Verification:</span>
+          <span>{% if method == 'cash' %}Authorized RML collector on site{% else %}RML verification team{% endif %}</span>
+        </div>
+      </div>
+
+      <h6 class="fw-bold mb-3">Order items</h6>
+      <div class="table-responsive mb-4">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Material</th>
+              <th>Quantity</th>
+              <th>Unit Price</th>
+              <th class="text-end">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            <tr>
+              <td>{{ item.name }}</td>
+              <td>{{ item.quantity }} {{ item.unit }}</td>
+              <td>&#8369;{{ "{:,.2f}".format(item.unit_price) }}</td>
+              <td class="text-end">&#8369;{{ "{:,.2f}".format(item.subtotal) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="row justify-content-end mb-4">
+        <div class="col-md-6">
+          <div class="d-flex justify-content-between small text-muted mb-1">
+            <span>Subtotal</span>
+            <span>&#8369;{{ "{:,.2f}".format(order.subtotal) }}</span>
+          </div>
+          <div class="d-flex justify-content-between small text-muted mb-1">
+            <span>Delivery fee</span>
+            <span>&#8369;{{ "{:,.2f}".format(order.delivery_fee) }}</span>
+          </div>
+          <div class="d-flex justify-content-between small text-muted mb-2">
+            <span>Estimated VAT (12%)</span>
+            <span>&#8369;{{ "{:,.2f}".format(order.vat_amount) }}</span>
+          </div>
+          <div class="d-flex justify-content-between fw-bold fs-4 pt-2 border-top">
+            <span>Amount due (PHP)</span>
+            <span class="text-rml">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 bg-light rounded border small">
+        <div class="text-muted fw-semibold">DELIVERY DETAILS &middot; From checkout</div>
+        <div class="fw-semibold">{{ order.delivery_address }}</div>
+        <div class="text-muted">{{ order.delivery_slot }} &middot; {{ order.preferred_date or 'TBD' }}</div>
+        <div class="text-muted mt-1">Status after confirmation: <strong>Awaiting {% if method == 'cash' %}collection{% else %}verification{% endif %}</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm p-4 mb-3">
+      <div class="small text-muted">ORDER {{ order.order_code|order_code }}</div>
+      <div class="fw-bold fs-3 my-2 text-rml">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</div>
+      <div class="small text-muted text-capitalize mb-4">
+        {% if method == 'cash' %}Cash on delivery{% else %}Online QR Payment{% endif %}
+      </div>
+
+      <h6 class="fw-bold mb-2">Before you confirm</h6>
+      <p class="text-muted small mb-4">
+        Check the payer name, payment method, transaction details, order items, and total amount.
+      </p>
+
+      <form method="POST" action="{{ url_for('main.customer_payment', order_id=order.id) }}">
+        <input type="hidden" name="action" value="confirm_payment">
+        <input type="hidden" name="method" value="{{ method }}">
+        <button type="submit" class="btn btn-rml w-100 py-2 fw-semibold mb-2">
+          Confirm payment
+        </button>
+      </form>
+
+      <a href="{{ url_for('main.customer_payment', order_id=order.id, step=2, method=method) }}" class="btn btn-outline-secondary w-100 btn-sm">
+        Edit payment details
+      </a>
+    </div>
+
+    <div class="card border-0 shadow-sm p-3 small text-muted">
+      <strong>Confirmation notice</strong><br>
+      The order remains Awaiting {% if method == 'cash' %}collection until the RML driver records cash received{% else %}verification until RML verifies the online transfer{% endif %}. An official receipt is issued after collection.
+    </div>
+  </div>
+</div>
+
+<!-- STEP 4: APPROVED / COMPLETE -->
+{% elif step == 4 %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm p-5 text-center">
+      <div class="d-inline-flex align-items-center justify-content-center bg-success text-white rounded-circle mx-auto mb-3" style="width: 64px; height: 64px;">
+        <i class="bi bi-check-lg fs-1"></i>
+      </div>
+
+      <h3 class="fw-bold mb-2">Payment approved</h3>
+      <div class="fw-semibold text-muted mb-4">Order {{ order.order_code|order_code }} &middot; {{ order.recipient_name }}</div>
+
+      <div class="bg-light rounded p-4 border mb-4 text-start">
+        <p class="small text-muted mb-3">
+          {% if method == 'cash' %}
+            Your cash payment arrangement is confirmed. Pay the authorized RML collector when your construction materials arrive at your site.
+          {% else %}
+            Your online payment details and receipt reference have been submitted. RML will verify the transaction before dispatching your delivery.
+          {% endif %}
+        </p>
+
+        <div class="fw-bold fs-2 text-rml mb-1">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</div>
+        <div class="small text-muted">
+          {% if method == 'cash' %}
+            <span class="badge badge-transit">Cash on delivery &middot; Awaiting collection</span>
+          {% else %}
+            <span class="badge badge-transit">Online QR Payment &middot; Awaiting verification</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center mb-4">
+        <a href="{{ url_for('main.customer_payment_history') }}" class="btn btn-success py-2 px-4 fw-semibold">
+          View Payment History
+        </a>
+        <a href="{{ url_for('main.customer_order_tracking', order_id=order.id) }}" class="btn btn-outline-dark py-2 px-4 fw-semibold">
+          Track Live Delivery &rarr;
+        </a>
+      </div>
+
+      <div class="text-center">
+        <a href="{{ url_for('main.customer_payment', order_id=order.id, step=1) }}" class="small text-muted text-decoration-none">
+          &larr; Back to payment methods
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}

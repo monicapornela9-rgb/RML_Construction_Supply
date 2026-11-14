@@ -1,19 +1,69 @@
 {% extends "base.html" %}
-{% block title %}Support - RML Construction Supply{% endblock %}
+{% block title %}Customer Support - RML Construction Supply{% endblock %}
 
 {% block content %}
 <div class="mb-4">
+  <div class="text-muted small">Customer Portal &middot; Support</div>
   <h2 class="fw-bold mb-1">Customer Support</h2>
-  <p class="text-muted mb-0">Contact RML Construction Supply for order inquiries or delivery changes.</p>
+  <p class="text-muted small mb-0">Contact RML Construction Supply for order inquiries, delivery coordination, and billing assistance.</p>
 </div>
 
 <div class="row g-4">
   <div class="col-md-6">
-    <div class="card border-0 shadow-sm p-4">
-      <h5 class="fw-bold mb-3">Store &amp; Dispatch Office</h5>
-      <p class="mb-2"><strong>Address:</strong> Purok 6, Brgy. Antipolo del Sur, Lipa City, Batangas</p>
-      <p class="mb-2"><strong>Phone:</strong> 0917 555 0140 / +63 (02) 8888-0000</p>
-      <p class="mb-0"><strong>Hours:</strong> Monday - Saturday, 07:00 AM - 05:00 PM</p>
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <h5 class="fw-bold mb-3"><i class="bi bi-geo-alt-fill text-rml me-2"></i>Store &amp; Dispatch Office</h5>
+      <p class="mb-2"><strong>Depot Address:</strong> Purok 6, Brgy. Antipolo del Sur, Lipa City, Batangas</p>
+      <p class="mb-2"><strong>Operations Dispatch:</strong> 0917 555 0140 / +63 (02) 8888-0000</p>
+      <p class="mb-2"><strong>Email Support:</strong> logistics@rml.example / billing@rml.example</p>
+      <p class="mb-0"><strong>Operating Hours:</strong> Monday - Saturday, 06:30 AM - 05:00 PM</p>
+      <hr>
+      <div class="small text-muted">
+        <strong>Delivery Coverage:</strong> Lipa City, Malvar, Tanauan, Sto. Tomas, Batangas City, San Jose, Padre Garcia, Rosario, and nearby construction corridors.
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <h5 class="fw-bold mb-3"><i class="bi bi-question-circle text-rml me-2"></i>Frequently Asked Questions</h5>
+      <div class="accordion accordion-flush" id="faqAccordion">
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed py-2 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+              How does cash on delivery (COD) work?
+            </button>
+          </h2>
+          <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+            <div class="accordion-body px-0 small text-muted">
+              Prepare the exact cash amount before arrival. Verify your order items and authorized RML collector before handing over payment. The collector will record the payment and provide an official receipt.
+            </div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed py-2 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+              How do I track my delivery truck in real time?
+            </button>
+          </h2>
+          <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+            <div class="accordion-body px-0 small text-muted">
+              Go to "My Orders" and click "Track" on your active order. Once the truck departs the Lipa depot, the map will display the live GPS coordinates of your delivery truck.
+            </div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed py-2 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+              Can I change my delivery address or slot?
+            </button>
+          </h2>
+          <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+            <div class="accordion-body px-0 small text-muted">
+              Please contact the Lipa Operations Dispatch hotline at 0917 555 0140 at least two hours before your scheduled delivery window.
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

@@ -2,41 +2,73 @@
 {% block title %}Product Catalog - RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="mb-3">
+<div class="mb-4">
   <div class="text-muted small">Customer Portal &middot; Product Catalog</div>
-  <h2 class="fw-bold">Construction Materials</h2>
-  <p class="text-muted">Select high-quality materials for your site with live pricing and stock confirmation.</p>
+  <h2 class="fw-bold mb-1">Construction Materials</h2>
+  <p class="text-muted small">Select high-quality materials for your site with live pricing and stock confirmation.</p>
 </div>
 
-<form method="GET" action="{{ url_for('main.customer_catalog') }}" class="row g-2 mb-4">
-  <div class="col-md-8">
-    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search materials, tools, or supplies...">
+<!-- Search & Quick Action -->
+<form method="GET" action="{{ url_for('main.customer_catalog') }}" class="row g-2 mb-3">
+  <input type="hidden" name="category" value="{{ selected_category }}">
+  <div class="col-md-7">
+    <div class="input-group">
+      <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+      <input type="text" name="q" value="{{ search or '' }}" class="form-control" placeholder="Search materials, cement, gravel, rebar, pipes...">
+      {% if search %}
+        <a href="{{ url_for('main.customer_catalog', category=selected_category) }}" class="btn btn-outline-secondary">Clear</a>
+      {% endif %}
+    </div>
   </div>
-  <div class="col-md-4 d-flex gap-2">
+  <div class="col-md-5 d-flex gap-2">
     <button type="submit" class="btn btn-outline-secondary">Search</button>
-    <a href="{{ url_for('main.customer_checkout') }}" class="btn btn-rml flex-grow-1">Proceed to Checkout ({{ cart_count }})</a>
+    <a href="{{ url_for('main.customer_checkout') }}" class="btn btn-rml flex-grow-1">
+      <i class="bi bi-cart3 me-1"></i> Proceed to Checkout ({{ cart_count }})
+    </a>
   </div>
 </form>
 
-<div class="row g-3 mb-4">
+<!-- Category Filter Pills -->
+<div class="d-flex flex-wrap gap-2 mb-4">
+  <a href="{{ url_for('main.customer_catalog', q=search) }}"
+     class="btn btn-sm {% if not selected_category %}btn-dark{% else %}btn-outline-secondary bg-white{% endif %}">
+    All Materials
+  </a>
+  {% for c in categories %}
+    <a href="{{ url_for('main.customer_catalog', category=c.id, q=search) }}"
+       class="btn btn-sm {% if selected_category|string == c.id|string %}btn-dark{% else %}btn-outline-secondary bg-white{% endif %}">
+      {{ c.name }}
+    </a>
+  {% endfor %}
+</div>
+
+<!-- Products Grid -->
+<div class="row g-3 mb-5">
   {% for p in products %}
   <div class="col-sm-6 col-lg-3">
-    <div class="card h-100 border-0 shadow-sm">
-      <img src="{{ p.image_url }}" class="card-img-top product-img" alt="{{ p.name }}">
-      <div class="card-body d-flex flex-column">
-        <h6 class="fw-bold mb-1">{{ p.name }}</h6>
-        <p class="text-muted small mb-3">{{ p.description }}</p>
+    <div class="card h-100 border-0 shadow-sm overflow-hidden">
+      <img src="{{ p.image_url }}" class="card-img-top product-img" alt="{{ p.name }}" onerror="this.src='https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500&auto=format&fit=crop';">
+      <div class="card-body d-flex flex-column p-3">
+        <h6 class="fw-bold mb-1 text-truncate" title="{{ p.name }}">{{ p.name }}</h6>
+        <p class="text-muted small mb-2" style="min-height: 38px;">{{ p.description }}</p>
+
         <div class="d-flex justify-content-between align-items-center mb-3 mt-auto">
-          <span class="fw-bold fs-5">&#8369;{{ "{:,.2f}".format(p.price) }}</span>
-          {% if p.stock_quantity <= p.low_stock_threshold %}
-            <span class="badge text-bg-warning">Low Stock ({{ p.stock_quantity }})</span>
+          <div>
+            <span class="fw-bold fs-5">&#8369;{{ "{:,.2f}".format(p.price) }}</span>
+            <small class="text-muted">/ {{ p.unit }}</small>
+          </div>
+          {% if p.stock_quantity <= 0 %}
+            <span class="badge text-bg-danger">Out of Stock</span>
+          {% elif p.stock_quantity <= p.low_stock_threshold %}
+            <span class="badge badge-lowstock">Low Stock ({{ p.stock_quantity }})</span>
           {% else %}
-            <span class="badge text-bg-success">In Stock ({{ p.stock_quantity }})</span>
+            <span class="badge badge-instock">In Stock ({{ p.stock_quantity }})</span>
           {% endif %}
         </div>
+
         <form method="POST" action="{{ url_for('main.cart_add') }}" class="d-flex gap-2">
           <input type="hidden" name="product_id" value="{{ p.id }}">
-          <input type="number" name="quantity" value="1" min="1" max="{{ p.stock_quantity if p.stock_quantity > 0 else 1 }}" class="form-control form-control-sm" style="width: 70px;">
+          <input type="number" name="quantity" value="1" min="1" max="{{ p.stock_quantity if p.stock_quantity > 0 else 1 }}" class="form-control form-control-sm text-center" style="width: 70px;" {% if p.stock_quantity <= 0 %}disabled{% endif %}>
           <button type="submit" class="btn btn-rml btn-sm flex-grow-1" {% if p.stock_quantity <= 0 %}disabled{% endif %}>
             + Add to Cart
           </button>
@@ -44,6 +76,45 @@
       </div>
     </div>
   </div>
+  {% else %}
+  <div class="col-12">
+    <div class="card p-5 text-center text-muted border-0 shadow-sm">
+      <i class="bi bi-box-seam fs-1 mb-2"></i>
+      <h5>No materials found matching your search.</h5>
+      <p class="small">Try a different keyword or reset category filters.</p>
+      <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-outline-secondary btn-sm mx-auto">View All Materials</a>
+    </div>
+  </div>
   {% endfor %}
+</div>
+
+<!-- Order Readiness Section -->
+<h5 class="fw-bold mb-3">Order readiness</h5>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small mb-1">Stock status</div>
+      <div class="fs-4 fw-bold mb-1">
+        {% if all_in_stock %}All items available{% else %}Stock check required{% endif %}
+      </div>
+      <div class="small {% if all_in_stock %}text-success{% else %}text-warning{% endif %}">
+        <i class="bi bi-check-circle-fill me-1"></i> Live depot inventory verified
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small mb-1">Estimated delivery</div>
+      <div class="fs-4 fw-bold mb-1">Tomorrow &middot; 09:00 - 12:00</div>
+      <div class="small text-muted">Next available fleet slot</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small mb-1">Current Cart Value</div>
+      <div class="fs-4 fw-bold mb-1">&#8369;{{ "{:,.2f}".format(cart_total) }}</div>
+      <div class="small text-muted">{{ cart_count }} item(s) currently selected</div>
+    </div>
+  </div>
 </div>
 {% endblock %}

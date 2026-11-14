@@ -2,92 +2,110 @@
 {% block title %}Checkout - RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="mb-3">
-  <div class="text-muted small">Catalog &middot; Checkout</div>
-  <h2 class="fw-bold">Checkout</h2>
-  <p class="text-muted">Review your order details and confirm delivery schedule.</p>
+<div class="mb-4">
+  <div class="text-muted small">Customer Portal &middot; Checkout</div>
+  <h2 class="fw-bold mb-1">Checkout</h2>
+  <p class="text-muted small">Review your order details and confirm delivery schedule.</p>
 </div>
 
 <div class="row g-4">
+  <!-- Shipping Details Form -->
   <div class="col-lg-7">
     <div class="card border-0 shadow-sm p-4">
-      <h5 class="fw-bold mb-3"><i class="bi bi-truck me-2"></i>Shipping Details</h5>
+      <h5 class="fw-bold mb-3"><i class="bi bi-truck me-2 text-rml"></i>Shipping Details</h5>
       <form method="POST" action="{{ url_for('main.customer_checkout') }}" id="checkoutForm">
         <div class="row g-3">
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Recipient Name</label>
-            <input type="text" name="recipient_name" value="{{ user.name }}" class="form-control" required>
+            <label class="form-label small fw-semibold">Recipient / Company Name *</label>
+            <input type="text" name="recipient_name" value="{{ user.name if user else '' }}" class="form-control" required placeholder="Full Name or Company">
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Phone Number</label>
-            <input type="text" name="recipient_phone" value="{{ user.phone or '' }}" class="form-control" required>
+            <label class="form-label small fw-semibold">Phone Number *</label>
+            <input type="tel" name="phone" value="{{ user.phone if user else '' }}" class="form-control" required placeholder="0917 123 4567">
           </div>
           <div class="col-12">
-            <label class="form-label small fw-semibold">Delivery Address</label>
-            <input type="text" name="delivery_address" value="{{ user.address or '' }}" class="form-control" required placeholder="Street Name, Building, City, Province">
+            <label class="form-label small fw-semibold">Delivery Address *</label>
+            <input type="text" name="delivery_address" value="{{ user.address if user else '' }}" class="form-control" required placeholder="Street Name, Building, Barangay, Lipa City, Batangas">
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Preferred Delivery Date</label>
+            <label class="form-label small fw-semibold">Preferred Delivery Date *</label>
             <input type="date" name="preferred_date" class="form-control" required>
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Delivery Slot</label>
+            <label class="form-label small fw-semibold">Delivery Slot *</label>
             <select name="delivery_slot" class="form-select">
               <option value="Morning (08:00 - 12:00)">Morning (08:00 - 12:00)</option>
               <option value="Afternoon (13:00 - 17:00)">Afternoon (13:00 - 17:00)</option>
             </select>
           </div>
           <div class="col-12">
-            <label class="form-label small fw-semibold">Special Instructions</label>
-            <textarea name="special_instructions" class="form-control" rows="2" placeholder="Gate code, unloading instructions, landmark..."></textarea>
+            <label class="form-label small fw-semibold">Special Site Instructions (Optional)</label>
+            <textarea name="special_instructions" class="form-control" rows="2" placeholder="Landmark, gate access, unloading spot, or site safety contact..."></textarea>
           </div>
         </div>
       </form>
+
+      <div class="mt-4 p-3 bg-light rounded small text-muted border">
+        <strong>Next: choose your payment method</strong><br>
+        Cash on Delivery or online QR payment is available on the next step.
+      </div>
     </div>
   </div>
 
+  <!-- Order Summary Card -->
   <div class="col-lg-5">
     <div class="card border-0 shadow-sm p-4">
       <h5 class="fw-bold mb-3">Order Summary</h5>
       {% if cart_items %}
-        {% for item in cart_items %}
-        <div class="d-flex justify-content-between align-items-start mb-2 pb-2 border-bottom">
-          <div>
-            <div class="fw-semibold">{{ item.quantity }} {{ item.product.unit }} {{ item.product.name }}</div>
-            <div class="text-muted small">&#8369;{{ "{:,.2f}".format(item.product.price) }} / {{ item.product.unit }}</div>
+        <div class="mb-3">
+          {% for item in cart_items %}
+          <div class="d-flex justify-content-between align-items-start py-2 border-bottom">
+            <div>
+              <div class="fw-semibold">{{ item.quantity }} {{ item.product.unit }} {{ item.product.name }}</div>
+              <div class="text-muted small">&#8369;{{ "{:,.2f}".format(item.product.price) }} / {{ item.product.unit }}</div>
+            </div>
+            <div class="text-end">
+              <div class="fw-semibold">&#8369;{{ "{:,.2f}".format(item.line_total) }}</div>
+              <form method="POST" action="{{ url_for('main.cart_update') }}" class="d-inline">
+                <input type="hidden" name="product_id" value="{{ item.product.id }}">
+                <input type="hidden" name="quantity" value="0">
+                <button type="submit" class="btn btn-link btn-sm text-danger text-decoration-none p-0" title="Remove item">
+                  <i class="bi bi-trash"></i> Remove
+                </button>
+              </form>
+            </div>
           </div>
-          <div class="text-end">
-            <div class="fw-semibold">&#8369;{{ "{:,.2f}".format(item.line_total) }}</div>
-            <form method="POST" action="{{ url_for('main.cart_update') }}" class="d-inline">
-              <input type="hidden" name="product_id" value="{{ item.product.id }}">
-              <input type="hidden" name="quantity" value="0">
-              <button type="submit" class="btn btn-link btn-sm text-danger text-decoration-none p-0">Remove</button>
-            </form>
-          </div>
+          {% endfor %}
         </div>
-        {% endfor %}
 
-        <div class="d-flex justify-content-between small text-muted mt-3">
+        <div class="d-flex justify-content-between small text-muted mb-2">
           <span>Subtotal</span>
-          <span>&#8369;{{ "{:,.2f}".format(subtotal) }}</span>
+          <span class="fw-semibold text-dark">&#8369;{{ "{:,.2f}".format(subtotal) }}</span>
         </div>
-        <div class="d-flex justify-content-between small text-muted mt-1">
+        <div class="d-flex justify-content-between small text-muted mb-2">
           <span>Delivery Fee</span>
-          <span>&#8369;{{ "{:,.2f}".format(delivery_fee) }}</span>
+          <span class="fw-semibold text-dark">&#8369;{{ "{:,.2f}".format(delivery_fee) }}</span>
         </div>
-        <div class="d-flex justify-content-between small text-muted mt-1">
+        <div class="d-flex justify-content-between small text-muted mb-3">
           <span>Estimated Tax (12% VAT)</span>
-          <span>&#8369;{{ "{:,.2f}".format(vat_amount) }}</span>
+          <span class="fw-semibold text-dark">&#8369;{{ "{:,.2f}".format(vat_amount) }}</span>
         </div>
         <hr>
-        <div class="d-flex justify-content-between fw-bold fs-5 mb-3">
+        <div class="d-flex justify-content-between align-items-center fw-bold fs-4 mb-4">
           <span>Total</span>
-          <span>&#8369;{{ "{:,.2f}".format(total_amount) }}</span>
+          <span class="text-rml">&#8369;{{ "{:,.2f}".format(total_amount) }}</span>
         </div>
-        <button type="submit" form="checkoutForm" class="btn btn-rml w-100 py-2 fw-semibold">Continue to Payments</button>
+
+        <button type="submit" form="checkoutForm" class="btn btn-rml w-100 py-2 fs-6 fw-semibold">
+          Continue to Payments &rarr;
+        </button>
+        <p class="text-muted small text-center mt-2 mb-0">Continue to select payment method and confirm order.</p>
       {% else %}
-        <p class="text-muted">Your cart is currently empty.</p>
-        <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-outline-secondary w-100">Browse Materials</a>
+        <div class="text-center py-4 text-muted">
+          <i class="bi bi-cart-x fs-1 d-block mb-2"></i>
+          <p>Your cart is currently empty.</p>
+          <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-outline-secondary btn-sm">Browse Materials</a>
+        </div>
       {% endif %}
     </div>
   </div>

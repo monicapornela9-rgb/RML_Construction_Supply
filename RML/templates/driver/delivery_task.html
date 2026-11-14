@@ -3,103 +3,218 @@
 
 {% block content %}
 <div class="mb-3">
-  <a href="{{ url_for('main.driver_schedule') }}" class="small text-decoration-none text-muted">&larr; Back to my daily schedule</a>
+  <a href="{{ url_for('main.driver_schedule') }}" class="small text-decoration-none text-muted">
+    &larr; Back to my daily schedule
+  </a>
 </div>
 
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
   <div>
     <h2 class="fw-bold mb-1">{{ delivery.recipient_name }}</h2>
-    <div class="text-muted small">{{ delivery.delivery_code }} &middot; Order #{{ delivery.order_code }}</div>
+    <div class="text-muted small">
+      <code>{{ delivery.delivery_code }}</code> &middot; Order {{ delivery.order_code|order_code }} &middot; Lipa City, Batangas
+    </div>
   </div>
-  <span class="badge fs-6 {% if delivery.delivery_status == 'delivered' %}text-bg-success{% elif delivery.delivery_status == 'en_route' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">
-    {{ delivery.delivery_status|replace('_', ' ')|title }}
+  <span class="badge fs-6 {% if delivery.delivery_status == 'delivered' %}badge-instock{% elif delivery.delivery_status == 'en_route' %}badge-check{% else %}badge-transit{% endif %} text-uppercase">
+    {{ delivery.delivery_status|replace('_', ' ') }}
   </span>
 </div>
 
+<!-- Delivery Progress Stepper (Matching Delivery task and site confirmation.png) -->
 <div class="card border-0 shadow-sm p-4 mb-4">
   <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
     <h6 class="fw-bold mb-0">Update delivery progress</h6>
     <div class="d-flex gap-2">
       {% if delivery.delivery_status != 'delivered' %}
-      <form method="POST" action="{{ url_for('main.driver_delivery_task', delivery_id=delivery.id) }}">
-        <input type="hidden" name="action" value="update_status">
-        <input type="hidden" name="delivery_status" value="en_route">
-        <button type="submit" class="btn btn-outline-primary btn-sm">Mark En Route</button>
-      </form>
-      <button type="button" class="btn btn-rml btn-sm" onclick="startDriverGps({{ delivery.id }}, 'gpsStatus')">
-        <i class="bi bi-geo-alt me-1"></i>Start Live GPS
-      </button>
+        <form method="POST" action="{{ url_for('main.driver_delivery_task', delivery_id=delivery.id) }}" class="d-inline">
+          <input type="hidden" name="action" value="update_status">
+          <input type="hidden" name="delivery_status" value="loading">
+          <button type="submit" class="btn btn-outline-secondary btn-sm" {% if delivery.delivery_status == 'loading' %}disabled{% endif %}>
+            1. Loading at Yard
+          </button>
+        </form>
+
+        <form method="POST" action="{{ url_for('main.driver_delivery_task', delivery_id=delivery.id) }}" class="d-inline">
+          <input type="hidden" name="action" value="update_status">
+          <input type="hidden" name="delivery_status" value="en_route">
+          <button type="submit" class="btn btn-outline-primary btn-sm" {% if delivery.delivery_status == 'en_route' %}disabled{% endif %}>
+            2. Mark En Route
+          </button>
+        </form>
+
+        <button type="button" class="btn btn-rml btn-sm" onclick="startDriverGps({{ delivery.id }}, 'gpsStatus')">
+          <i class="bi bi-geo-alt-fill me-1"></i> Start Live GPS
+        </button>
       {% endif %}
     </div>
   </div>
-  <div id="gpsStatus" class="small text-muted">Click "Start Live GPS" while en route to share truck location with customer and dispatch.</div>
+
+  <div class="row g-2 text-center my-2">
+    <div class="col-4">
+      <div class="p-2 rounded bg-light border {% if delivery.delivery_status in ('loading', 'en_route', 'delivered') %}border-success{% endif %}">
+        <div class="small fw-bold">1. Loading at Yard</div>
+        <div class="small text-muted">{% if delivery.delivery_status in ('loading', 'en_route', 'delivered') %}Done{% else %}Pending{% endif %}</div>
+      </div>
+    </div>
+    <div class="col-4">
+      <div class="p-2 rounded bg-light border {% if delivery.delivery_status in ('en_route', 'delivered') %}border-success{% endif %}">
+        <div class="small fw-bold">2. En Route</div>
+        <div class="small {% if delivery.delivery_status in ('en_route', 'delivered') %}text-success{% else %}text-muted{% endif %}">
+          {% if delivery.delivery_status == 'en_route' %}Active{% elif delivery.delivery_status == 'delivered' %}Completed{% else %}Pending{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-4">
+      <div class="p-2 rounded bg-light border {% if delivery.delivery_status == 'delivered' %}border-success{% endif %}">
+        <div class="small fw-bold">3. Delivered</div>
+        <div class="small {% if delivery.delivery_status == 'delivered' %}text-success{% else %}text-muted{% endif %}">
+          {% if delivery.delivery_status == 'delivered' %}Confirmed{% else %}Sign below{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="gpsStatus" class="small text-muted mt-2">
+    Click "Start Live GPS" while en route to share truck coordinates with Lipa dispatch and customer tracking.
+  </div>
 </div>
 
 <div class="row g-4">
+  <!-- Left Column: Site & Load Details -->
   <div class="col-lg-5">
+    <!-- Customer & Drop-off Site -->
     <div class="card border-0 shadow-sm p-4 mb-3">
       <h5 class="fw-bold mb-3">Customer &amp; drop-off site</h5>
+      <div class="small text-muted">Customer project</div>
+      <div class="fw-semibold mb-3">{{ delivery.recipient_name }}</div>
+
       <div class="small text-muted">Construction site address</div>
       <div class="fw-semibold mb-3">{{ delivery.delivery_address }}</div>
+
       <div class="small text-muted">Delivery window</div>
-      <div class="fw-semibold mb-3">{{ delivery.delivery_window or 'Scheduled' }}</div>
+      <div class="fw-semibold mb-3">{{ delivery.delivery_window or 'Scheduled window' }}</div>
+
       <div class="small text-muted">Recipient contact</div>
-      <div class="fw-semibold">{{ delivery.recipient_name }} &middot; {{ delivery.recipient_phone }}</div>
+      <div class="fw-semibold mb-2">
+        {{ delivery.recipient_name }} &middot; {{ delivery.phone or delivery.recipient_phone or '0917 555 0128' }}
+      </div>
+      {% if delivery.phone or delivery.recipient_phone %}
+      <a href="tel:{{ delivery.phone or delivery.recipient_phone }}" class="btn btn-outline-dark btn-sm mb-3">
+        <i class="bi bi-telephone me-1"></i> Call site contact
+      </a>
+      {% endif %}
+
       {% if delivery.special_instructions %}
-      <div class="alert alert-warning small mt-3 mb-0">
-        <strong>Site instructions:</strong> {{ delivery.special_instructions }}
+      <div class="alert alert-warning small mt-2 mb-0">
+        <strong>Site access instructions:</strong> {{ delivery.special_instructions }}
+      </div>
+      {% else %}
+      <div class="p-2 bg-light rounded small text-muted border">
+        <strong>Standard safety:</strong> Hard hat and steel-toe boots required. Spotter needed before reversing into delivery bay.
       </div>
       {% endif %}
     </div>
 
+    <!-- Assigned Load -->
     <div class="card border-0 shadow-sm p-4">
       <h5 class="fw-bold mb-3">Assigned load</h5>
       {% for i in items %}
-      <div class="d-flex justify-content-between small mb-1">
+      <div class="d-flex justify-content-between small py-1 border-bottom">
         <span>{{ i.name }}</span>
-        <span class="fw-semibold">{{ i.quantity }} {{ i.unit }}</span>
+        <span class="fw-bold">{{ i.quantity }} {{ i.unit }}</span>
       </div>
       {% endfor %}
-      <div class="small text-muted mt-3">Truck: {{ delivery.truck_code }} ({{ delivery.plate_number }})</div>
+      <div class="small text-muted mt-3">
+        Truck: <strong>{{ delivery.truck_code }}</strong> (Plate: {{ delivery.plate_number }})<br>
+        Driver: {{ delivery.driver_name }}
+      </div>
     </div>
   </div>
 
+  <!-- Right Column: Site Confirmation Form -->
   <div class="col-lg-7">
     <div class="card border-0 shadow-sm p-4">
-      <h5 class="fw-bold mb-2">Confirm delivery at site</h5>
-      <p class="text-muted small mb-3">Complete after unloading. The recipient must acknowledge the materials received before you submit.</p>
+      <h5 class="fw-bold mb-1">Confirm delivery at site</h5>
+      <p class="text-muted small mb-3">
+        Complete after unloading. The recipient must acknowledge the materials received before you confirm.
+      </p>
 
       {% if delivery.delivery_status == 'delivered' %}
-        <div class="alert alert-success mb-0">
-          <strong>Delivered!</strong> Received by {{ delivery.recipient_received_by }} ({{ delivery.recipient_role }}).
-          {% if delivery.delivery_notes %}<div class="small mt-1">{{ delivery.delivery_notes }}</div>{% endif %}
+        <div class="alert alert-success p-4 mb-0">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-check-circle-fill fs-3 text-success"></i>
+            <h5 class="fw-bold mb-0">Delivered &amp; Confirmed!</h5>
+          </div>
+          <p class="small mb-1"><strong>Received by:</strong> {{ delivery.recipient_received_by }} ({{ delivery.recipient_role }})</p>
+          {% if delivery.quantity_received %}<p class="small mb-1"><strong>Quantity:</strong> {{ delivery.quantity_received }}</p>{% endif %}
+          {% if delivery.completion_time %}<p class="small mb-1"><strong>Completion Time:</strong> {{ delivery.completion_time }}</p>{% endif %}
+          {% if delivery.delivery_notes %}<p class="small mb-1"><strong>Notes:</strong> {{ delivery.delivery_notes }}</p>{% endif %}
+          <div class="small text-muted mt-2">Delivered at: {{ delivery.delivered_at }}</div>
         </div>
       {% else %}
-      <form method="POST" action="{{ url_for('main.driver_delivery_task', delivery_id=delivery.id) }}">
-        <input type="hidden" name="action" value="confirm_delivered">
-        <div class="row g-3 mb-3">
-          <div class="col-md-6">
-            <label class="form-label small fw-semibold">Recipient full name *</label>
-            <input type="text" name="recipient_received_by" class="form-control" required placeholder="e.g. Engr. Paolo Santos">
+        <form method="POST" action="{{ url_for('main.driver_delivery_task', delivery_id=delivery.id) }}">
+          <input type="hidden" name="action" value="confirm_delivered">
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Recipient full name *</label>
+              <input type="text" name="recipient_received_by" class="form-control" required placeholder="e.g. Engr. Paolo Santos" value="{{ delivery.recipient_name }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Role / relationship *</label>
+              <input type="text" name="recipient_role" class="form-control" required placeholder="e.g. Site engineer / Property owner">
+            </div>
           </div>
-          <div class="col-md-6">
-            <label class="form-label small fw-semibold">Role / relationship *</label>
-            <input type="text" name="recipient_role" class="form-control" required placeholder="e.g. Site engineer">
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Delivery date</label>
+              <input type="date" name="delivered_date" class="form-control bg-light" value="2026-11-14">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Completion time *</label>
+              <input type="text" name="completion_time" class="form-control" placeholder="e.g. 09:40 AM" required value="09:40 AM">
+            </div>
           </div>
-        </div>
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Condition / delivery notes</label>
-          <textarea name="delivery_notes" class="form-control" rows="3" placeholder="All materials unloaded dry and intact."></textarea>
-        </div>
-        <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="confirmCheck" required>
-          <label class="form-check-label small" for="confirmCheck">
-            I confirm unloading is complete and these delivery details are accurate.
-          </label>
-        </div>
-        <button type="submit" class="btn btn-rml">Confirm as Delivered</button>
-      </form>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Quantity received *</label>
+            <input type="text" name="quantity_received" class="form-control" required
+              value="{% for i in items %}{{ i.quantity }} {{ i.unit }} {{ i.name }}{% if not loop.last %}, {% endif %}{% endfor %}">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Condition / delivery notes</label>
+            <textarea name="delivery_notes" class="form-control" rows="2" placeholder="All materials unloaded dry, complete, and intact under the covered shed."></textarea>
+          </div>
+
+          <!-- Recipient Acknowledgement Checkbox -->
+          <div class="form-check mb-3 p-3 bg-light rounded border ms-0">
+            <input class="form-check-input ms-0 me-2" type="checkbox" name="recipient_acknowledged" id="ackCheck" required checked>
+            <label class="form-check-label small fw-semibold" for="ackCheck">
+              The recipient acknowledges and confirms receipt of the materials listed above.
+            </label>
+          </div>
+
+          <!-- Driver Confirmation Checkbox -->
+          <div class="form-check mb-4">
+            <input class="form-check-input" type="checkbox" id="confirmCheck" required checked>
+            <label class="form-check-label small" for="confirmCheck">
+              I confirm unloading is complete, site inspection is done, and these details are accurate.
+            </label>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-rml fw-semibold px-4">
+              Confirm as Delivered
+            </button>
+          </div>
+        </form>
       {% endif %}
+
+      <div class="mt-4 pt-3 border-top small text-muted">
+        <i class="bi bi-telephone me-1"></i> <strong>Unable to complete delivery?</strong> Call Ana Garcia &middot; 0917 555 0140 for missing recipients, route diversions, or site access issues.
+      </div>
     </div>
   </div>
 </div>

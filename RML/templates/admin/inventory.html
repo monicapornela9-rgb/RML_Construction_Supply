@@ -5,21 +5,29 @@
 <div class="mb-4">
   <div class="text-muted small">Ops Console &middot; Inventory</div>
   <h2 class="fw-bold mb-1">Inventory Management</h2>
-  <p class="text-muted small">Maintain products, categories, units, and prices. Review stock-in and stock-out.</p>
+  <p class="text-muted small">Maintain products, categories, units, and prices. Review stock-in and stock-out from one place.</p>
 </div>
 
 <div class="d-flex gap-2 mb-3">
-  <button class="btn btn-rml btn-sm" data-bs-toggle="modal" data-bs-target="#stockModal">Log Stock Movement</button>
-  <button class="btn btn-outline-dark btn-sm" data-bs-toggle="modal" data-bs-target="#productModal">Add Product</button>
+  <button class="btn btn-rml btn-sm" data-bs-toggle="modal" data-bs-target="#stockModal">
+    <i class="bi bi-box-arrow-in-down me-1"></i> Log Stock Movement
+  </button>
+  <button class="btn btn-outline-dark btn-sm" data-bs-toggle="modal" data-bs-target="#productModal" onclick="resetProductModal()">
+    <i class="bi bi-plus-lg me-1"></i> Add Product
+  </button>
 </div>
 
 {% if low_stock_count > 0 %}
-  <div class="alert alert-warning">
-    <strong>{{ low_stock_count }} items under threshold.</strong> Review replenishment for low-stock products before approving new orders.
+  <div class="alert alert-warning border-0 shadow-sm d-flex align-items-center gap-2">
+    <i class="bi bi-exclamation-triangle-fill fs-5 text-warning"></i>
+    <div>
+      <strong>{{ low_stock_count }} items under threshold.</strong> Review replenishment for low-stock products before approving new orders.
+    </div>
   </div>
 {% endif %}
 
-<div class="card border-0 shadow-sm mb-4">
+<!-- Products Table -->
+<div class="card border-0 shadow-sm mb-4 overflow-hidden">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
@@ -28,26 +36,50 @@
           <th>Category</th>
           <th>Unit</th>
           <th>Price</th>
-          <th>Stock</th>
+          <th>Stock Quantity</th>
           <th>Status</th>
+          <th class="text-end">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for p in products %}
           <tr>
-            <td class="fw-semibold">{{ p.name }}</td>
+            <td class="fw-semibold">
+              <div class="d-flex align-items-center gap-2">
+                <img src="{{ p.image_url }}" alt="{{ p.name }}" class="rounded" style="width: 36px; height: 36px; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=100';">
+                <div>
+                  {{ p.name }}
+                  <div class="small text-muted text-truncate" style="max-width: 250px;">{{ p.description }}</div>
+                </div>
+              </div>
+            </td>
             <td class="small text-muted">{{ p.category_name }}</td>
             <td>{{ p.unit }}</td>
-            <td>&#8369;{{ "%.2f"|format(p.price) }}</td>
-            <td class="fw-bold">{{ p.stock_quantity }}</td>
+            <td class="fw-semibold">&#8369;{{ "{:,.2f}".format(p.price) }}</td>
+            <td class="fw-bold fs-6">{{ p.stock_quantity }}</td>
             <td>
               {% if p.stock_quantity == 0 %}
-                <span class="badge bg-danger">Out of Stock</span>
+                <span class="badge text-bg-danger">Out of Stock</span>
               {% elif p.stock_quantity <= p.low_stock_threshold %}
-                <span class="badge bg-warning text-dark">Low Stock</span>
+                <span class="badge badge-lowstock">Low Stock</span>
               {% else %}
-                <span class="badge bg-success-subtle text-success">In Stock</span>
+                <span class="badge badge-instock">In Stock</span>
               {% endif %}
+            </td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-secondary edit-prod-btn"
+                data-id="{{ p.id }}"
+                data-name="{{ p.name }}"
+                data-category="{{ p.category_id }}"
+                data-desc="{{ p.description }}"
+                data-unit="{{ p.unit }}"
+                data-price="{{ p.price }}"
+                data-stock="{{ p.stock_quantity }}"
+                data-threshold="{{ p.low_stock_threshold }}"
+                data-image="{{ p.image_url }}"
+                onclick="openEditProductModalFromBtn(this)">
+                <i class="bi bi-pencil"></i> Edit
+              </button>
             </td>
           </tr>
         {% endfor %}
@@ -56,34 +88,38 @@
   </div>
 </div>
 
-<!-- Recent Stock Movements -->
+<!-- Recent Stock Movements Audit Log -->
 <h5 class="fw-bold mb-2">Recent Stock Movements</h5>
-<div class="card border-0 shadow-sm">
+<div class="card border-0 shadow-sm overflow-hidden mb-4">
   <div class="table-responsive">
-    <table class="table table-sm mb-0">
+    <table class="table table-sm table-hover mb-0 align-middle">
       <thead class="table-light">
         <tr>
-          <th>Product</th>
-          <th>Type</th>
-          <th>Qty</th>
-          <th>Remarks</th>
+          <th>Material</th>
+          <th>Movement</th>
+          <th>Quantity</th>
+          <th>Reference / Remarks</th>
           <th>Staff</th>
-          <th>Date</th>
+          <th>Timestamp</th>
         </tr>
       </thead>
       <tbody>
         {% for l in logs %}
           <tr>
-            <td>{{ l.product_name }}</td>
+            <td class="fw-semibold">{{ l.product_name }}</td>
             <td>
-              <span class="badge {% if l.movement_type == 'stock_in' %}bg-success{% else %}bg-secondary{% endif %}">
-                {{ l.movement_type }}
+              <span class="badge {% if l.movement_type == 'stock_in' %}bg-success{% else %}bg-secondary{% endif %} text-uppercase">
+                {{ l.movement_type|replace('_', ' ') }}
               </span>
             </td>
-            <td>{{ l.quantity }}</td>
+            <td class="fw-bold">{{ l.quantity }}</td>
             <td class="small text-muted">{{ l.remarks }}</td>
             <td class="small">{{ l.staff_name or 'System' }}</td>
             <td class="small text-muted">{{ l.created_at }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6" class="text-center py-3 text-muted">No stock movements recorded yet.</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -91,38 +127,71 @@
   </div>
 </div>
 
-<!-- Modal: Log Stock Movement -->
+<!-- Modal: Log Stock Movement (Matching Admin stock movement.png) -->
 <div class="modal fade" id="stockModal" tabindex="-1">
   <div class="modal-dialog">
-    <form method="POST" class="modal-content">
+    <form method="POST" action="{{ url_for('main.admin_inventory') }}" class="modal-content">
       <input type="hidden" name="action" value="stock_movement">
       <div class="modal-header">
-        <h5 class="modal-title fw-bold">Log Stock Movement</h5>
+        <h5 class="modal-title fw-bold">Record Stock Movement</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Product</label>
-          <select name="product_id" class="form-select" required>
-            {% for p in products %}
-              <option value="{{ p.id }}">{{ p.name }} (Current: {{ p.stock_quantity }})</option>
-            {% endfor %}
-          </select>
+      <div class="modal-body p-4">
+        <p class="text-muted small mb-3">Log stock-in (supplier arrivals) or stock-out (sales/dispatch usage).</p>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Movement Type</label>
+            <select name="movement_type" id="movType" class="form-select" onchange="updateMovementPreview()">
+              <option value="stock_in">Stock-In (Replenishment)</option>
+              <option value="stock_out">Stock-Out (Usage / Adjustment)</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Product</label>
+            <select name="product_id" id="movProduct" class="form-select" required onchange="updateMovementPreview()">
+              {% for p in products %}
+                <option value="{{ p.id }}" data-stock="{{ p.stock_quantity }}" data-unit="{{ p.unit }}">
+                  {{ p.name }} (Current: {{ p.stock_quantity }} {{ p.unit }})
+                </option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Movement Type</label>
-          <select name="movement_type" class="form-select">
-            <option value="stock_in">Stock-In (Replenishment)</option>
-            <option value="stock_out">Stock-Out (Manual Adjustment)</option>
-          </select>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Quantity</label>
+            <input type="number" name="quantity" id="movQty" min="1" class="form-control" value="50" required oninput="updateMovementPreview()">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Reference / Supplier / Order ID</label>
+            <input type="text" name="reference" class="form-control" placeholder="e.g. Supplier INV-3342">
+          </div>
         </div>
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Quantity</label>
-          <input type="number" name="quantity" min="1" class="form-control" required>
-        </div>
+
         <div class="mb-3">
           <label class="form-label small fw-semibold">Remarks</label>
-          <input type="text" name="remarks" class="form-control" placeholder="e.g., Supplier delivery / Damaged bags" required>
+          <input type="text" name="remarks" class="form-control" placeholder="Weekly supplier restock or damaged adjustment" required>
+        </div>
+
+        <!-- Preview Impact Card -->
+        <div class="p-3 bg-light rounded border">
+          <div class="small fw-bold text-muted text-uppercase mb-2">Preview Impact</div>
+          <div class="row text-center g-2">
+            <div class="col-4">
+              <div class="text-muted small">Current stock</div>
+              <div class="fs-5 fw-bold" id="prevCurrent">0</div>
+            </div>
+            <div class="col-4">
+              <div class="text-muted small" id="prevTypeLabel">Stock-In</div>
+              <div class="fs-5 fw-bold text-success" id="prevDelta">+0</div>
+            </div>
+            <div class="col-4">
+              <div class="text-muted small">New stock</div>
+              <div class="fs-5 fw-bold text-dark" id="prevNew">0</div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -132,61 +201,132 @@
   </div>
 </div>
 
-<!-- Modal: Add Product -->
+<!-- Modal: Add / Update Product (Matching Admin product details.png) -->
 <div class="modal fade" id="productModal" tabindex="-1">
-  <div class="modal-dialog">
-    <form method="POST" class="modal-content">
-      <input type="hidden" name="action" value="add_product">
+  <div class="modal-dialog modal-lg">
+    <form method="POST" action="{{ url_for('main.admin_inventory') }}" class="modal-content" id="productForm">
+      <input type="hidden" name="action" id="prodAction" value="add_product">
+      <input type="hidden" name="product_id" id="prodId" value="">
       <div class="modal-header">
-        <h5 class="modal-title fw-bold">Add New Material</h5>
+        <h5 class="modal-title fw-bold" id="productModalTitle">Add New Material</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
-        <div class="mb-2">
-          <label class="form-label small fw-semibold">Product Name</label>
-          <input type="text" name="name" class="form-control" required>
-        </div>
-        <div class="mb-2">
-          <label class="form-label small fw-semibold">Category</label>
-          <select name="category_id" class="form-select">
-            {% for c in categories %}
-              <option value="{{ c.id }}">{{ c.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="mb-2">
-          <label class="form-label small fw-semibold">Description</label>
-          <input type="text" name="description" class="form-control" required>
-        </div>
-        <div class="row g-2 mb-2">
-          <div class="col-6">
-            <label class="form-label small fw-semibold">Unit</label>
-            <input type="text" name="unit" class="form-control" placeholder="bag / pc / ton" required>
+      <div class="modal-body p-4">
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Product Name *</label>
+            <input type="text" name="name" id="prodName" class="form-control" required placeholder="e.g. Portland Cement (40kg)">
           </div>
-          <div class="col-6">
-            <label class="form-label small fw-semibold">Price (&#8369;)</label>
-            <input type="number" step="0.01" name="price" class="form-control" required>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Category *</label>
+            <select name="category_id" id="prodCategory" class="form-select" required>
+              {% for c in categories %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
           </div>
         </div>
-        <div class="row g-2 mb-2">
-          <div class="col-6">
-            <label class="form-label small fw-semibold">Initial Stock</label>
-            <input type="number" name="stock_quantity" class="form-control" value="50" required>
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Description *</label>
+          <input type="text" name="description" id="prodDesc" class="form-control" required placeholder="Structural Grade Type 1P / Standard Size">
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Unit (e.g. bag, pc, ton, sheet) *</label>
+            <input type="text" name="unit" id="prodUnit" class="form-control" required placeholder="bag">
           </div>
-          <div class="col-6">
-            <label class="form-label small fw-semibold">Low Stock Threshold</label>
-            <input type="number" name="low_stock_threshold" class="form-control" value="20" required>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Price (&#8369;) *</label>
+            <input type="number" step="0.01" name="price" id="prodPrice" class="form-control" required placeholder="285.00">
           </div>
         </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Stock Quantity *</label>
+            <input type="number" name="stock_quantity" id="prodStock" class="form-control" value="50" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Low Stock Threshold *</label>
+            <input type="number" name="low_stock_threshold" id="prodThreshold" class="form-control" value="20" required>
+          </div>
+        </div>
+
         <div class="mb-2">
           <label class="form-label small fw-semibold">Image URL (Optional)</label>
-          <input type="url" name="image_url" class="form-control" placeholder="https://...">
+          <input type="url" name="image_url" id="prodImage" class="form-control" placeholder="https://images.unsplash.com/...">
         </div>
       </div>
       <div class="modal-footer">
-        <button type="submit" class="btn btn-rml">Save Product</button>
+        <button type="submit" class="btn btn-rml" id="prodSubmitBtn">Save Product</button>
       </div>
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function updateMovementPreview() {
+    const sel = document.getElementById("movProduct");
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt) return;
+
+    const curStock = parseInt(opt.getAttribute("data-stock") || 0);
+    const unit = opt.getAttribute("data-unit") || "";
+    const type = document.getElementById("movType").value;
+    const qty = parseInt(document.getElementById("movQty").value || 0);
+
+    const prevCurrent = document.getElementById("prevCurrent");
+    const prevTypeLabel = document.getElementById("prevTypeLabel");
+    const prevDelta = document.getElementById("prevDelta");
+    const prevNew = document.getElementById("prevNew");
+
+    prevCurrent.textContent = curStock + " " + unit;
+    if (type === "stock_in") {
+      prevTypeLabel.textContent = "Stock-In";
+      prevDelta.className = "fs-5 fw-bold text-success";
+      prevDelta.textContent = "+" + qty + " " + unit;
+      prevNew.textContent = (curStock + qty) + " " + unit;
+    } else {
+      prevTypeLabel.textContent = "Stock-Out";
+      prevDelta.className = "fs-5 fw-bold text-danger";
+      prevDelta.textContent = "-" + qty + " " + unit;
+      prevNew.textContent = Math.max(0, curStock - qty) + " " + unit;
+    }
+  }
+
+  function resetProductModal() {
+    document.getElementById("prodAction").value = "add_product";
+    document.getElementById("prodId").value = "";
+    document.getElementById("productModalTitle").textContent = "Add New Material";
+    document.getElementById("prodSubmitBtn").textContent = "Save Product";
+    document.getElementById("productForm").reset();
+  }
+
+  function openEditProductModalFromBtn(btn) {
+    document.getElementById("prodAction").value = "update_product";
+    document.getElementById("prodId").value = btn.getAttribute("data-id");
+    document.getElementById("productModalTitle").textContent = "Update Material: " + btn.getAttribute("data-name");
+    document.getElementById("prodSubmitBtn").textContent = "Update Product";
+
+    document.getElementById("prodName").value = btn.getAttribute("data-name") || "";
+    document.getElementById("prodCategory").value = btn.getAttribute("data-category") || "";
+    document.getElementById("prodDesc").value = btn.getAttribute("data-desc") || "";
+    document.getElementById("prodUnit").value = btn.getAttribute("data-unit") || "";
+    document.getElementById("prodPrice").value = btn.getAttribute("data-price") || "0.00";
+    document.getElementById("prodStock").value = btn.getAttribute("data-stock") || "0";
+    document.getElementById("prodThreshold").value = btn.getAttribute("data-threshold") || "20";
+    document.getElementById("prodImage").value = btn.getAttribute("data-image") || "";
+
+    const modal = new bootstrap.Modal(document.getElementById("productModal"));
+    modal.show();
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    updateMovementPreview();
+  });
+</script>
 {% endblock %}

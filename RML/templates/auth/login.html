@@ -9,16 +9,19 @@
         <div class="row g-0">
           <div class="col-md-5 rml-login-panel text-white p-4 d-flex flex-column justify-content-between">
             <div>
-              <i class="bi bi-truck fs-2 mb-3 d-block"></i>
-              <h3 class="fw-bold">Keep every operation moving.</h3>
+              <div class="d-flex align-items-center gap-2 mb-3">
+                <span class="rml-logo-box">R</span>
+                <span class="fw-bold fs-5">RML Construction Supply</span>
+              </div>
+              <h3 class="fw-bold mb-3">Keep every operation moving.</h3>
               <p class="text-secondary small">Browse construction materials, place orders, manage inventory, and track live deliveries across Lipa City, Batangas.</p>
-              <hr class="border-secondary">
-              <div class="small mb-2"><strong>01</strong> &middot; Browse materials &amp; check stock</div>
-              <div class="small mb-2"><strong>02</strong> &middot; Coordinate inventory &amp; dispatch</div>
-              <div class="small"><strong>03</strong> &middot; Live delivery tracking &amp; confirmation</div>
+              <hr class="border-secondary border-opacity-50">
+              <div class="small mb-2"><strong>01</strong> &middot; Browse materials &amp; check live stock</div>
+              <div class="small mb-2"><strong>02</strong> &middot; Coordinate inventory &amp; truck dispatch</div>
+              <div class="small"><strong>03</strong> &middot; Real-time GPS tracking &amp; site confirmation</div>
             </div>
             <div class="small text-secondary mt-4">
-              Serving construction sites across Lipa City, Batangas.
+              Serving construction sites across Lipa City &amp; Batangas Province.
             </div>
           </div>
 
@@ -28,7 +31,7 @@
                 <a class="nav-link {% if selected_role == 'customer' %}btn-rml active{% else %}text-dark{% endif %}" href="{{ url_for('main.login', role='customer') }}">Customer</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link {% if selected_role == 'admin' %}btn-rml active{% else %}text-dark{% endif %}" href="{{ url_for('main.login', role='admin') }}">Admin / Staff</a>
+                <a class="nav-link {% if selected_role in ('admin', 'staff') %}btn-rml active{% else %}text-dark{% endif %}" href="{{ url_for('main.login', role='admin') }}">Admin / Staff</a>
               </li>
               <li class="nav-item">
                 <a class="nav-link {% if selected_role == 'driver' %}btn-rml active{% else %}text-dark{% endif %}" href="{{ url_for('main.login', role='driver') }}">Driver</a>
@@ -36,7 +39,7 @@
             </ul>
 
             <h3 class="fw-bold mb-1">
-              {% if selected_role == 'admin' %}Admin sign-in{% elif selected_role == 'driver' %}Driver sign-in{% else %}Customer Portal{% endif %}
+              {% if selected_role in ('admin', 'staff') %}Admin sign-in{% elif selected_role == 'driver' %}Driver sign-in{% else %}Customer Portal{% endif %}
             </h3>
             <p class="text-muted small mb-4">Sign in with your assigned email or Staff ID.</p>
 
@@ -47,23 +50,23 @@
                   {% if selected_role == 'customer' %}Email address{% else %}Staff ID or Email{% endif %}
                 </label>
                 <input type="text" name="identifier" class="form-control" required
-                  placeholder="{% if selected_role == 'admin' %}RML-ADM-001{% elif selected_role == 'driver' %}RML-DRV-014{% else %}customer@rml.com{% endif %}">
+                  placeholder="{% if selected_role in ('admin', 'staff') %}RML-ADM-001 or admin@rml.com{% elif selected_role == 'driver' %}RML-DRV-014 or driver@rml.com{% else %}customer@rml.com{% endif %}">
               </div>
               <div class="mb-3">
                 <label class="form-label small fw-semibold">Password</label>
-                <input type="password" name="password" class="form-control" required placeholder="Enter password">
+                <input type="password" name="password" class="form-control" required placeholder="Enter your password">
               </div>
               <button type="submit" class="btn btn-rml w-100 py-2 fw-semibold">Sign in</button>
             </form>
 
             {% if selected_role == 'customer' %}
             <div class="text-center mt-3 small">
-              Need an account? <a href="{{ url_for('main.register') }}" class="text-rml fw-semibold">Register here</a>
+              Need a customer account? <a href="{{ url_for('main.register') }}" class="text-rml fw-semibold text-decoration-none">Register here</a>
             </div>
             {% endif %}
 
-            <div class="mt-4 p-3 bg-light rounded small text-muted">
-              <div class="fw-semibold text-dark mb-1">Demo Accounts:</div>
+            <div class="mt-4 p-3 bg-light rounded small text-muted border">
+              <div class="fw-semibold text-dark mb-1">Demo Access Credentials:</div>
               <div>Customer: <code>customer@rml.com</code> / <code>customer123</code></div>
               <div>Admin: <code>RML-ADM-001</code> / <code>admin123</code></div>
               <div>Driver: <code>RML-DRV-014</code> / <code>driver123</code></div>

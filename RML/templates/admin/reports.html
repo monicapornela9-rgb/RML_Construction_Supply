@@ -1,66 +1,219 @@
 {% extends "base.html" %}
-{% block title %}Reports - RML Construction Supply{% endblock %}
+{% block title %}Operational Reports - RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
   <div>
     <div class="text-muted small">Ops Console &middot; Reports</div>
-    <h2 class="fw-bold mb-0">Business Reports</h2>
+    <h2 class="fw-bold mb-1">Operational Reports</h2>
+    <p class="text-muted small mb-0">Sales, stock levels, transactions, and delivery activity in one dashboard.</p>
   </div>
-  <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print / Export PDF</button>
+  <div class="d-flex gap-2">
+    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#dateRangeModal">
+      <i class="bi bi-calendar3 me-1"></i> Set Date Range
+    </button>
+    <button class="btn btn-rml btn-sm" data-bs-toggle="modal" data-bs-target="#exportModal">
+      <i class="bi bi-file-earmark-arrow-down me-1"></i> Export Report
+    </button>
+  </div>
 </div>
 
-<form method="GET" action="{{ url_for('main.admin_reports') }}" class="row g-2 mb-4">
+<!-- Quick Date Filters -->
+<form method="GET" action="{{ url_for('main.admin_reports') }}" class="row g-2 mb-4 align-items-center">
   <div class="col-md-3">
-    <input type="date" name="start_date" value="{{ start_date }}" class="form-control">
+    <label class="form-label small fw-semibold mb-1">Start Date</label>
+    <input type="date" name="start_date" value="{{ start_date }}" class="form-control form-control-sm">
   </div>
   <div class="col-md-3">
-    <input type="date" name="end_date" value="{{ end_date }}" class="form-control">
+    <label class="form-label small fw-semibold mb-1">End Date</label>
+    <input type="date" name="end_date" value="{{ end_date }}" class="form-control form-control-sm">
   </div>
-  <div class="col-md-2">
-    <button type="submit" class="btn btn-rml w-100">Filter</button>
+  <div class="col-md-2 d-flex align-items-end">
+    <button type="submit" class="btn btn-dark btn-sm w-100">Apply Filter</button>
   </div>
+  {% if start_date or end_date %}
+  <div class="col-md-2 d-flex align-items-end">
+    <a href="{{ url_for('main.admin_reports') }}" class="btn btn-outline-secondary btn-sm w-100">Reset</a>
+  </div>
+  {% endif %}
 </form>
 
-<div class="row g-3 mb-4">
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm p-3">
-      <div class="text-muted small">Total Sales (Filtered)</div>
-      <div class="fs-2 fw-bold">&#8369;{{ "{:,.2f}".format(total_sales) }}</div>
+<!-- Visual Charts Section (Matching Admin reports.png) -->
+<div class="row g-4 mb-4">
+  <!-- Chart 1: Sales by Category -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0">Sales by Category (This Month)</h6>
+        <span class="text-muted small">Revenue (PHP)</span>
+      </div>
+      <div class="d-flex align-items-end justify-content-around pt-4 pb-2" style="height: 220px; border-bottom: 2px dashed #E2E8F0;">
+        {% set max_rev = 1 %}
+        {% for cat in cat_sales %}
+          {% if cat.revenue > max_rev %}{% set max_rev = cat.revenue %}{% endif %}
+        {% endfor %}
+
+        {% for cat in cat_sales %}
+          {% set bar_height = [(cat.revenue / max_rev * 180)|int, 15]|max if max_rev > 0 else 15 %}
+          <div class="text-center d-flex flex-column align-items-center" style="width: 18%;">
+            <span class="small fw-semibold text-muted mb-1" style="font-size: 0.72rem;">&#8369;{{ "{:,.0f}".format(cat.revenue) }}</span>
+            <div style="width: 32px; height: {{ bar_height }}px; background-color: #C83126; border-radius: 4px 4px 0 0;" title="{{ cat.name }}: &#8369;{{ '{:,.2f}'.format(cat.revenue) }}"></div>
+            <span class="small text-muted mt-2 text-truncate" style="max-width: 70px; font-size: 0.75rem;" title="{{ cat.name }}">{{ cat.name }}</span>
+          </div>
+        {% else %}
+          <div class="text-muted small py-4">No category sales recorded yet.</div>
+        {% endfor %}
+      </div>
+      <div class="text-end small text-muted mt-2">Category Breakdown</div>
     </div>
   </div>
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm p-3">
-      <div class="text-muted small">Low-Stock Products</div>
-      <div class="fs-2 fw-bold">{{ low_stock_items|length }}</div>
+
+  <!-- Chart 2: Daily Orders & Approvals Trend -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0">Daily Orders &amp; Approvals</h6>
+        <span class="text-muted small">Order Volume</span>
+      </div>
+      <div class="d-flex align-items-end justify-content-around pt-4 pb-2" style="height: 220px; border-bottom: 2px dashed #E2E8F0;">
+        {% for d in daily_orders %}
+          <div class="text-center d-flex flex-column align-items-center" style="width: 12%;">
+            <span class="small fw-bold text-dark mb-1">{{ d.count }}</span>
+            <div class="d-flex gap-1 align-items-end">
+              <div style="width: 14px; height: {{ (d.count * 30)|int }}px; background-color: #1F5776; border-radius: 3px 3px 0 0;" title="Total: {{ d.count }}"></div>
+              <div style="width: 14px; height: {{ (d.approved_count * 30)|int }}px; background-color: #C83126; border-radius: 3px 3px 0 0;" title="Approved: {{ d.approved_count }}"></div>
+            </div>
+            <span class="small text-muted mt-2" style="font-size: 0.7rem;">{{ d.order_date[5:] }}</span>
+          </div>
+        {% else %}
+          <div class="text-muted small py-4">No orders logged in this period.</div>
+        {% endfor %}
+      </div>
+      <div class="d-flex justify-content-between small text-muted mt-2">
+        <span><span class="badge" style="background:#1F5776;">&nbsp;</span> Total Placed &nbsp; <span class="badge" style="background:#C83126;">&nbsp;</span> Approved</span>
+        <span>Past 7 Days</span>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="card border-0 shadow-sm">
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">Total Sales (Filtered)</div>
+      <div class="fs-2 fw-bold text-rml">&#8369;{{ "{:,.2f}".format(total_sales) }}</div>
+      <div class="small text-muted">Excludes rejected orders</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">Low-Stock Products</div>
+      <div class="fs-2 fw-bold text-warning">{{ low_stock_items|length }}</div>
+      <div class="small text-muted">Requires stock replenishment</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="text-muted small">Total Orders Analyzed</div>
+      <div class="fs-2 fw-bold text-dark">{{ orders|length }}</div>
+      <div class="small text-muted">In selected report interval</div>
+    </div>
+  </div>
+</div>
+
+<!-- Orders Ledger Table -->
+<div class="card border-0 shadow-sm overflow-hidden">
   <div class="table-responsive">
-    <table class="table table-sm align-middle mb-0">
+    <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
-          <th>Order</th>
-          <th>Customer</th>
-          <th>Date</th>
+          <th>Order Code</th>
+          <th>Customer Name</th>
+          <th>Date Placed</th>
           <th>Status</th>
-          <th>Amount</th>
+          <th>Payment Method</th>
+          <th class="text-end">Total Amount</th>
         </tr>
       </thead>
       <tbody>
         {% for o in orders %}
         <tr>
-          <td class="fw-semibold">#{{ o.order_code }}</td>
-          <td>{{ o.customer_name }}</td>
+          <td class="fw-bold">{{ o.order_code|order_code }}</td>
+          <td>{{ o.customer_name or o.recipient_name }}</td>
           <td class="small text-muted">{{ o.created_at }}</td>
-          <td>{{ o.order_status|title }}</td>
-          <td class="fw-semibold">&#8369;{{ "{:,.2f}".format(o.total_amount) }}</td>
+          <td>
+            <span class="badge {% if o.order_status in ('approved', 'in_transit', 'delivered') %}badge-instock{% elif o.order_status == 'rejected' %}badge-danger{% else %}badge-check{% endif %} text-uppercase">
+              {{ o.order_status }}
+            </span>
+          </td>
+          <td>
+            <span class="badge text-bg-light border text-uppercase">{{ o.payment_method or 'Pending' }}</span>
+            <span class="small text-muted">{{ o.payment_status or '' }}</span>
+          </td>
+          <td class="text-end fw-bold">&#8369;{{ "{:,.2f}".format(o.total_amount) }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center py-5 text-muted">No orders found in the selected date range.</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+
+<!-- Modal: Set Date Range (Matching Admin · Report date range.png) -->
+<div class="modal fade" id="dateRangeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="GET" action="{{ url_for('main.admin_reports') }}" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Report date range</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="fw-semibold fs-5 mb-2">This month &middot; November 2026</div>
+        <p class="small text-muted mb-4">Select custom date parameters to filter sales and delivery performance.</p>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Start date</label>
+          <input type="date" name="start_date" class="form-control" value="{{ start_date or '2026-11-01' }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">End date</label>
+          <input type="date" name="end_date" class="form-control" value="{{ end_date or '2026-11-30' }}">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-rml w-100">Apply Date Range</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Export Report Preview (Matching Admin · Report export preview.png) -->
+<div class="modal fade" id="exportModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Report export preview</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="fw-bold fs-5 mb-2">Operational Reports &middot; Summary Export</div>
+        <p class="small text-muted mb-3">
+          Sales by category, daily orders, driver dispatches, and inventory movements are included in this export.
+        </p>
+        <div class="p-3 bg-light rounded border mb-3 small">
+          <div><strong>Total Sales:</strong> &#8369;{{ "{:,.2f}".format(total_sales) }}</div>
+          <div><strong>Total Orders:</strong> {{ orders|length }}</div>
+          <div><strong>Low Stock Items:</strong> {{ low_stock_items|length }}</div>
+          <div><strong>Format:</strong> PDF / CSV Spreadsheet</div>
+        </div>
+        <button onclick="window.print()" class="btn btn-rml w-100 mb-2">
+          <i class="bi bi-printer me-1"></i> Print / Download PDF
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
