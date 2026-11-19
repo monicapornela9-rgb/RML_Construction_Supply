@@ -5,7 +5,7 @@
 <div class="mb-4">
   <div class="text-muted small">Customer Portal &middot; Checkout</div>
   <h2 class="fw-bold mb-1">Checkout</h2>
-  <p class="text-muted small">Review your order details and confirm delivery schedule.</p>
+  <p class="text-muted small">Review your order details and delivery information.</p>
 </div>
 
 <div class="row g-4">
@@ -27,27 +27,25 @@
             <label class="form-label small fw-semibold">Delivery Address *</label>
             <input type="text" name="delivery_address" value="{{ user.address if user else '' }}" class="form-control" required placeholder="Street Name, Building, Barangay, Lipa City, Batangas">
           </div>
-          <div class="col-md-6">
-            <label class="form-label small fw-semibold">Preferred Delivery Date *</label>
-            <input type="date" name="preferred_date" class="form-control" required>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label small fw-semibold">Delivery Slot *</label>
-            <select name="delivery_slot" class="form-select">
-              <option value="Morning (08:00 - 12:00)">Morning (08:00 - 12:00)</option>
-              <option value="Afternoon (13:00 - 17:00)">Afternoon (13:00 - 17:00)</option>
-            </select>
-          </div>
           <div class="col-12">
             <label class="form-label small fw-semibold">Special Site Instructions (Optional)</label>
             <textarea name="special_instructions" class="form-control" rows="2" placeholder="Landmark, gate access, unloading spot, or site safety contact..."></textarea>
+          </div>
+          <div class="col-12">
+            <div class="p-3 bg-light rounded border d-flex align-items-start gap-2">
+              <i class="bi bi-calendar2-check text-rml fs-5 mt-1"></i>
+              <div class="small">
+                <strong class="text-dark">Admin-Assigned Delivery Schedule</strong>
+                <p class="text-muted mb-0">To ensure prompt dispatch and avoid booking conflicts, RML dispatch will review your order and assign an available delivery date, time slot, and truck. You will receive a notification to review and confirm the proposed schedule in <strong>My Orders</strong>.</p>
+              </div>
+            </div>
           </div>
         </div>
       </form>
 
       <div class="mt-4 p-3 bg-light rounded small text-muted border">
-        <strong>Next: choose your payment method</strong><br>
-        Cash on Delivery or online QR payment is available on the next step.
+        <strong class="text-dark"><i class="bi bi-clock-history me-1 text-rml"></i>Next Step: Admin Review &amp; Delivery Scheduling</strong><br>
+        After you submit your order, our administrator will review your site details and assign an available delivery schedule. Once you approve the proposed schedule in <strong>My Orders</strong>, you will proceed to payment.
       </div>
     </div>
   </div>
@@ -97,9 +95,9 @@
         </div>
 
         <button type="submit" form="checkoutForm" class="btn btn-rml w-100 py-2 fs-6 fw-semibold">
-          Continue to Payments &rarr;
+          <i class="bi bi-send-check me-1"></i> Submit Order for Scheduling
         </button>
-        <p class="text-muted small text-center mt-2 mb-0">Continue to select payment method and confirm order.</p>
+        <p class="text-muted small text-center mt-2 mb-0">Submit your order for administrator review and schedule assignment.</p>
       {% else %}
         <div class="text-center py-4 text-muted">
           <i class="bi bi-cart-x fs-1 d-block mb-2"></i>

@@ -281,7 +281,11 @@ def init_db():
             vat_amount REAL NOT NULL DEFAULT 0,
             total_amount REAL NOT NULL DEFAULT 0,
             order_status TEXT NOT NULL DEFAULT 'pending'
-                CHECK(order_status IN ('pending', 'approved', 'rejected', 'preparing', 'in_transit', 'delivered')),
+                CHECK(order_status IN ('pending', 'pending_scheduling', 'for_scheduling', 'awaiting_confirmation', 'schedule_confirmed', 'scheduled', 'payment_pending', 'out_for_delivery', 'delivered', 'cancelled', 'approved', 'rejected', 'preparing', 'in_transit')),
+            assigned_date TEXT,
+            assigned_time_slot TEXT,
+            schedule_confirmed_at TEXT,
+            schedule_status TEXT NOT NULL DEFAULT 'unassigned',
             rejection_reason TEXT,
             approval_notes TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
@@ -345,6 +349,10 @@ def init_db():
     # Migrations for existing tables if columns are missing
     table_migrations = [
         ("orders", "approval_notes", "TEXT"),
+        ("orders", "assigned_date", "TEXT"),
+        ("orders", "assigned_time_slot", "TEXT"),
+        ("orders", "schedule_confirmed_at", "TEXT"),
+        ("orders", "schedule_status", "TEXT DEFAULT 'unassigned'"),
         ("payments", "payer_name", "TEXT"),
         ("payments", "bank_used", "TEXT"),
         ("payments", "proof_file", "TEXT"),
@@ -360,6 +368,60 @@ def init_db():
                 cur.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {col_def}")
         except Exception:
             pass
+
+    # Update CHECK constraint on orders table to support new workflow statuses
+    orders_sql = cur.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='orders'").fetchone()
+    if orders_sql and ("pending_scheduling" not in orders_sql[0] or "schedule_confirmed" not in orders_sql[0]):
+        cur.executescript(
+            """
+            PRAGMA foreign_keys = OFF;
+            CREATE TABLE orders_migrated (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_code TEXT NOT NULL UNIQUE,
+                customer_id INTEGER NOT NULL,
+                recipient_name TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                delivery_address TEXT NOT NULL,
+                preferred_date TEXT,
+                delivery_slot TEXT,
+                special_instructions TEXT,
+                subtotal REAL NOT NULL DEFAULT 0,
+                delivery_fee REAL NOT NULL DEFAULT 1500,
+                vat_amount REAL NOT NULL DEFAULT 0,
+                total_amount REAL NOT NULL DEFAULT 0,
+                order_status TEXT NOT NULL DEFAULT 'pending'
+                    CHECK(order_status IN ('pending', 'pending_scheduling', 'for_scheduling', 'awaiting_confirmation', 'schedule_confirmed', 'scheduled', 'payment_pending', 'out_for_delivery', 'delivered', 'cancelled', 'approved', 'rejected', 'preparing', 'in_transit')),
+                assigned_date TEXT,
+                assigned_time_slot TEXT,
+                schedule_confirmed_at TEXT,
+                schedule_status TEXT NOT NULL DEFAULT 'unassigned',
+                rejection_reason TEXT,
+                approval_notes TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                FOREIGN KEY (customer_id) REFERENCES users(id)
+            );
+
+            INSERT INTO orders_migrated (
+                id, order_code, customer_id, recipient_name, phone, delivery_address,
+                preferred_date, delivery_slot, special_instructions,
+                subtotal, delivery_fee, vat_amount, total_amount, order_status,
+                assigned_date, assigned_time_slot, schedule_confirmed_at, schedule_status,
+                rejection_reason, approval_notes, created_at
+            )
+            SELECT
+                id, order_code, customer_id, recipient_name, phone, delivery_address,
+                preferred_date, delivery_slot, special_instructions,
+                subtotal, delivery_fee, vat_amount, total_amount, order_status,
+                assigned_date, assigned_time_slot, schedule_confirmed_at,
+                COALESCE(schedule_status, 'unassigned'),
+                rejection_reason, approval_notes, created_at
+            FROM orders;
+
+            DROP TABLE orders;
+            ALTER TABLE orders_migrated RENAME TO orders;
+            PRAGMA foreign_keys = ON;
+            """
+        )
 
     user_count = cur.execute("SELECT COUNT(*) FROM users").fetchone()[0]
     if user_count == 0:

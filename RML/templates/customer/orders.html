@@ -5,32 +5,120 @@
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
   <div>
     <h2 class="fw-bold mb-1">My Orders</h2>
-    <p class="text-muted small mb-0">Track order approval, payment verification, and live truck delivery across Batangas.</p>
+    <p class="text-muted small mb-0">Track admin-assigned delivery schedules, customer confirmations, and live truck dispatches.</p>
   </div>
   <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-rml">
     <i class="bi bi-plus-lg me-1"></i> New Order
   </a>
 </div>
 
-<div class="card border-0 shadow-sm overflow-hidden">
+<!-- Proposed Delivery Schedule Action Notifications (Requirement 3) -->
+{% set awaiting_orders = [] %}
+{% for o in orders if o.order_status == 'awaiting_confirmation' %}
+  {% set _ = awaiting_orders.append(o) %}
+{% endfor %}
+
+{% if awaiting_orders %}
+  <div class="mb-4">
+    {% for o in awaiting_orders %}
+      <div class="card border-0 shadow-sm border-start border-warning border-4 mb-3">
+        <div class="card-body p-4">
+          <div class="row align-items-center g-3">
+            <div class="col-lg-8">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-warning text-dark px-2 py-1"><i class="bi bi-bell-fill me-1"></i> Action Required: Schedule Proposed</span>
+                <span class="fw-bold fs-6">Order {{ o.order_code|order_code }}</span>
+              </div>
+              <p class="text-dark small mb-2">
+                Our administrator has proposed a delivery schedule for your order. Please review the schedule and confirm whether it is convenient for you.
+              </p>
+              <div class="row g-2 small bg-light p-3 rounded border">
+                <div class="col-sm-4">
+                  <div class="text-muted smaller text-uppercase fw-bold">Proposed Delivery Date:</div>
+                  <div class="fw-bold text-primary fs-6">{{ o.assigned_date }}</div>
+                </div>
+                <div class="col-sm-4">
+                  <div class="text-muted smaller text-uppercase fw-bold">Assigned Time Slot:</div>
+                  <div class="fw-bold text-dark fs-6">{{ o.assigned_time_slot }}</div>
+                </div>
+                <div class="col-sm-4">
+                  <div class="text-muted smaller text-uppercase fw-bold">Order Total:</div>
+                  <div class="fw-bold text-rml fs-6">&#8369;{{ "{:,.2f}".format(o.total_amount) }}</div>
+                </div>
+                {% if o.truck_code or o.driver_name %}
+                <div class="col-12 border-top pt-2 mt-2">
+                  <span class="text-muted smaller text-uppercase fw-bold">Assigned Logistics:</span>
+                  <span class="fw-semibold text-dark">{{ o.truck_code or 'RML Truck' }}</span>
+                  {% if o.plate_number %}({{ o.plate_number }}){% endif %}
+                  {% if o.driver_name %}&middot; Driver: <strong>{{ o.driver_name }}</strong>{% endif %}
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            <div class="col-lg-4 text-lg-end">
+              <div class="d-flex flex-column flex-sm-row flex-lg-column gap-2 justify-content-end">
+                <form method="POST" action="{{ url_for('main.customer_accept_schedule', order_id=o.id) }}" class="m-0">
+                  <button type="submit" class="btn btn-success w-100 fw-semibold py-2">
+                    <i class="bi bi-check-circle me-1"></i> ACCEPT SCHEDULE
+                  </button>
+                </form>
+                <button type="button" class="btn btn-outline-danger w-100 py-2" data-bs-toggle="modal" data-bs-target="#cancelModal{{ o.id }}">
+                  <i class="bi bi-x-circle me-1"></i> CANCEL ORDER
+                </button>
+              </div>
+              <div class="text-muted smaller mt-2 text-center text-lg-end">
+                Accepting the schedule unlocks payment options. If inconvenient, you may cancel this order.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div class="card border-0 shadow-sm overflow-hidden mb-4">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
           <th>Order</th>
           <th>Date Placed</th>
+          <th>Delivery Schedule</th>
           <th>Total Amount</th>
           <th>Payment</th>
           <th>Order Status</th>
-          <th>Delivery Status</th>
           <th class="text-end">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for o in orders %}
         <tr>
-          <td class="fw-bold">{{ o.order_code|order_code }}</td>
+          <td class="fw-bold">
+            <div>{{ o.order_code|order_code }}</div>
+            <small class="text-muted fw-normal">{{ o.delivery_address|truncate(35) }}</small>
+          </td>
           <td class="small text-muted">{{ o.created_at }}</td>
+          <td>
+            {% if o.order_status == 'awaiting_confirmation' %}
+              <div class="fw-bold text-primary small">{{ o.assigned_date }}</div>
+              <div class="text-muted smaller">{{ o.assigned_time_slot }}</div>
+              <span class="badge bg-warning text-dark smaller">Awaiting Confirmation</span>
+            {% elif o.order_status in ('scheduled', 'schedule_confirmed', 'out_for_delivery', 'in_transit', 'delivered') %}
+              <div class="fw-bold text-success small">{{ o.assigned_date or o.preferred_date or 'Scheduled' }}</div>
+              <div class="text-muted smaller">{{ o.assigned_time_slot or o.delivery_slot or 'Standard Slot' }}</div>
+              {% if o.schedule_status == 'accepted' or o.order_status in ('scheduled', 'schedule_confirmed') %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle smaller"><i class="bi bi-check2"></i> Confirmed</span>
+              {% endif %}
+            {% elif o.order_status in ('pending', 'pending_scheduling', 'for_scheduling') %}
+              <div class="text-muted small"><i class="bi bi-clock me-1"></i> Awaiting Admin Schedule</div>
+              <span class="smaller text-muted">Checking fleet availability</span>
+            {% elif o.order_status in ('cancelled', 'rejected') %}
+              <span class="small text-muted text-decoration-line-through">Cancelled</span>
+            {% else %}
+              <span class="small text-muted">Unscheduled</span>
+            {% endif %}
+          </td>
           <td class="fw-bold">&#8369;{{ "{:,.2f}".format(o.total_amount) }}</td>
           <td>
             {% if o.payment_method %}
@@ -38,35 +126,56 @@
               <span class="badge {% if o.payment_status == 'verified' %}badge-instock{% else %}badge-check{% endif %}">
                 {{ o.payment_status|title }}
               </span>
-            {% else %}
-              <a href="{{ url_for('main.customer_payment', order_id=o.id, step=1) }}" class="btn btn-sm btn-outline-rml py-0">Pay now</a>
-            {% endif %}
-          </td>
-          <td>
-            <span class="badge {% if o.order_status in ('approved', 'in_transit', 'delivered') %}badge-instock{% elif o.order_status == 'rejected' %}badge-danger{% else %}badge-check{% endif %}">
-              {{ o.order_status|title }}
-            </span>
-            {% if o.rejection_reason %}
-              <div class="small text-danger mt-1">{{ o.rejection_reason }}</div>
-            {% endif %}
-          </td>
-          <td>
-            {% if o.delivery_status %}
-              <span class="badge {% if o.delivery_status == 'delivered' %}badge-instock{% elif o.delivery_status == 'en_route' %}badge-check{% else %}badge-transit{% endif %}">
-                {{ o.delivery_status|replace('_', ' ')|title }}
+            {% elif o.order_status in ('schedule_confirmed', 'scheduled') %}
+              <a href="{{ url_for('main.customer_payment', order_id=o.id, step=1) }}" class="btn btn-sm btn-rml py-1 fw-semibold">
+                <i class="bi bi-credit-card me-1"></i> Pay Now
+              </a>
+            {% elif o.order_status in ('pending', 'pending_scheduling', 'for_scheduling', 'awaiting_confirmation') %}
+              <span class="badge text-bg-light border text-muted smaller">
+                <i class="bi bi-lock me-1"></i> Awaiting Schedule Approval
               </span>
             {% else %}
-              <span class="small text-muted">Awaiting dispatch</span>
+              <span class="badge text-bg-light border text-muted smaller">N/A</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if o.order_status in ('pending', 'pending_scheduling') %}
+              <span class="badge badge-check">Pending Scheduling</span>
+            {% elif o.order_status == 'for_scheduling' %}
+              <span class="badge bg-info text-dark">For Scheduling</span>
+            {% elif o.order_status == 'awaiting_confirmation' %}
+              <span class="badge bg-warning text-dark">Awaiting Confirmation</span>
+            {% elif o.order_status in ('scheduled', 'schedule_confirmed') %}
+              <span class="badge badge-instock">Schedule Confirmed</span>
+            {% elif o.order_status in ('out_for_delivery', 'in_transit') %}
+              <span class="badge badge-transit">Out for Delivery</span>
+            {% elif o.order_status == 'delivered' %}
+              <span class="badge badge-instock">Delivered</span>
+            {% elif o.order_status in ('cancelled', 'rejected') %}
+              <span class="badge badge-danger">Cancelled</span>
+            {% else %}
+              <span class="badge bg-secondary text-uppercase">{{ o.order_status }}</span>
+            {% endif %}
+
+            {% if o.rejection_reason %}
+              <div class="smaller text-danger mt-1">{{ o.rejection_reason }}</div>
             {% endif %}
           </td>
           <td class="text-end">
             <div class="btn-group btn-group-sm">
-              <a href="{{ url_for('main.customer_order_tracking', order_id=o.id) }}" class="btn btn-outline-dark" title="Live Tracking">
-                <i class="bi bi-geo-alt me-1"></i> Track
-              </a>
-              <a href="{{ url_for('main.order_invoice', order_id=o.id) }}" class="btn btn-outline-secondary" title="View Printable Invoice">
+              {% if o.order_status not in ('cancelled', 'rejected') %}
+                <a href="{{ url_for('main.customer_order_tracking', order_id=o.id) }}" class="btn btn-outline-dark" title="Track Order">
+                  <i class="bi bi-geo-alt me-1"></i> Track
+                </a>
+              {% endif %}
+              <a href="{{ url_for('main.order_invoice', order_id=o.id) }}" class="btn btn-outline-secondary" title="View Printable Invoice" target="_blank">
                 <i class="bi bi-receipt"></i> Invoice
               </a>
+              {% if o.order_status in ('pending', 'pending_scheduling', 'for_scheduling', 'awaiting_confirmation') %}
+                <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelModal{{ o.id }}" title="Cancel Order">
+                  <i class="bi bi-x-circle"></i>
+                </button>
+              {% endif %}
             </div>
           </td>
         </tr>
@@ -83,4 +192,39 @@
     </table>
   </div>
 </div>
+
+<!-- Cancellation Modals (Placed Outside Table for clean HTML DOM) -->
+{% for o in orders if o.order_status in ('pending', 'pending_scheduling', 'for_scheduling', 'awaiting_confirmation') %}
+  <div class="modal fade" id="cancelModal{{ o.id }}" tabindex="-1" aria-labelledby="cancelModalLabel{{ o.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form method="POST" action="{{ url_for('main.customer_cancel_order', order_id=o.id) }}">
+          <div class="modal-header">
+            <h5 class="modal-title fw-bold text-danger" id="cancelModalLabel{{ o.id }}">
+              <i class="bi bi-exclamation-triangle-fill me-1"></i> Cancel Order {{ o.order_code|order_code }}
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-3">
+              Are you sure you want to cancel this order?
+              {% if o.order_status == 'awaiting_confirmation' %}
+                If the proposed delivery schedule on <strong>{{ o.assigned_date }} ({{ o.assigned_time_slot }})</strong> is not convenient, you may cancel it now.
+              {% endif %}
+              Any reserved trucks, drivers, and delivery slots will be released immediately.
+            </p>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold">Cancellation Reason (Optional)</label>
+              <textarea name="cancellation_reason" class="form-control form-control-sm" rows="2" placeholder="e.g. Schedule is not convenient, found alternative, or site unavailable..."></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Keep Order</button>
+            <button type="submit" class="btn btn-danger btn-sm fw-semibold">Confirm Cancellation</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endfor %}
 {% endblock %}

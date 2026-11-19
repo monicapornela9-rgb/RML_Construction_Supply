@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Order Confirmation {{ order.order_code|order_code }} - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <div class="text-muted small">Customer Portal &middot; Order Confirmation</div>
+  <h2 class="fw-bold mb-1">Order Submitted</h2>
+  <p class="text-muted small">Your order has been recorded and is currently in the dispatch queue.</p>
+</div>
+
+<!-- Highlighted Submission Confirmation Banner (Requirement 1) -->
+<div class="card border-0 shadow-sm border-start border-success border-4 mb-4">
+  <div class="card-body p-4">
+    <div class="d-flex align-items-start gap-3">
+      <div class="d-inline-flex align-items-center justify-content-center bg-success text-white rounded-circle flex-shrink-0" style="width: 52px; height: 52px;">
+        <i class="bi bi-check2-circle fs-3"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold text-success mb-1">Your order has been submitted successfully!</h4>
+        <p class="text-dark fs-6 mb-2">
+          Please wait while our administrator reviews your order and assigns an available delivery schedule.
+        </p>
+        <div class="text-muted small">
+          Order Reference: <strong class="text-dark">{{ order.order_code|order_code }}</strong> &middot; Submitted on {{ order.created_at }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Order Details Column -->
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm p-4 mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+        <h5 class="fw-bold mb-0"><i class="bi bi-box-seam text-rml me-2"></i>Ordered Products</h5>
+        <span class="badge bg-secondary-subtle text-dark border">Status: Pending Admin Scheduling</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Product</th>
+              <th class="text-center">Quantity</th>
+              <th class="text-end">Unit Price</th>
+              <th class="text-end">Line Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ item.name }}</div>
+                <div class="text-muted smaller">{{ item.unit }}</div>
+              </td>
+              <td class="text-center">{{ item.quantity }} {{ item.unit }}</td>
+              <td class="text-end">&#8369;{{ "{:,.2f}".format(item.unit_price) }}</td>
+              <td class="text-end fw-semibold">&#8369;{{ "{:,.2f}".format(item.subtotal) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-4 pt-3 border-top">
+        <div class="d-flex justify-content-between small text-muted mb-2">
+          <span>Subtotal</span>
+          <span class="fw-semibold text-dark">&#8369;{{ "{:,.2f}".format(order.subtotal) }}</span>
+        </div>
+        <div class="d-flex justify-content-between small text-muted mb-2">
+          <span>Delivery Fee (Lipa City &amp; Batangas Logistics)</span>
+          <span class="fw-semibold text-dark">&#8369;{{ "{:,.2f}".format(order.delivery_fee) }}</span>
+        </div>
+        <div class="d-flex justify-content-between small text-muted mb-3">
+          <span>Estimated Tax (12% VAT)</span>
+          <span class="fw-semibold text-dark">&#8369;{{ "{:,.2f}".format(order.vat_amount) }}</span>
+        </div>
+        <hr>
+        <div class="d-flex justify-content-between align-items-center fw-bold fs-4">
+          <span>Total Amount</span>
+          <span class="text-rml">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delivery Info & Workflow Next Steps -->
+  <div class="col-lg-5">
+    <!-- Shipping Address Summary -->
+    <div class="card border-0 shadow-sm p-4 mb-4">
+      <h5 class="fw-bold mb-3"><i class="bi bi-geo-alt text-rml me-2"></i>Delivery Site Information</h5>
+      <div class="mb-2">
+        <div class="text-muted smaller text-uppercase fw-bold">Recipient / Contact</div>
+        <div class="fw-bold text-dark">{{ order.recipient_name }}</div>
+        <div class="small text-muted">{{ order.phone }}</div>
+      </div>
+      <div class="mb-2">
+        <div class="text-muted smaller text-uppercase fw-bold">Delivery Address</div>
+        <div class="small text-dark">{{ order.delivery_address }}</div>
+      </div>
+      {% if order.special_instructions %}
+      <div class="mb-0">
+        <div class="text-muted smaller text-uppercase fw-bold">Site Instructions</div>
+        <div class="small text-muted">{{ order.special_instructions }}</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Workflow Progress Notice -->
+    <div class="card border-0 shadow-sm p-4 mb-4 bg-light border">
+      <h6 class="fw-bold text-dark mb-3"><i class="bi bi-diagram-3 me-2 text-rml"></i>What Happens Next?</h6>
+      <ol class="small text-muted ps-3 mb-0 d-flex flex-column gap-2">
+        <li>
+          <strong class="text-dark">Admin Reviews Order:</strong>
+          Our dispatch team checks warehouse stock and fleet availability in Lipa City.
+        </li>
+        <li>
+          <strong class="text-dark">Schedule Assignment:</strong>
+          The admin assigns an available delivery date, time slot, truck, and driver.
+        </li>
+        <li>
+          <strong class="text-dark">Customer Approval:</strong>
+          You will receive a notification in <strong>My Orders</strong> to review and either <span class="text-success fw-semibold">Accept Schedule</span> or <span class="text-danger fw-semibold">Cancel Order</span>.
+        </li>
+        <li>
+          <strong class="text-dark">Payment Selection:</strong>
+          Once you accept the schedule, the system will prompt you to select Cash on Delivery or Online QR Payment.
+        </li>
+      </ol>
+    </div>
+
+    <!-- Actions -->
+    <div class="d-flex flex-column gap-2">
+      <a href="{{ url_for('main.customer_order_tracking', order_id=order.id) }}" class="btn btn-rml py-2 fw-semibold">
+        <i class="bi bi-compass me-1"></i> Track Order Status
+      </a>
+      <a href="{{ url_for('main.customer_orders') }}" class="btn btn-outline-dark py-2">
+        <i class="bi bi-list-check me-1"></i> View My Orders
+      </a>
+      <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-link text-muted small text-decoration-none text-center">
+        &larr; Continue Shopping in Catalog
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

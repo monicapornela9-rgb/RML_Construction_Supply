@@ -4,25 +4,35 @@
 {% block content %}
 <div class="mb-4">
   <div class="text-muted small">Ops Console &middot; Orders</div>
-  <h2 class="fw-bold mb-1">Order Processing &amp; Dispatch</h2>
-  <p class="text-muted small">Review incoming orders, verify available stock, then approve or reject with a reason.</p>
+  <h2 class="fw-bold mb-1">Order Processing &amp; Dispatch Scheduling</h2>
+  <p class="text-muted small">Review incoming orders, verify stock availability, and assign conflict-free truck and driver delivery schedules.</p>
 </div>
 
-<!-- Tabs -->
-<ul class="nav nav-pills mb-3">
+<!-- Tabs for All 5 Workflow States -->
+<ul class="nav nav-pills mb-3 flex-wrap gap-1">
   <li class="nav-item">
-    <a class="nav-link {% if tab == 'pending' %}active btn-rml{% else %}text-dark{% endif %}" href="{{ url_for('main.admin_orders', tab='pending') }}">
-      Pending approval ({{ counts.pending }})
+    <a class="nav-link {% if tab in ('pending', 'pending_scheduling') %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_orders', tab='pending') }}">
+      Pending Scheduling ({{ counts.pending }})
     </a>
   </li>
   <li class="nav-item">
-    <a class="nav-link {% if tab == 'ready' %}active btn-rml{% else %}text-dark{% endif %}" href="{{ url_for('main.admin_orders', tab='ready') }}">
-      Ready to dispatch ({{ counts.ready }})
+    <a class="nav-link {% if tab == 'for_scheduling' %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_orders', tab='for_scheduling') }}">
+      For Scheduling ({{ counts.for_scheduling }})
     </a>
   </li>
   <li class="nav-item">
-    <a class="nav-link {% if tab == 'all' %}active btn-rml{% else %}text-dark{% endif %}" href="{{ url_for('main.admin_orders', tab='all') }}">
-      All orders ({{ counts.all }})
+    <a class="nav-link {% if tab == 'awaiting_confirmation' %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_orders', tab='awaiting_confirmation') }}">
+      Awaiting Confirmation ({{ counts.awaiting_confirmation }})
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if tab in ('scheduled', 'ready', 'schedule_confirmed') %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_orders', tab='scheduled') }}">
+      Schedule Confirmed ({{ counts.scheduled }})
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if tab == 'all' %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_orders', tab='all') }}">
+      All Orders ({{ counts.all }})
     </a>
   </li>
 </ul>
@@ -34,6 +44,7 @@
         <tr>
           <th>Order</th>
           <th>Customer</th>
+          <th>Assigned Delivery Schedule</th>
           <th>Total</th>
           <th>Stock Check</th>
           <th>Status</th>
@@ -46,7 +57,21 @@
             <td class="fw-bold">{{ o.order_code|order_code }}</td>
             <td>
               <div class="fw-semibold">{{ o.customer_name }}</div>
-              <small class="text-muted">{{ o.delivery_address }}</small>
+              <small class="text-muted">{{ o.delivery_address|truncate(35) }}</small>
+            </td>
+            <td>
+              {% if o.assigned_date %}
+                <div class="fw-semibold small text-dark">{{ o.assigned_date }}</div>
+                <div class="text-muted smaller">{{ o.assigned_time_slot }}</div>
+                {% set d = deliveries_by_order.get(o.id) %}
+                {% if d and d.truck_code %}
+                  <span class="badge text-bg-light border smaller mt-1">{{ d.truck_code }} &middot; {{ d.driver_name }}</span>
+                {% endif %}
+              {% else %}
+                <span class="badge text-bg-light border text-muted smaller">
+                  <i class="bi bi-clock me-1"></i> Not Assigned
+                </span>
+              {% endif %}
             </td>
             <td class="fw-semibold">&#8369;{{ "{:,.2f}".format(o.total_amount) }}</td>
             <td>
@@ -57,21 +82,35 @@
               {% endif %}
             </td>
             <td>
-              <span class="badge {% if o.order_status in ('approved', 'in_transit', 'delivered') %}badge-instock{% elif o.order_status == 'rejected' %}badge-danger{% else %}badge-check{% endif %} text-uppercase">
-                {{ o.order_status }}
-              </span>
+              {% if o.order_status in ('pending', 'pending_scheduling') %}
+                <span class="badge badge-check">Pending Scheduling</span>
+              {% elif o.order_status == 'for_scheduling' %}
+                <span class="badge bg-info text-dark">For Scheduling</span>
+              {% elif o.order_status == 'awaiting_confirmation' %}
+                <span class="badge bg-warning text-dark">Awaiting Confirm</span>
+              {% elif o.order_status in ('scheduled', 'schedule_confirmed', 'approved') %}
+                <span class="badge badge-instock">Schedule Confirmed</span>
+              {% elif o.order_status in ('out_for_delivery', 'in_transit') %}
+                <span class="badge badge-transit">Out for Delivery</span>
+              {% elif o.order_status == 'delivered' %}
+                <span class="badge badge-instock">Delivered</span>
+              {% elif o.order_status in ('cancelled', 'rejected') %}
+                <span class="badge badge-danger">Cancelled</span>
+              {% else %}
+                <span class="badge bg-secondary text-uppercase">{{ o.order_status }}</span>
+              {% endif %}
             </td>
             <td class="text-end">
               <button class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#orderModal{{ o.id }}">
-                Review order &rarr;
+                Review &amp; Schedule &rarr;
               </button>
             </td>
           </tr>
         {% else %}
           <tr>
-            <td colspan="6" class="text-center py-5 text-muted">
+            <td colspan="7" class="text-center py-5 text-muted">
               <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-              No orders found in this category.
+              No orders found in this tab.
             </td>
           </tr>
         {% endfor %}
@@ -80,44 +119,100 @@
   </div>
 </div>
 
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+  <a href="{{ url_for('main.admin_deliveries') }}" class="btn btn-rml">
+    <i class="bi bi-truck me-1"></i> Manage Deliveries &amp; Fleet &rarr;
+  </a>
+  <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#scheduleOverview">
+    <i class="bi bi-calendar3 me-1"></i> View Existing Fleet Schedules ({{ existing_schedules|length }})
+  </button>
+</div>
+
+<!-- Existing Fleet Schedule Collapse to check conflicts -->
+<div class="collapse mb-4" id="scheduleOverview">
+  <div class="card border-0 shadow-sm p-4">
+    <h6 class="fw-bold mb-3"><i class="bi bi-calendar-check text-rml me-2"></i>Active Delivery Schedule Calendar</h6>
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Date</th>
+            <th>Time Slot</th>
+            <th>Assigned Truck</th>
+            <th>Assigned Driver</th>
+            <th>Order Code</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in existing_schedules %}
+            <tr>
+              <td class="fw-semibold">{{ s.assigned_date }}</td>
+              <td>{{ s.assigned_time_slot }}</td>
+              <td><span class="badge text-bg-light border">{{ s.truck_code }} ({{ s.plate_number }})</span></td>
+              <td>{{ s.driver_name }}</td>
+              <td class="fw-bold">{{ s.order_code|order_code }}</td>
+              <td><span class="badge badge-instock text-uppercase">{{ s.order_status|replace('_', ' ') }}</span></td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="6" class="text-muted text-center py-2">No active delivery assignments.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modals Placed Safely OUTSIDE the Table DOM to prevent broken HTML structure -->
 {% for o in orders %}
   <div class="modal fade" id="orderModal{{ o.id }}" tabindex="-1" aria-labelledby="orderModalLabel{{ o.id }}" aria-hidden="true">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
           <div>
-            <h5 class="modal-title fw-bold" id="orderModalLabel{{ o.id }}">Review Order {{ o.order_code|order_code }}</h5>
-            <div class="small text-muted">{{ o.customer_name }} &middot; Verify availability, then finalize decision.</div>
+            <h5 class="modal-title fw-bold" id="orderModalLabel{{ o.id }}">
+              Order {{ o.order_code|order_code }} &middot; {{ o.customer_name }}
+            </h5>
+            <div class="small text-muted">Review materials availability, assign delivery slot, and manage dispatch.</div>
           </div>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
+
         <div class="modal-body p-4">
+          <!-- Customer & Site Details -->
           <div class="bg-light p-3 rounded border mb-4 small">
             <div class="row g-2">
               <div class="col-sm-6">
-                <strong>Customer:</strong> {{ o.customer_name }} ({{ o.phone or o.customer_phone or 'No phone' }})<br>
+                <strong>Recipient:</strong> {{ o.recipient_name or o.customer_name }}<br>
+                <strong>Phone:</strong> {{ o.phone or o.customer_phone or 'No phone' }}<br>
                 <strong>Delivery Address:</strong> {{ o.delivery_address }}
               </div>
               <div class="col-sm-6">
-                <strong>Preferred Date:</strong> {{ o.preferred_date or 'N/A' }}<br>
-                <strong>Delivery Slot:</strong> {{ o.delivery_slot }}
+                <strong>Current Status:</strong>
+                <span class="badge {% if o.order_status in ('scheduled', 'delivered') %}badge-instock{% elif o.order_status in ('cancelled', 'rejected') %}badge-danger{% else %}badge-check{% endif %} text-uppercase">
+                  {{ o.order_status|replace('_', ' ') }}
+                </span><br>
+                <strong>Order Total:</strong> &#8369;{{ "{:,.2f}".format(o.total_amount) }}<br>
                 {% if o.special_instructions %}
-                  <br><strong>Instructions:</strong> {{ o.special_instructions }}
+                  <strong>Special Site Notes:</strong> <span class="text-danger">{{ o.special_instructions }}</span>
                 {% endif %}
               </div>
             </div>
           </div>
 
-          <h6 class="fw-bold mb-2">Stock availability</h6>
-          <div class="table-responsive mb-3">
+          <!-- Stock Availability Table -->
+          <h6 class="fw-bold mb-2">Stock Verification</h6>
+          <div class="table-responsive mb-4">
             <table class="table table-bordered table-sm align-middle mb-0">
               <thead class="table-light">
                 <tr>
                   <th>Product</th>
                   <th>Requested</th>
-                  <th>Available</th>
+                  <th>In Yard Stock</th>
                   <th>Result</th>
-                  <th>Remaining</th>
+                  <th>Stock After Dispatch</th>
                 </tr>
               </thead>
               <tbody>
@@ -140,28 +235,110 @@
             </table>
           </div>
 
-          {% if o.order_status == 'pending' %}
-            <form id="decisionForm{{ o.id }}" method="POST" action="{{ url_for('main.admin_order_decision', order_id=o.id) }}">
-              <div class="row g-3 mb-3">
-                <div class="col-md-6">
-                  <label class="form-label small fw-semibold">Approval Notes (Optional)</label>
-                  <input type="text" name="approval_notes" class="form-control form-control-sm" placeholder="e.g. Deliver within agreed time window.">
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label small fw-semibold">Rejection Reason (Required if rejecting)</label>
-                  <input type="text" name="rejection_reason" class="form-control form-control-sm" placeholder="e.g. Delivery window unavailable or out of stock">
-                </div>
+          <!-- Admin Delivery Scheduling Section (Core Requirements 2 & 5) -->
+          {% if o.order_status in ('pending', 'pending_scheduling', 'for_scheduling', 'awaiting_confirmation', 'scheduled', 'schedule_confirmed', 'approved') %}
+            <div class="card border border-primary-subtle bg-light p-3 mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="fw-bold mb-0 text-dark">
+                  <i class="bi bi-calendar-event text-rml me-1"></i>
+                  {% if o.assigned_date %}Reschedule Delivery Schedule{% else %}Assign Delivery Schedule &amp; Fleet{% endif %}
+                </h6>
+                {% if o.schedule_status == 'accepted' or o.order_status in ('scheduled', 'schedule_confirmed') %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">
+                    <i class="bi bi-check2-circle"></i> Customer Confirmed
+                  </span>
+                {% elif o.schedule_status == 'proposed' or o.order_status == 'awaiting_confirmation' %}
+                  <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                    <i class="bi bi-clock"></i> Awaiting Customer Confirmation
+                  </span>
+                {% endif %}
               </div>
-            </form>
-          {% else %}
-            <div class="p-3 bg-light rounded border small">
-              <strong>Order Status:</strong> <span class="badge text-uppercase bg-secondary">{{ o.order_status }}</span>
-              {% if o.rejection_reason %}
-                <div class="text-danger mt-1"><strong>Rejection Reason:</strong> {{ o.rejection_reason }}</div>
-              {% endif %}
-              {% if o.approval_notes %}
-                <div class="text-success mt-1"><strong>Approval Notes:</strong> {{ o.approval_notes }}</div>
-              {% endif %}
+              <p class="small text-muted mb-3">
+                Select an available delivery date, time slot, truck, and driver. Backend validation will prevent overlapping truck or driver assignments.
+              </p>
+
+              <form method="POST" action="{{ url_for('main.admin_order_assign_schedule', order_id=o.id) }}" id="schedForm{{ o.id }}">
+                <div class="row g-2 mb-2">
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold">Delivery Date *</label>
+                    <input type="date" name="assigned_date" class="form-control form-control-sm" required
+                           value="{{ o.assigned_date or '' }}">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold">Delivery Time Slot *</label>
+                    <select name="assigned_time_slot" class="form-select form-select-sm" required>
+                      <option value="Morning (08:00 - 12:00)" {% if o.assigned_time_slot == 'Morning (08:00 - 12:00)' %}selected{% endif %}>
+                        Morning (08:00 - 12:00)
+                      </option>
+                      <option value="Afternoon (13:00 - 17:00)" {% if o.assigned_time_slot == 'Afternoon (13:00 - 17:00)' %}selected{% endif %}>
+                        Afternoon (13:00 - 17:00)
+                      </option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    {% set d = deliveries_by_order.get(o.id) %}
+                    <label class="form-label small fw-semibold">Assign Delivery Truck *</label>
+                    <select name="truck_id" class="form-select form-select-sm" required>
+                      <option value="" disabled {% if not d %}selected{% endif %}>Choose vehicle...</option>
+                      {% for t in trucks %}
+                        <option value="{{ t.id }}" {% if d and d.truck_id == t.id %}selected{% endif %}>
+                          {{ t.truck_code }} &middot; {{ t.plate_number }} ({{ t.capacity }})
+                        </option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold">Assign Driver *</label>
+                    <select name="driver_id" class="form-select form-select-sm" required>
+                      <option value="" disabled {% if not d %}selected{% endif %}>Choose driver...</option>
+                      {% for drv in drivers %}
+                        <option value="{{ drv.id }}" {% if d and d.driver_id == drv.id %}selected{% endif %}>
+                          {{ drv.name }} ({{ drv.staff_id }})
+                        </option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-12 mt-2">
+                    <label class="form-label small fw-semibold">Internal Dispatch / Approval Notes</label>
+                    <input type="text" name="approval_notes" class="form-control form-control-sm"
+                           placeholder="e.g. Call site foreman 30 mins prior to arrival"
+                           value="{{ o.approval_notes or '' }}">
+                  </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                  <button type="submit" class="btn btn-rml btn-sm fw-semibold">
+                    <i class="bi bi-calendar-check me-1"></i>
+                    {% if o.assigned_date %}Update Schedule &amp; Notify Customer{% else %}Assign Schedule &amp; Propose to Customer{% endif %}
+                  </button>
+                </div>
+              </form>
+            </div>
+          {% endif %}
+
+          <!-- Order Rejection Form if Pending -->
+          {% if o.order_status in ('pending', 'pending_scheduling') %}
+            <div class="border rounded p-3 bg-light">
+              <h6 class="fw-bold mb-2 text-danger"><i class="bi bi-x-circle me-1"></i> Reject Order Option</h6>
+              <form method="POST" action="{{ url_for('main.admin_order_decision', order_id=o.id) }}" id="decisionForm{{ o.id }}">
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-9">
+                    <label class="form-label small fw-semibold">Rejection Reason</label>
+                    <input type="text" name="rejection_reason" class="form-control form-control-sm" placeholder="e.g. Out of stock or customer requested cancellation">
+                  </div>
+                  <div class="col-md-3">
+                    <button type="submit" name="decision" value="reject" class="btn btn-outline-danger btn-sm w-100">
+                      Reject Order
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          {% endif %}
+
+          {% if o.order_status in ('cancelled', 'rejected') %}
+            <div class="alert alert-danger mb-0 small">
+              <strong>Order Cancelled:</strong> {{ o.rejection_reason or 'Cancelled upon customer or admin request.' }}
             </div>
           {% endif %}
         </div>
@@ -170,25 +347,10 @@
           <a href="{{ url_for('main.order_invoice', order_id=o.id) }}" class="btn btn-outline-secondary btn-sm" target="_blank">
             <i class="bi bi-receipt me-1"></i> View Invoice
           </a>
-          <div class="d-flex gap-2">
-            {% if o.order_status == 'pending' %}
-              <button type="submit" form="decisionForm{{ o.id }}" name="decision" value="reject" class="btn btn-outline-danger btn-sm">
-                Reject Order
-              </button>
-              <button type="submit" form="decisionForm{{ o.id }}" name="decision" value="approve" class="btn btn-rml btn-sm">
-                Approve Order
-              </button>
-            {% else %}
-              <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-            {% endif %}
-          </div>
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
         </div>
       </div>
     </div>
   </div>
 {% endfor %}
-
-<a href="{{ url_for('main.admin_deliveries') }}" class="btn btn-rml">
-  Manage Deliveries &rarr;
-</a>
 {% endblock %}

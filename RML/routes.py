@@ -283,8 +283,6 @@ def customer_checkout():
         # Accept both 'phone' and 'recipient_phone'
         phone = request.form.get("phone", "").strip() or request.form.get("recipient_phone", "").strip()
         delivery_address = request.form.get("delivery_address", "").strip()
-        preferred_date = request.form.get("preferred_date", "").strip()
-        delivery_slot = request.form.get("delivery_slot", "Morning (08:00 - 12:00)")
         special_instructions = request.form.get("special_instructions", "").strip()
 
         if not recipient_name or not delivery_address:
@@ -307,9 +305,9 @@ def customer_checkout():
             """
             INSERT INTO orders (
                 order_code, customer_id, recipient_name, phone, delivery_address,
-                preferred_date, delivery_slot, special_instructions,
-                subtotal, delivery_fee, vat_amount, total_amount, order_status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+                special_instructions, subtotal, delivery_fee, vat_amount, total_amount,
+                order_status, schedule_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_scheduling', 'unassigned')
             """,
             (
                 order_code,
@@ -317,8 +315,6 @@ def customer_checkout():
                 recipient_name,
                 phone,
                 delivery_address,
-                preferred_date,
-                delivery_slot,
                 special_instructions,
                 subtotal,
                 delivery_fee,
@@ -337,8 +333,8 @@ def customer_checkout():
         conn.commit()
         conn.close()
         session["cart"] = {}
-        flash("Order created! Please complete payment selection.", "success")
-        return redirect(url_for("main.customer_payment", order_id=order_id, step=1))
+        flash("Your order has been submitted successfully! Please wait while our administrator reviews your order and assigns an available delivery schedule.", "success")
+        return redirect(url_for("main.customer_order_confirmation", order_id=order_id))
 
     user = conn.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
     conn.close()
@@ -353,10 +349,44 @@ def customer_checkout():
     )
 
 
+@main_bp.route("/customer/orders/<int:order_id>/confirmation")
+@login_required("customer")
+def customer_order_confirmation(order_id):
+    """Post-checkout confirmation view displaying submitted order details and waiting notice."""
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        flash("Order not found.", "danger")
+        return redirect(url_for("main.customer_orders"))
+
+    if session.get("role") != "admin" and order["customer_id"] != session["user_id"]:
+        conn.close()
+        flash("Unauthorized access to this order.", "danger")
+        return redirect(url_for("main.customer_orders"))
+
+    items = conn.execute(
+        """
+        SELECT oi.*, p.name, p.unit FROM order_items oi
+        JOIN products p ON oi.product_id = p.id
+        WHERE oi.order_id = ?
+        """,
+        (order_id,),
+    ).fetchall()
+    conn.close()
+
+    return render_template(
+        "customer/order_confirmation.html",
+        order=order,
+        items=items,
+    )
+
+
 @main_bp.route("/customer/payment/<int:order_id>", methods=["GET", "POST"])
 @login_required("customer")
 def customer_payment(order_id):
-    """Multi-step payment flow matching high-fidelity mockups."""
+    """Multi-step payment flow matching high-fidelity mockups.
+    Enforces that payment cannot be accessed until schedule is approved by customer."""
     conn = get_db()
     order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
     if not order:
@@ -369,6 +399,19 @@ def customer_payment(order_id):
         conn.close()
         flash("Unauthorized access to this order.", "danger")
         return redirect(url_for("main.customer_orders"))
+
+    # Strict workflow check: payment is NOT available until admin assigned and customer accepted schedule
+    if order["order_status"] in ("pending", "pending_scheduling", "for_scheduling", "awaiting_confirmation", "cancelled", "rejected"):
+        conn.close()
+        if order["order_status"] == "awaiting_confirmation":
+            flash("Please review and accept your admin-assigned delivery schedule before proceeding to payment.", "warning")
+            return redirect(url_for("main.customer_orders"))
+        elif order["order_status"] in ("cancelled", "rejected"):
+            flash("Payment cannot be processed for cancelled orders.", "danger")
+            return redirect(url_for("main.customer_orders"))
+        else:
+            flash("Payment is not available yet. Please wait for an administrator to review your order and assign an available delivery schedule.", "warning")
+            return redirect(url_for("main.customer_orders"))
 
     items = conn.execute(
         """
@@ -437,6 +480,10 @@ def customer_payment(order_id):
                     """,
                     (order_id, method, ref, note, payer_name, bank_used, order["total_amount"]),
                 )
+            conn.execute(
+                "UPDATE orders SET order_status = 'scheduled' WHERE id = ? AND order_status = 'schedule_confirmed'",
+                (order_id,),
+            )
             conn.commit()
             conn.close()
             flash("Payment confirmed! Review the confirmation details.", "success")
@@ -462,10 +509,14 @@ def customer_orders():
     orders = conn.execute(
         """
         SELECT o.*, p.method AS payment_method, p.payment_status, p.reference_number,
-               d.delivery_status, d.delivery_code
+               d.delivery_status, d.delivery_code,
+               t.truck_code, t.plate_number, t.capacity AS truck_capacity,
+               u_drv.name AS driver_name, u_drv.phone AS driver_phone
         FROM orders o
         LEFT JOIN payments p ON o.id = p.order_id
         LEFT JOIN deliveries d ON o.id = d.order_id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        LEFT JOIN users u_drv ON d.driver_id = u_drv.id
         WHERE o.customer_id = ?
         ORDER BY o.id DESC
         """,
@@ -473,6 +524,125 @@ def customer_orders():
     ).fetchall()
     conn.close()
     return render_template("customer/orders.html", orders=orders)
+
+
+@main_bp.route("/customer/order/<int:order_id>/accept-schedule", methods=["POST"])
+@login_required("customer")
+def customer_accept_schedule(order_id):
+    conn = get_db()
+    order = conn.execute(
+        "SELECT * FROM orders WHERE id = ? AND customer_id = ?",
+        (order_id, session["user_id"]),
+    ).fetchone()
+
+    if not order:
+        conn.close()
+        flash("Order not found.", "danger")
+        return redirect(url_for("main.customer_orders"))
+
+    # Backend validation: only allow acceptance when awaiting confirmation
+    if order["order_status"] != "awaiting_confirmation":
+        conn.close()
+        flash(f"Order {clean_order_code(order['order_code'])} is not currently awaiting schedule confirmation.", "warning")
+        return redirect(url_for("main.customer_orders"))
+
+    conn.execute(
+        """
+        UPDATE orders
+        SET order_status = 'schedule_confirmed',
+            schedule_status = 'accepted',
+            schedule_confirmed_at = datetime('now', 'localtime')
+        WHERE id = ?
+        """,
+        (order_id,),
+    )
+    conn.execute(
+        "UPDATE deliveries SET delivery_status = 'assigned' WHERE order_id = ? AND delivery_status = 'queued'",
+        (order_id,),
+    )
+    conn.commit()
+    conn.close()
+    flash(
+        f"Delivery schedule for {clean_order_code(order['order_code'])} confirmed ({order['assigned_date']}, {order['assigned_time_slot']})! Please choose your preferred payment method below.",
+        "success",
+    )
+    return redirect(url_for("main.customer_payment", order_id=order_id, step=1))
+
+
+@main_bp.route("/customer/order/<int:order_id>/cancel", methods=["POST"])
+@login_required()
+def customer_cancel_order(order_id):
+    conn = get_db()
+    is_admin = session.get("role") == "admin"
+    if is_admin:
+        order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    else:
+        order = conn.execute(
+            "SELECT * FROM orders WHERE id = ? AND customer_id = ?",
+            (order_id, session["user_id"]),
+        ).fetchone()
+
+    if not order:
+        conn.close()
+        flash("Order not found.", "danger")
+        return redirect(url_for("main.customer_orders" if not is_admin else "main.admin_orders"))
+
+    # Backend validation: cannot cancel if out for delivery, in transit, delivered, or already cancelled
+    if order["order_status"] in ("out_for_delivery", "in_transit", "delivered", "cancelled"):
+        conn.close()
+        flash("This order has already progressed beyond the stage where cancellation is allowed.", "danger")
+        return redirect(url_for("main.customer_orders" if not is_admin else "main.admin_orders"))
+
+    cancellation_reason = request.form.get("cancellation_reason", "").strip() or "Cancelled by customer (schedule inconvenient or requested cancellation)"
+
+    # 1. Update order status to 'cancelled'
+    conn.execute(
+        """
+        UPDATE orders
+        SET order_status = 'cancelled',
+            schedule_status = 'cancelled',
+            rejection_reason = ?
+        WHERE id = ?
+        """,
+        (cancellation_reason, order_id),
+    )
+
+    # 2. Release assigned delivery resources (truck & driver)
+    delivery = conn.execute("SELECT * FROM deliveries WHERE order_id = ?", (order_id,)).fetchone()
+    if delivery:
+        if delivery["truck_id"]:
+            other_active = conn.execute(
+                "SELECT COUNT(*) FROM deliveries WHERE truck_id = ? AND id != ? AND delivery_status IN ('assigned', 'loading', 'en_route')",
+                (delivery["truck_id"], delivery["id"]),
+            ).fetchone()[0]
+            if other_active == 0:
+                conn.execute("UPDATE trucks SET status = 'available' WHERE id = ?", (delivery["truck_id"],))
+        conn.execute("DELETE FROM deliveries WHERE id = ?", (delivery["id"],))
+
+    # 3. Restore inventory if stock was previously deducted
+    logs = conn.execute(
+        "SELECT * FROM inventory_logs WHERE remarks LIKE ?",
+        (f"%Order {clean_order_code(order['order_code'])}%",),
+    ).fetchall()
+    if logs:
+        order_items = conn.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
+        for item in order_items:
+            conn.execute(
+                "UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?",
+                (item["quantity"], item["product_id"]),
+            )
+            conn.execute(
+                "INSERT INTO inventory_logs (product_id, movement_type, quantity, remarks, created_by) VALUES (?, 'stock_in', ?, ?, ?)",
+                (item["product_id"], item["quantity"], f"Cancelled Order {clean_order_code(order['order_code'])} stock restored", session.get("user_id")),
+            )
+
+    conn.commit()
+    conn.close()
+    flash(
+        f"Order {clean_order_code(order['order_code'])} has been cancelled. Reserved truck, driver, and delivery resources have been released.",
+        "info",
+    )
+    return redirect(url_for("main.customer_orders" if not is_admin else "main.admin_orders"))
 
 
 @main_bp.route("/customer/orders/<int:order_id>/tracking")
@@ -736,22 +906,14 @@ def api_gps_simulate(delivery_id):
 @login_required("admin")
 def admin_dashboard():
     conn = get_db()
-    pending_orders = conn.execute("SELECT COUNT(*) FROM orders WHERE order_status = 'pending'").fetchone()[0]
+    pending_orders = conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('pending', 'pending_scheduling')").fetchone()[0]
     low_stock = conn.execute("SELECT COUNT(*) FROM products WHERE stock_quantity <= low_stock_threshold").fetchone()[0]
     in_progress_deliveries = conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status IN ('assigned', 'loading', 'en_route')").fetchone()[0]
     stock_in = conn.execute("SELECT COALESCE(SUM(quantity), 0) FROM inventory_logs WHERE movement_type = 'stock_in'").fetchone()[0]
     stock_out = conn.execute("SELECT COALESCE(SUM(quantity), 0) FROM inventory_logs WHERE movement_type = 'stock_out'").fetchone()[0]
     payments_count = conn.execute("SELECT COUNT(*) FROM payments").fetchone()[0]
     ready_dispatch = conn.execute(
-        """
-        SELECT COUNT(*)
-        FROM orders o
-        WHERE o.order_status = 'approved'
-          AND NOT EXISTS (
-              SELECT 1 FROM deliveries d
-              WHERE d.order_id = o.id AND d.delivery_status != 'queued'
-          )
-        """
+        "SELECT COUNT(*) FROM orders WHERE order_status IN ('for_scheduling', 'approved', 'awaiting_confirmation', 'schedule_confirmed', 'scheduled')"
     ).fetchone()[0]
     pending_receipts = conn.execute("SELECT COUNT(*) FROM payments WHERE payment_status = 'pending'").fetchone()[0]
     conn.close()
@@ -783,16 +945,14 @@ def admin_orders():
         LEFT JOIN order_items oi ON o.id = oi.order_id
         LEFT JOIN products p ON oi.product_id = p.id
     """
-    if tab == "pending":
-        where = " WHERE o.order_status = 'pending'"
-    elif tab == "ready":
-        where = """
-            WHERE o.order_status = 'approved'
-              AND NOT EXISTS (
-                  SELECT 1 FROM deliveries d
-                  WHERE d.order_id = o.id AND d.delivery_status != 'queued'
-              )
-        """
+    if tab in ("pending", "pending_scheduling"):
+        where = " WHERE o.order_status IN ('pending', 'pending_scheduling')"
+    elif tab == "for_scheduling":
+        where = " WHERE o.order_status IN ('for_scheduling', 'approved')"
+    elif tab == "awaiting_confirmation":
+        where = " WHERE o.order_status = 'awaiting_confirmation'"
+    elif tab in ("scheduled", "ready", "schedule_confirmed"):
+        where = " WHERE o.order_status IN ('schedule_confirmed', 'scheduled', 'payment_pending', 'out_for_delivery', 'in_transit', 'preparing')"
     else:
         where = ""
 
@@ -801,18 +961,10 @@ def admin_orders():
     ).fetchall()
 
     counts = {
-        "pending": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status='pending'").fetchone()[0],
-        "ready": conn.execute(
-            """
-            SELECT COUNT(*)
-            FROM orders o
-            WHERE o.order_status = 'approved'
-              AND NOT EXISTS (
-                  SELECT 1 FROM deliveries d
-                  WHERE d.order_id = o.id AND d.delivery_status != 'queued'
-              )
-            """
-        ).fetchone()[0],
+        "pending": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('pending', 'pending_scheduling')").fetchone()[0],
+        "for_scheduling": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('for_scheduling', 'approved')").fetchone()[0],
+        "awaiting_confirmation": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status='awaiting_confirmation'").fetchone()[0],
+        "scheduled": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('schedule_confirmed', 'scheduled', 'payment_pending', 'out_for_delivery', 'in_transit', 'preparing')").fetchone()[0],
         "all": conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0],
     }
 
@@ -829,6 +981,33 @@ def admin_orders():
     for item in all_items:
         items_by_order.setdefault(item["order_id"], []).append(item)
 
+    trucks = conn.execute("SELECT * FROM trucks ORDER BY truck_code").fetchall()
+    drivers = conn.execute("SELECT * FROM users WHERE role = 'driver' AND is_active = 1 ORDER BY name").fetchall()
+
+    deliv_rows = conn.execute(
+        """
+        SELECT d.*, t.truck_code, t.plate_number, t.capacity AS truck_capacity, u.name AS driver_name, u.phone AS driver_phone
+        FROM deliveries d
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        LEFT JOIN users u ON d.driver_id = u.id
+        """
+    ).fetchall()
+    deliveries_by_order = {d["order_id"]: d for d in deliv_rows}
+
+    existing_schedules = conn.execute(
+        """
+        SELECT o.id, o.order_code, o.assigned_date, o.assigned_time_slot, o.order_status,
+               t.truck_code, t.plate_number, u.name AS driver_name
+        FROM orders o
+        JOIN deliveries d ON o.id = d.order_id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        LEFT JOIN users u ON d.driver_id = u.id
+        WHERE o.order_status IN ('awaiting_confirmation', 'schedule_confirmed', 'scheduled', 'out_for_delivery', 'in_transit')
+          AND o.assigned_date IS NOT NULL
+        ORDER BY o.assigned_date ASC, o.assigned_time_slot ASC
+        """
+    ).fetchall()
+
     conn.close()
     return render_template(
         "admin/orders.html",
@@ -836,10 +1015,135 @@ def admin_orders():
         tab=tab,
         counts=counts,
         pending_count=counts["pending"],
-        ready_count=counts["ready"],
+        for_scheduling_count=counts["for_scheduling"],
+        awaiting_count=counts["awaiting_confirmation"],
+        scheduled_count=counts["scheduled"],
         all_count=counts["all"],
         items_by_order=items_by_order,
+        trucks=trucks,
+        drivers=drivers,
+        deliveries_by_order=deliveries_by_order,
+        existing_schedules=existing_schedules,
     )
+
+
+@main_bp.route("/admin/orders/<int:order_id>/assign-schedule", methods=["POST"])
+@login_required("admin")
+def admin_order_assign_schedule(order_id):
+    assigned_date = request.form.get("assigned_date", "").strip()
+    assigned_time_slot = request.form.get("assigned_time_slot", "").strip()
+    try:
+        truck_id = int(request.form.get("truck_id", 0))
+        driver_id = int(request.form.get("driver_id", 0))
+    except (ValueError, TypeError):
+        truck_id = 0
+        driver_id = 0
+
+    approval_notes = request.form.get("approval_notes", "").strip()
+
+    if not assigned_date or not assigned_time_slot or not truck_id or not driver_id:
+        flash("Please provide delivery date, time slot, truck, and driver.", "warning")
+        return redirect(url_for("main.admin_orders", tab="for_scheduling"))
+
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        flash("Order not found.", "danger")
+        return redirect(url_for("main.admin_orders"))
+
+    # CONFLICT CHECK: Is this truck or driver already assigned to another order on the same date and time slot?
+    conflict = conn.execute(
+        """
+        SELECT o.order_code, o.assigned_date, o.assigned_time_slot,
+               t.truck_code, t.plate_number, u.name AS driver_name,
+               (d.truck_id = ?) AS truck_conflict,
+               (d.driver_id = ?) AS driver_conflict
+        FROM deliveries d
+        JOIN orders o ON d.order_id = o.id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        LEFT JOIN users u ON d.driver_id = u.id
+        WHERE o.id != ?
+          AND o.order_status IN ('awaiting_confirmation', 'schedule_confirmed', 'scheduled', 'out_for_delivery', 'in_transit')
+          AND o.assigned_date = ?
+          AND o.assigned_time_slot = ?
+          AND (d.truck_id = ? OR d.driver_id = ?)
+        """,
+        (truck_id, driver_id, order_id, assigned_date, assigned_time_slot, truck_id, driver_id),
+    ).fetchone()
+
+    if conflict:
+        conn.close()
+        conflict_msg = []
+        if conflict["truck_conflict"]:
+            conflict_msg.append(f"Truck {conflict['truck_code']} ({conflict['plate_number']})")
+        if conflict["driver_conflict"]:
+            conflict_msg.append(f"Driver {conflict['driver_name']}")
+        reason = " and ".join(conflict_msg)
+        flash(
+            f"Scheduling Conflict: {reason} is already booked for Order {clean_order_code(conflict['order_code'])} on {assigned_date} ({assigned_time_slot}). Please select a different truck, driver, or time slot.",
+            "danger",
+        )
+        return redirect(url_for("main.admin_orders", tab="for_scheduling"))
+
+    # If pending or pending_scheduling, deduct stock if not yet deducted
+    if order["order_status"] in ("pending", "pending_scheduling"):
+        items = conn.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
+        for item in items:
+            conn.execute(
+                "UPDATE products SET stock_quantity = MAX(0, stock_quantity - ?) WHERE id = ?",
+                (item["quantity"], item["product_id"]),
+            )
+            conn.execute(
+                "INSERT INTO inventory_logs (product_id, movement_type, quantity, remarks, created_by) VALUES (?, 'stock_out', ?, ?, ?)",
+                (item["product_id"], item["quantity"], f"Approved & Scheduled Order {clean_order_code(order['order_code'])}", session["user_id"]),
+            )
+
+    conn.execute(
+        """
+        UPDATE orders
+        SET assigned_date = ?,
+            assigned_time_slot = ?,
+            preferred_date = ?,
+            delivery_slot = ?,
+            order_status = 'awaiting_confirmation',
+            schedule_status = 'proposed',
+            approval_notes = COALESCE(NULLIF(?, ''), approval_notes)
+        WHERE id = ?
+        """,
+        (assigned_date, assigned_time_slot, assigned_date, assigned_time_slot, approval_notes, order_id),
+    )
+
+    existing_deliv = conn.execute("SELECT id FROM deliveries WHERE order_id = ?", (order_id,)).fetchone()
+    if existing_deliv:
+        conn.execute(
+            """
+            UPDATE deliveries
+            SET driver_id = ?, truck_id = ?, delivery_window = ?, delivery_status = 'assigned'
+            WHERE order_id = ?
+            """,
+            (driver_id, truck_id, assigned_time_slot, order_id),
+        )
+    else:
+        while True:
+            d_code = f"DLV-{datetime.now().strftime('%m%d')}-{random.randint(1000, 9999)}"
+            if not conn.execute("SELECT id FROM deliveries WHERE delivery_code = ?", (d_code,)).fetchone():
+                break
+        conn.execute(
+            """
+            INSERT INTO deliveries (delivery_code, order_id, driver_id, truck_id, delivery_window, delivery_status, current_lat, current_lng)
+            VALUES (?, ?, ?, ?, ?, 'assigned', 13.9411, 121.1631)
+            """,
+            (d_code, order_id, driver_id, truck_id, assigned_time_slot),
+        )
+
+    conn.commit()
+    conn.close()
+    flash(
+        f"Delivery schedule for {clean_order_code(order['order_code'])} assigned ({assigned_date}, {assigned_time_slot}). Customer notified to accept.",
+        "success",
+    )
+    return redirect(url_for("main.admin_orders", tab="awaiting_confirmation"))
 
 
 @main_bp.route("/admin/orders/<int:order_id>/decision", methods=["POST"])
@@ -868,17 +1172,23 @@ def admin_order_decision(order_id):
                 (item["product_id"], item["quantity"], f"Approved Order {clean_order_code(order['order_code'])}", session["user_id"]),
             )
         conn.execute(
-            "UPDATE orders SET order_status = 'approved', approval_notes = ? WHERE id = ?",
+            "UPDATE orders SET order_status = 'for_scheduling', approval_notes = ? WHERE id = ?",
             (approval_notes, order_id),
         )
-        flash(f"Order {clean_order_code(order['order_code'])} approved and stock reserved.", "success")
+        flash(f"Order {clean_order_code(order['order_code'])} approved and stock reserved. Ready for delivery scheduling.", "success")
+        conn.commit()
+        conn.close()
+        return redirect(url_for("main.admin_orders", tab="for_scheduling"))
 
     elif decision == "reject":
         conn.execute(
-            "UPDATE orders SET order_status = 'rejected', rejection_reason = ? WHERE id = ?",
-            (reason or "Insufficient stock / cancelled by admin", order_id),
+            "UPDATE orders SET order_status = 'cancelled', schedule_status = 'cancelled', rejection_reason = ? WHERE id = ?",
+            (reason or "Rejected upon admin review", order_id),
         )
         flash(f"Order {clean_order_code(order['order_code'])} rejected.", "warning")
+        conn.commit()
+        conn.close()
+        return redirect(url_for("main.admin_orders", tab="pending"))
 
     conn.commit()
     conn.close()
@@ -995,48 +1305,107 @@ def admin_deliveries():
     conn = get_db()
 
     if request.method == "POST":
-        order_id = int(request.form.get("order_id"))
-        driver_id = int(request.form.get("driver_id"))
-        truck_id = int(request.form.get("truck_id"))
-        delivery_window = request.form.get("delivery_window", "09:00 - 11:00").strip()
+        try:
+            order_id = int(request.form.get("order_id", 0))
+            driver_id = int(request.form.get("driver_id", 0))
+            truck_id = int(request.form.get("truck_id", 0))
+        except (ValueError, TypeError):
+            order_id = driver_id = truck_id = 0
+
+        assigned_date = request.form.get("assigned_date", "").strip() or datetime.now().strftime("%Y-%m-%d")
+        assigned_time_slot = request.form.get("assigned_time_slot", "").strip() or request.form.get("delivery_window", "Morning (08:00 - 12:00)").strip()
+
+        if not order_id or not driver_id or not truck_id:
+            flash("Please select an order, driver, and truck.", "warning")
+            return redirect(url_for("main.admin_deliveries"))
+
+        order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+        if not order:
+            conn.close()
+            flash("Order not found.", "danger")
+            return redirect(url_for("main.admin_deliveries"))
+
+        # CONFLICT CHECK: Does truck or driver have overlapping delivery on assigned_date & time slot?
+        conflict = conn.execute(
+            """
+            SELECT o.order_code, o.assigned_date, o.assigned_time_slot,
+                   t.truck_code, t.plate_number, u.name AS driver_name,
+                   (d.truck_id = ?) AS truck_conflict,
+                   (d.driver_id = ?) AS driver_conflict
+            FROM deliveries d
+            JOIN orders o ON d.order_id = o.id
+            LEFT JOIN trucks t ON d.truck_id = t.id
+            LEFT JOIN users u ON d.driver_id = u.id
+            WHERE o.id != ?
+              AND o.order_status IN ('awaiting_confirmation', 'schedule_confirmed', 'scheduled', 'out_for_delivery', 'in_transit')
+              AND o.assigned_date = ?
+              AND o.assigned_time_slot = ?
+              AND (d.truck_id = ? OR d.driver_id = ?)
+            """,
+            (truck_id, driver_id, order_id, assigned_date, assigned_time_slot, truck_id, driver_id),
+        ).fetchone()
+
+        if conflict:
+            conn.close()
+            conflict_msg = []
+            if conflict["truck_conflict"]:
+                conflict_msg.append(f"Truck {conflict['truck_code']} ({conflict['plate_number']})")
+            if conflict["driver_conflict"]:
+                conflict_msg.append(f"Driver {conflict['driver_name']}")
+            reason = " and ".join(conflict_msg)
+            flash(
+                f"Scheduling Conflict: {reason} is already booked for Order {clean_order_code(conflict['order_code'])} on {assigned_date} ({assigned_time_slot}). Please select an alternate vehicle, driver, or time slot.",
+                "danger",
+            )
+            return redirect(url_for("main.admin_deliveries"))
 
         existing = conn.execute("SELECT id FROM deliveries WHERE order_id = ?", (order_id,)).fetchone()
         if existing:
             conn.execute(
                 "UPDATE deliveries SET driver_id=?, truck_id=?, delivery_window=?, delivery_status='assigned' WHERE order_id=?",
-                (driver_id, truck_id, delivery_window, order_id),
+                (driver_id, truck_id, assigned_time_slot, order_id),
             )
         else:
-            d_code = f"DLV-{datetime.now().strftime('%m%d')}-{random.randint(10, 99)}"
+            while True:
+                d_code = f"DLV-{datetime.now().strftime('%m%d')}-{random.randint(1000, 9999)}"
+                if not conn.execute("SELECT id FROM deliveries WHERE delivery_code = ?", (d_code,)).fetchone():
+                    break
             conn.execute(
                 """
                 INSERT INTO deliveries (delivery_code, order_id, driver_id, truck_id, delivery_window, delivery_status, current_lat, current_lng)
                 VALUES (?, ?, ?, ?, ?, 'assigned', 13.9411, 121.1631)
                 """,
-                (d_code, order_id, driver_id, truck_id, delivery_window),
+                (d_code, order_id, driver_id, truck_id, assigned_time_slot),
             )
 
-        conn.execute("UPDATE orders SET order_status = 'preparing' WHERE id = ?", (order_id,))
+        new_status = "scheduled" if order["schedule_status"] == "accepted" else "awaiting_confirmation"
+        new_sched_status = "accepted" if order["schedule_status"] == "accepted" else "proposed"
+        conn.execute(
+            """
+            UPDATE orders
+            SET assigned_date = ?,
+                assigned_time_slot = ?,
+                preferred_date = ?,
+                delivery_slot = ?,
+                order_status = ?,
+                schedule_status = ?
+            WHERE id = ?
+            """,
+            (assigned_date, assigned_time_slot, assigned_date, assigned_time_slot, new_status, new_sched_status, order_id),
+        )
         conn.commit()
-        flash("Delivery assigned to truck and driver. Status updated to 'preparing'.", "success")
+        flash(f"Delivery scheduled for {assigned_date} ({assigned_time_slot})! Order status: {new_status.replace('_', ' ').title()}.", "success")
         conn.close()
         return redirect(url_for("main.admin_deliveries"))
 
     counts = {
-        "queued": conn.execute(
-            """
-            SELECT COUNT(*)
-            FROM orders o
-            WHERE o.order_status = 'approved'
-              AND NOT EXISTS (
-                  SELECT 1 FROM deliveries d
-                  WHERE d.order_id = o.id AND d.delivery_status != 'queued'
-              )
-            """
-        ).fetchone()[0],
+        "for_scheduling": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('for_scheduling', 'approved')").fetchone()[0],
+        "awaiting_confirmation": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status = 'awaiting_confirmation'").fetchone()[0],
+        "scheduled": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('scheduled', 'schedule_confirmed')").fetchone()[0],
+        "en_route": conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status = 'en_route'").fetchone()[0],
+        "delivered": conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status = 'delivered'").fetchone()[0],
         "assigned": conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status IN ('assigned', 'loading')").fetchone()[0],
-        "en_route": conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status='en_route'").fetchone()[0],
-        "delivered": conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status='delivered'").fetchone()[0],
+        "queued": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('for_scheduling', 'approved')").fetchone()[0],
     }
 
     ready_orders = conn.execute(
@@ -1044,19 +1413,16 @@ def admin_deliveries():
         SELECT o.*, u.name AS customer_name
         FROM orders o
         JOIN users u ON o.customer_id = u.id
-        WHERE o.order_status = 'approved'
-          AND NOT EXISTS (
-              SELECT 1 FROM deliveries d
-              WHERE d.order_id = o.id AND d.delivery_status != 'queued'
-          )
+        WHERE o.order_status IN ('for_scheduling', 'approved', 'awaiting_confirmation', 'schedule_confirmed', 'scheduled')
         ORDER BY o.id DESC
         """
     ).fetchall()
-    drivers = conn.execute("SELECT * FROM users WHERE role='driver' AND is_active=1").fetchall()
-    trucks = conn.execute("SELECT * FROM trucks").fetchall()
+
+    drivers = conn.execute("SELECT * FROM users WHERE role='driver' AND is_active=1 ORDER BY name").fetchall()
+    trucks = conn.execute("SELECT * FROM trucks ORDER BY truck_code").fetchall()
     deliveries = conn.execute(
         """
-        SELECT d.*, o.order_code, o.recipient_name, o.delivery_address,
+        SELECT d.*, o.order_code, o.recipient_name, o.delivery_address, o.assigned_date, o.assigned_time_slot, o.order_status,
                u.name AS driver_name, t.truck_code, t.plate_number
         FROM deliveries d
         JOIN orders o ON d.order_id = o.id
@@ -1339,7 +1705,7 @@ def driver_delivery_task(delivery_id):
             conn.execute("UPDATE deliveries SET delivery_status = ? WHERE id = ?", (new_status, delivery_id))
             if new_status == "en_route":
                 conn.execute(
-                    "UPDATE orders SET order_status = 'in_transit' WHERE id = (SELECT order_id FROM deliveries WHERE id = ?)",
+                    "UPDATE orders SET order_status = 'out_for_delivery' WHERE id = (SELECT order_id FROM deliveries WHERE id = ?)",
                     (delivery_id,),
                 )
             conn.commit()

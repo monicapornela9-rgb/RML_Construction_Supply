@@ -47,8 +47,9 @@
       </div>
       <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
         <div class="small text-muted fw-bold text-uppercase mb-1">Delivery Information:</div>
-        <div class="small">Preferred Date: <strong>{{ order.preferred_date or 'N/A' }}</strong></div>
-        <div class="small">Slot: <strong>{{ order.delivery_slot }}</strong></div>
+        <div class="small">Delivery Date: <strong>{{ order.assigned_date or order.preferred_date or 'To be assigned' }}</strong></div>
+        <div class="small">Time Slot: <strong>{{ order.assigned_time_slot or order.delivery_slot or 'Standard Slot' }}</strong></div>
+        <div class="small">Schedule Status: <span class="badge text-uppercase bg-secondary">{{ order.schedule_status or 'Pending' }}</span></div>
         <div class="small">Order Status: <span class="badge text-uppercase bg-secondary">{{ order.order_status }}</span></div>
         {% if delivery %}
           <div class="small mt-1 text-muted">Truck: {{ delivery.truck_code }} ({{ delivery.plate_number }}) &middot; Driver: {{ delivery.driver_name }}</div>
