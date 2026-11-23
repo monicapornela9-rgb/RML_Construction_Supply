@@ -41,6 +41,11 @@
     </a>
   </li>
   <li class="nav-item">
+    <a class="nav-link {% if tab in ('cancelled', 'rejected') %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_orders', tab='cancelled') }}">
+      Cancelled ({{ counts.cancelled }})
+    </a>
+  </li>
+  <li class="nav-item">
     <a class="nav-link {% if tab == 'all' %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_orders', tab='all') }}">
       All Orders ({{ counts.all }})
     </a>
@@ -423,41 +428,167 @@
             </div>
           {% endif %}
 
-          <!-- Order Rejection Form if Pending -->
-          {% if o.order_status in ('pending', 'pending_scheduling') %}
-            <div class="border rounded p-3 bg-light">
-              <h6 class="fw-bold mb-2 text-danger"><i class="bi bi-x-circle me-1"></i> Reject Order Option</h6>
-              <form method="POST" action="{{ url_for('main.admin_order_decision', order_id=o.id) }}" id="decisionForm{{ o.id }}">
-                <div class="row g-2 align-items-end">
-                  <div class="col-md-9">
-                    <label class="form-label small fw-semibold">Rejection Reason</label>
-                    <input type="text" name="rejection_reason" class="form-control form-control-sm" placeholder="e.g. Out of stock or customer requested cancellation">
-                  </div>
-                  <div class="col-md-3">
-                    <button type="submit" name="decision" value="reject" class="btn btn-outline-danger btn-sm w-100">
-                      Reject Order
-                    </button>
-                  </div>
+          <!-- Admin Cancel Order Section for Eligible Orders -->
+          {% set is_cancellable = o.order_status not in ('out_for_delivery', 'in_transit', 'delivered', 'cancelled', 'rejected') %}
+          {% if is_cancellable %}
+            <div class="card border border-danger-subtle bg-danger bg-opacity-10 p-3 mb-3 rounded-2">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                  <h6 class="fw-bold mb-1 text-danger">
+                    <i class="bi bi-x-circle me-1"></i> Cancel Customer Order
+                  </h6>
+                  <p class="small text-muted mb-0">
+                    Eligible for administrative cancellation prior to road dispatch. Restores yard stock, releases fleet reservations, and notifies customer.
+                  </p>
                 </div>
-              </form>
+                <button type="button" class="btn btn-outline-danger btn-sm fw-semibold"
+                        onclick="triggerAdminCancelModal({{ o.id }}, '{{ o.order_code|order_code }}', '{{ o.customer_name }}', '{{ o.order_status }}')">
+                  <i class="bi bi-x-circle me-1"></i> Cancel Order...
+                </button>
+              </div>
             </div>
           {% endif %}
 
           {% if o.order_status in ('cancelled', 'rejected') %}
             <div class="alert alert-danger mb-0 small">
               <strong>Order Cancelled:</strong> {{ o.rejection_reason or 'Cancelled upon customer or admin request.' }}
+              {% if o.approval_notes %}<div class="smaller text-muted mt-1">{{ o.approval_notes }}</div>{% endif %}
             </div>
           {% endif %}
         </div>
 
         <div class="modal-footer justify-content-between">
-          <a href="{{ url_for('main.order_invoice', order_id=o.id) }}" class="btn btn-outline-secondary btn-sm" target="_blank">
-            <i class="bi bi-receipt me-1"></i> View Invoice
-          </a>
+          <div>
+            <a href="{{ url_for('main.order_invoice', order_id=o.id) }}" class="btn btn-outline-secondary btn-sm" target="_blank">
+              <i class="bi bi-receipt me-1"></i> View Invoice
+            </a>
+            {% if is_cancellable %}
+              <button type="button" class="btn btn-outline-danger btn-sm ms-2 fw-semibold"
+                      onclick="triggerAdminCancelModal({{ o.id }}, '{{ o.order_code|order_code }}', '{{ o.customer_name }}', '{{ o.order_status }}')">
+                <i class="bi bi-x-circle me-1"></i> Cancel Order
+              </button>
+            {% endif %}
+          </div>
           <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
         </div>
       </div>
     </div>
   </div>
 {% endfor %}
+
+<!-- Modal: Admin Cancel Order Confirmation Dialog -->
+<div class="modal fade" id="adminCancelModal" tabindex="-1" aria-labelledby="adminCancelModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="POST" action="" id="adminCancelOrderForm" class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom">
+        <h5 class="modal-title fw-bold text-dark" id="adminCancelModalLabel">
+          <i class="bi bi-exclamation-triangle-fill text-danger me-1"></i> Cancel Customer Order
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <!-- Order & Customer Summary Box -->
+        <div class="p-3 bg-light rounded-3 border mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="text-muted small">Order Number:</span>
+            <strong class="text-dark font-monospace" id="cancelModalOrderCode">#0000</strong>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="text-muted small">Customer Name:</span>
+            <strong class="text-dark" id="cancelModalCustomerName">Customer Name</strong>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="text-muted small">Current Order Status:</span>
+            <span class="badge bg-secondary text-uppercase" id="cancelModalOrderStatus">Pending</span>
+          </div>
+        </div>
+
+        <p class="small text-muted mb-3">
+          Cancelling this order will release reserved delivery vehicle resources, restore deducted yard stock back to inventory, and notify the customer with the cancellation reason.
+        </p>
+
+        <!-- Suggested Reasons Dropdown -->
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">Cancellation Reason *</label>
+          <select name="reason_category" id="cancelReasonCategorySelect" class="form-select form-select-sm" required onchange="toggleCustomReasonField()">
+            <option value="Customer request">Customer request</option>
+            <option value="Product unavailable">Product unavailable</option>
+            <option value="Incorrect order details">Incorrect order details</option>
+            <option value="Delivery scheduling issue">Delivery scheduling issue</option>
+            <option value="Duplicate order">Duplicate order</option>
+            <option value="Business decision">Business decision</option>
+            <option value="Other">Other (Specify below)</option>
+          </select>
+        </div>
+
+        <!-- Additional Notes / Custom Reason -->
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary" id="cancelNotesLabel">Additional Notes (Optional)</label>
+          <textarea name="cancellation_notes" id="cancelNotesTextarea" class="form-control form-control-sm" rows="2" placeholder="Explain the reason for cancellation (included in customer notification)..."></textarea>
+        </div>
+
+        <!-- Mandatory Confirmation Checkbox -->
+        <div class="form-check p-3 bg-danger bg-opacity-10 rounded border border-danger-subtle ms-0">
+          <input class="form-check-input ms-0 me-2" type="checkbox" id="adminCancelConfirmCheck" required>
+          <label class="form-check-label small fw-bold text-danger" for="adminCancelConfirmCheck">
+            I confirm that this order should be cancelled and inventory restored.
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer border-top bg-light">
+        <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Keep Order</button>
+        <button type="submit" class="btn btn-danger btn-sm px-4 fw-semibold" id="submitAdminCancelBtn">
+          <i class="bi bi-x-circle me-1"></i> Confirm Order Cancellation
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function triggerAdminCancelModal(orderId, orderCode, customerName, currentStatus) {
+    // Hide any currently open order modal
+    const openModals = document.querySelectorAll('.modal.show');
+    openModals.forEach(m => {
+      const bsModal = bootstrap.Modal.getInstance(m);
+      if (bsModal) bsModal.hide();
+    });
+
+    const form = document.getElementById('adminCancelOrderForm');
+    form.action = `/admin/orders/${orderId}/cancel`;
+
+    document.getElementById('cancelModalOrderCode').textContent = orderCode;
+    document.getElementById('cancelModalCustomerName').textContent = customerName;
+    document.getElementById('cancelModalOrderStatus').textContent = currentStatus.replace('_', ' ');
+
+    document.getElementById('cancelReasonCategorySelect').value = 'Customer request';
+    document.getElementById('cancelNotesTextarea').value = '';
+    document.getElementById('adminCancelConfirmCheck').checked = false;
+    toggleCustomReasonField();
+
+    const cancelModal = new bootstrap.Modal(document.getElementById('adminCancelModal'));
+    cancelModal.show();
+  }
+
+  function toggleCustomReasonField() {
+    const select = document.getElementById('cancelReasonCategorySelect');
+    const label = document.getElementById('cancelNotesLabel');
+    const textarea = document.getElementById('cancelNotesTextarea');
+    if (!select || !label || !textarea) return;
+
+    if (select.value === 'Other') {
+      label.innerHTML = 'Specific Cancellation Reason *';
+      textarea.required = true;
+      textarea.placeholder = 'Please specify the exact reason for cancellation...';
+    } else {
+      label.innerHTML = 'Additional Notes (Optional)';
+      textarea.required = false;
+      textarea.placeholder = 'Optional additional notes (included in customer notification)...';
+    }
+  }
+</script>
 {% endblock %}

@@ -2446,6 +2446,8 @@ def admin_orders():
         where = " WHERE o.order_status = 'payment_verified'"
     elif tab in ("scheduled", "ready", "ready_for_dispatch"):
         where = " WHERE o.order_status IN ('ready_for_dispatch', 'scheduled', 'out_for_delivery', 'in_transit', 'preparing')"
+    elif tab in ("cancelled", "rejected"):
+        where = " WHERE o.order_status IN ('cancelled', 'rejected')"
     else:
         where = ""
 
@@ -2460,6 +2462,7 @@ def admin_orders():
         "payment_verification": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('schedule_confirmed', 'pending_payment', 'pending_payment_verification')").fetchone()[0],
         "ready_authorization": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status = 'payment_verified'").fetchone()[0],
         "scheduled": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('ready_for_dispatch', 'scheduled', 'out_for_delivery', 'in_transit', 'preparing')").fetchone()[0],
+        "cancelled": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('cancelled', 'rejected')").fetchone()[0],
         "all": conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0],
     }
 
@@ -2513,6 +2516,7 @@ def admin_orders():
         for_scheduling_count=counts["for_scheduling"],
         awaiting_count=counts["awaiting_confirmation"],
         scheduled_count=counts["scheduled"],
+        cancelled_count=counts["cancelled"],
         all_count=counts["all"],
         items_by_order=items_by_order,
         trucks=trucks,
@@ -2780,6 +2784,176 @@ def admin_order_authorize_delivery(order_id):
     conn.close()
     flash(f"Order {clean_order_code(order['order_code'])} authorized for delivery! The assigned driver has been released to begin dispatch.", "success")
     return redirect(url_for("main.admin_orders", tab="scheduled"))
+
+
+@main_bp.route("/admin/orders/<int:order_id>/cancel", methods=["POST"])
+@login_required("admin")
+def admin_order_cancel(order_id):
+    """Admin-controlled cancellation for eligible orders prior to road dispatch."""
+    conn = get_db()
+    order = conn.execute(
+        """
+        SELECT o.*, u.name AS customer_name, u.email AS customer_email
+        FROM orders o
+        JOIN users u ON o.customer_id = u.id
+        WHERE o.id = ?
+        """,
+        (order_id,),
+    ).fetchone()
+
+    if not order:
+        conn.close()
+        flash("Order not found.", "danger")
+        return redirect(url_for("main.admin_orders"))
+
+    # Eligibility Validation: Do not allow ordinary cancellation for dispatched or completed orders
+    INELIGIBLE_STATUSES = ("out_for_delivery", "in_transit", "delivered", "cancelled", "rejected")
+    if order["order_status"] in INELIGIBLE_STATUSES:
+        conn.close()
+        flash(
+            f"Order {clean_order_code(order['order_code'])} cannot be cancelled because its status is '{order['order_status'].replace('_', ' ')}'. "
+            "Dispatched orders must undergo the formal delivery exception or return workflow.",
+            "danger",
+        )
+        return redirect(url_for("main.admin_orders"))
+
+    # Extract cancellation reason and notes
+    reason_category = request.form.get("reason_category", "").strip() or "Business decision"
+    cancellation_notes = request.form.get("cancellation_notes", "").strip()
+    if cancellation_notes:
+        full_reason = f"{reason_category}: {cancellation_notes}"
+    else:
+        full_reason = reason_category
+
+    now_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    admin_id = session.get("user_id")
+    admin_name = session.get("user_name", "Admin")
+
+    # 1. Update Order Status and store responsible admin + cancellation timestamp
+    conn.execute(
+        """
+        UPDATE orders
+        SET order_status = 'cancelled',
+            schedule_status = 'cancelled',
+            rejection_reason = ?,
+            approval_notes = COALESCE(approval_notes, '') || ?,
+            authorized_by = ?,
+            authorized_at = ?
+        WHERE id = ?
+        """,
+        (
+            full_reason,
+            f" [Cancelled by Admin {admin_name} on {now_time}: {full_reason}]",
+            admin_id,
+            now_time,
+            order_id,
+        ),
+    )
+
+    # 2. Release assigned delivery and truck resources
+    delivery = conn.execute("SELECT * FROM deliveries WHERE order_id = ?", (order_id,)).fetchone()
+    if delivery:
+        if delivery["truck_id"]:
+            other_active = conn.execute(
+                "SELECT COUNT(*) FROM deliveries WHERE truck_id = ? AND id != ? AND delivery_status IN ('assigned', 'loading', 'en_route')",
+                (delivery["truck_id"], delivery["id"]),
+            ).fetchone()[0]
+            if other_active == 0:
+                conn.execute("UPDATE trucks SET status = 'available' WHERE id = ?", (delivery["truck_id"],))
+        # Keep delivery record retained with status 'cancelled'
+        conn.execute("UPDATE deliveries SET delivery_status = 'cancelled' WHERE id = ?", (delivery["id"],))
+
+    # 3. Inventory Stock Restoration:
+    # Ensure stock is restored only once and recorded in Stock Movement History
+    already_restored = conn.execute(
+        "SELECT COUNT(*) FROM inventory_logs WHERE movement_type = 'stock_in' AND remarks LIKE ?",
+        (f"%Cancelled Order {clean_order_code(order['order_code'])}%",),
+    ).fetchone()[0]
+
+    if already_restored == 0:
+        order_items = conn.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
+        for item in order_items:
+            # Restore product yard stock
+            conn.execute(
+                "UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?",
+                (item["quantity"], item["product_id"]),
+            )
+            # Restore variation stock if applicable
+            if item["variation_id"]:
+                conn.execute(
+                    "UPDATE product_variations SET stock_quantity = stock_quantity + ? WHERE id = ?",
+                    (item["quantity"], item["variation_id"]),
+                )
+            # Record in Stock Movement History (inventory_logs)
+            conn.execute(
+                """
+                INSERT INTO inventory_logs (product_id, movement_type, quantity, remarks, created_by, created_at)
+                VALUES (?, 'stock_in', ?, ?, ?, ?)
+                """,
+                (
+                    item["product_id"],
+                    item["quantity"],
+                    f"Restored stock from Cancelled Order {clean_order_code(order['order_code'])} (Reason: {reason_category})",
+                    admin_id,
+                    now_time,
+                ),
+            )
+
+    # 4. Payment Handling:
+    # Keep payment status separate from order status.
+    payment = conn.execute("SELECT * FROM payments WHERE order_id = ?", (order_id,)).fetchone()
+    payment_notice = ""
+    if payment:
+        if payment["payment_status"] in ("verified", "paid"):
+            # Flag verified payments for financial refund review without marking as refunded
+            flag_note = f" [FLAGGED FOR REFUND REVIEW: Order cancelled by admin on {now_time}. Reason: {reason_category}]"
+            conn.execute(
+                "UPDATE payments SET receipt_note = COALESCE(receipt_note, '') || ? WHERE id = ?",
+                (flag_note, payment["id"]),
+            )
+            payment_notice = " Notice: This order had a verified payment. It has been flagged for financial refund review."
+        elif payment["payment_status"] == "pending_verification":
+            void_note = f" [QR Verification Voided: Order cancelled by admin on {now_time}. Reason: {reason_category}]"
+            conn.execute(
+                "UPDATE payments SET receipt_note = COALESCE(receipt_note, '') || ? WHERE id = ?",
+                (void_note, payment["id"]),
+            )
+            payment_notice = " Notice: Pending QR payment verification has been voided."
+        elif payment["payment_status"] in ("pending", "payment_due", "unpaid"):
+            unpaid_note = f" [Order cancelled by admin: Payment collection voided on {now_time}]"
+            conn.execute(
+                "UPDATE payments SET receipt_note = COALESCE(receipt_note, '') || ? WHERE id = ?",
+                (unpaid_note, payment["id"]),
+            )
+
+    # 5. Customer Notification via existing notification system
+    create_notification(
+        conn,
+        order["customer_id"],
+        "Order Cancelled",
+        f"Your order {clean_order_code(order['order_code'])} was cancelled by administration. Reason: {full_reason}.",
+        "order",
+        order_id,
+    )
+
+    # 6. Audit Logging in access_logs
+    log_access_event(
+        conn,
+        "Order Cancelled by Admin",
+        {"id": order["customer_id"], "name": order["customer_name"], "email": order["customer_email"], "role": "customer"},
+        admin_id,
+        admin_name,
+        f"Cancelled order {clean_order_code(order['order_code'])}. Reason: {full_reason}",
+    )
+
+    conn.commit()
+    conn.close()
+
+    flash(
+        f"Order {clean_order_code(order['order_code'])} has been successfully cancelled. Customer notified and stock restored.{payment_notice}",
+        "warning",
+    )
+    return redirect(url_for("main.admin_orders", tab="all"))
 
 
 @main_bp.route("/admin/inventory", methods=["GET", "POST"])

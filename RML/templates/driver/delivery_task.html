@@ -164,7 +164,7 @@
             <i class="bi bi-check-circle-fill fs-3 text-success"></i>
             <h5 class="fw-bold mb-0">Delivered &amp; Confirmed!</h5>
           </div>
-          <p class="small mb-1"><strong>Received by:</strong> {{ delivery.recipient_received_by }} ({{ delivery.recipient_role }})</p>
+          <p class="small mb-1"><strong>Received by:</strong> {{ delivery.recipient_received_by }}{% if delivery.recipient_role %} ({{ delivery.recipient_role }}){% endif %}</p>
           {% if delivery.quantity_received %}<p class="small mb-1"><strong>Quantity:</strong> {{ delivery.quantity_received }}</p>{% endif %}
           {% if delivery.completion_time %}<p class="small mb-1"><strong>Completion Time:</strong> {{ delivery.completion_time }}</p>{% endif %}
           {% if delivery.delivery_notes %}<p class="small mb-1"><strong>Notes:</strong> {{ delivery.delivery_notes }}</p>{% endif %}
@@ -174,36 +174,30 @@
         <form method="POST" action="{{ url_for('main.driver_delivery_task', delivery_id=delivery.id) }}">
           <input type="hidden" name="action" value="confirm_delivered">
 
-          <div class="row g-3 mb-3">
-            <div class="col-md-6">
-              <label class="form-label small fw-semibold">Recipient full name *</label>
-              <input type="text" name="recipient_received_by" class="form-control" required placeholder="e.g. Engr. Paolo Santos" value="{{ delivery.recipient_name }}">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label small fw-semibold">Role / relationship *</label>
-              <input type="text" name="recipient_role" class="form-control" required placeholder="e.g. Site engineer / Property owner">
-            </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Recipient Full Name *</label>
+            <input type="text" name="recipient_received_by" class="form-control" required placeholder="e.g. Engr. Paolo Santos" value="{{ delivery.recipient_name }}">
           </div>
 
           <div class="row g-3 mb-3">
             <div class="col-md-6">
-              <label class="form-label small fw-semibold">Delivery date</label>
-              <input type="date" name="delivered_date" class="form-control bg-light" value="2026-11-14">
+              <label class="form-label small fw-semibold">Delivery Date</label>
+              <input type="date" name="delivered_date" class="form-control bg-light" value="{{ delivery.delivered_at[:10] if delivery.delivered_at else (delivery.assigned_date or '2026-11-23') }}">
             </div>
             <div class="col-md-6">
-              <label class="form-label small fw-semibold">Completion time *</label>
-              <input type="text" name="completion_time" class="form-control" placeholder="e.g. 09:40 AM" required value="09:40 AM">
+              <label class="form-label small fw-semibold">Completion Time *</label>
+              <input type="text" name="completion_time" class="form-control" placeholder="e.g. 09:40 AM" required value="{{ delivery.completion_time or '09:40 AM' }}">
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label small fw-semibold">Quantity received *</label>
+            <label class="form-label small fw-semibold">Quantity Received *</label>
             <input type="text" name="quantity_received" class="form-control" required
               value="{% for i in items %}{{ i.quantity }} {{ i.unit }} {{ i.name }}{% if not loop.last %}, {% endif %}{% endfor %}">
           </div>
 
           <div class="mb-3">
-            <label class="form-label small fw-semibold">Condition / delivery notes</label>
+            <label class="form-label small fw-semibold">Condition / Delivery Notes</label>
             <textarea name="delivery_notes" class="form-control" rows="2" placeholder="All materials unloaded dry, complete, and intact under the covered shed."></textarea>
           </div>
 
