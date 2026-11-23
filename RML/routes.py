@@ -4,6 +4,10 @@ import random
 import os
 import re
 import secrets
+import math
+import json
+import urllib.request
+import urllib.error
 from flask import (
     Blueprint,
     render_template,
@@ -2219,6 +2223,129 @@ def order_invoice(order_id):
 # GPS APIS (FOR DRIVER & CUSTOMER LIVE TRACKING)
 # -------------------------------------------------------------------------
 
+RML_DEPOT_LAT = 13.9411
+RML_DEPOT_LNG = 121.1631
+RML_DEPOT_NAME = "RML Lipa City Central Depot"
+RML_DEPOT_ADDRESS = "Ayala Highway, Lipa City, Batangas"
+
+BATANGAS_GEO_CACHE = {
+    "summer hills": (13.9535, 121.1550),
+    "rosewood": (13.9535, 121.1550),
+    "marawoy": (13.9622, 121.1624),
+    "tambo": (13.9318, 121.1448),
+    "sabang": (13.9385, 121.1712),
+    "inosloban": (13.9782, 121.1741),
+    "san carlos": (13.9560, 121.1850),
+    "antipolo del norte": (13.9480, 121.1750),
+    "lodlod": (13.9320, 121.1580),
+    "mataas na kahoy": (13.9630, 121.1120),
+    "malvar": (14.0450, 121.1580),
+    "tanauan": (14.0864, 121.1528),
+    "santo tomas": (14.1082, 121.1415),
+    "san jose": (13.8820, 121.1080),
+    "batangas city": (13.7565, 121.0583),
+}
+
+def haversine_distance_km(lat1, lon1, lat2, lon2):
+    """Calculate great-circle distance between two points in kilometers."""
+    try:
+        r = 6371.0
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = (math.sin(dlat / 2.0) ** 2 +
+             math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2.0) ** 2)
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return round(r * c, 2)
+    except Exception:
+        return 4.5
+
+def resolve_delivery_coords(address, lat=None, lng=None):
+    """Resolve latitude and longitude for a delivery address, prioritizing valid coordinates."""
+    try:
+        if lat is not None and lng is not None:
+            lat_f = float(lat)
+            lng_f = float(lng)
+            if -90 <= lat_f <= 90 and -180 <= lng_f <= 180 and not (lat_f == 0 and lng_f == 0):
+                return round(lat_f, 5), round(lng_f, 5)
+    except (ValueError, TypeError):
+        pass
+
+    if not address:
+        return 13.9535, 121.1550
+
+    addr_lower = str(address).lower()
+    for key, (clat, clng) in BATANGAS_GEO_CACHE.items():
+        if key in addr_lower:
+            return clat, clng
+
+    # Deterministic pseudo-random offset within 2-4 km of Lipa Central Depot
+    h = sum(ord(c) for c in addr_lower)
+    offset_lat = ((h % 30) - 15) * 0.0012
+    offset_lng = (((h // 30) % 30) - 15) * 0.0012
+    return round(RML_DEPOT_LAT + 0.012 + offset_lat, 5), round(RML_DEPOT_LNG + 0.006 + offset_lng, 5)
+
+def is_gps_stale(last_update_str, status):
+    """Return True if GPS has not updated within 120 seconds for an active transit delivery."""
+    if not last_update_str:
+        return True
+    if status not in ("en_route", "in_transit", "loading"):
+        return False
+    try:
+        last_dt = datetime.strptime(last_update_str[:19], "%Y-%m-%d %H:%M:%S")
+        diff = (datetime.now() - last_dt).total_seconds()
+        return diff > 120
+    except Exception:
+        return False
+
+def fetch_osrm_route(start_lat, start_lng, dest_lat, dest_lng):
+    """
+    Call public OSRM driving service to obtain road route polyline, distance, and duration.
+    Falls back gracefully to interpolated road waypoints if OSRM is unreachable.
+    """
+    osrm_url = f"https://router.project-osrm.org/route/v1/driving/{start_lng},{start_lat};{dest_lng},{dest_lat}?overview=full&geometries=geojson"
+    try:
+        req = urllib.request.Request(
+            osrm_url,
+            headers={"User-Agent": "RMLConstructionSupply-Logistics/1.0 (Batangas, Philippines)"}
+        )
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("code") == "Ok" and data.get("routes"):
+                route = data["routes"][0]
+                dist_meters = float(route.get("distance", 0))
+                dur_seconds = float(route.get("duration", 0))
+                geojson_coords = route.get("geometry", {}).get("coordinates", [])
+                leaflet_coords = [[round(pt[1], 6), round(pt[0], 6)] for pt in geojson_coords]
+                return {
+                    "ok": True,
+                    "provider": "osrm",
+                    "distance_km": round(dist_meters / 1000.0, 2),
+                    "duration_min": max(1, round(dur_seconds / 60.0)),
+                    "coordinates": leaflet_coords,
+                }
+    except Exception:
+        pass
+
+    # Fallback interpolation
+    dist_km = haversine_distance_km(start_lat, start_lng, dest_lat, dest_lng)
+    est_duration_min = max(2, round(dist_km * 2.2))
+    steps = 16
+    fallback_coords = []
+    for i in range(steps + 1):
+        ratio = i / float(steps)
+        curve_offset = math.sin(ratio * math.pi) * 0.0022
+        w_lat = start_lat + (dest_lat - start_lat) * ratio + curve_offset
+        w_lng = start_lng + (dest_lng - start_lng) * ratio - (curve_offset * 0.7)
+        fallback_coords.append([round(w_lat, 6), round(w_lng, 6)])
+
+    return {
+        "ok": True,
+        "provider": "fallback_interpolated",
+        "distance_km": dist_km,
+        "duration_min": est_duration_min,
+        "coordinates": fallback_coords,
+    }
+
 @main_bp.route("/api/gps/update", methods=["POST"])
 @main_bp.route("/api/gps/update/<int:delivery_id>", methods=["POST"])
 @login_required()
@@ -2228,6 +2355,8 @@ def api_gps_update(delivery_id=None):
     del_id = delivery_id or data.get("delivery_id")
     lat = data.get("lat")
     lng = data.get("lng")
+    accuracy = data.get("accuracy")
+    start_transit = data.get("start_transit")
 
     if not del_id or lat is None or lng is None:
         return jsonify({"ok": False, "error": "Missing coordinates or delivery ID"}), 400
@@ -2235,51 +2364,262 @@ def api_gps_update(delivery_id=None):
     try:
         lat_f = float(lat)
         lng_f = float(lng)
-    except ValueError:
-        return jsonify({"ok": False, "error": "Invalid coordinates"}), 400
+        acc_f = float(accuracy) if accuracy is not None else 10.0
+        del_id = int(del_id)
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "Invalid coordinates or delivery ID format"}), 400
+
+    if not (-90.0 <= lat_f <= 90.0 and -180.0 <= lng_f <= 180.0):
+        return jsonify({"ok": False, "error": "Coordinates out of range"}), 400
 
     conn = get_db()
+    deliv = conn.execute(
+        """
+        SELECT d.*, o.customer_id, o.order_code
+        FROM deliveries d
+        JOIN orders o ON d.order_id = o.id
+        WHERE d.id = ?
+        """,
+        (del_id,),
+    ).fetchone()
+
+    if not deliv:
+        conn.close()
+        return jsonify({"ok": False, "error": "Delivery not found"}), 404
+
+    # Security: Driver can only update their assigned delivery
+    current_user_id = session.get("user_id")
+    user_role = session.get("role")
+    if user_role != "admin" and deliv["driver_id"] != current_user_id:
+        conn.close()
+        return jsonify({"ok": False, "error": "Unauthorized: You are not assigned to this delivery"}), 403
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    new_status = deliv["delivery_status"]
+
+    # Auto-transition to en_route if start_transit requested or if authorized and starting movement
+    if start_transit or (new_status in ("assigned", "authorized", "loading") and start_transit):
+        new_status = "en_route"
+        conn.execute("UPDATE deliveries SET delivery_status = 'en_route' WHERE id = ?", (del_id,))
+        conn.execute("UPDATE orders SET order_status = 'out_for_delivery' WHERE id = ?", (deliv["order_id"],))
+        create_notification(
+            conn,
+            deliv["customer_id"],
+            "Out for Delivery",
+            f"Delivery truck has departed from Lipa Yard with materials for order {clean_order_code(deliv['order_code'])}. Live GPS tracking is active.",
+            "delivery",
+            deliv["order_id"],
+        )
+
+    # Update delivery coordinates & tracking active flag
     conn.execute(
         """
         UPDATE deliveries
-        SET current_lat = ?, current_lng = ?, last_gps_update = datetime('now', 'localtime')
+        SET current_lat = ?, current_lng = ?, last_gps_update = ?, tracking_active = 1
         WHERE id = ?
         """,
-        (lat_f, lng_f, int(del_id)),
+        (lat_f, lng_f, now_str, del_id),
+    )
+
+    # Insert historical breadcrumb in delivery_locations
+    driver_id = deliv["driver_id"] or current_user_id or 1
+    conn.execute(
+        """
+        INSERT INTO delivery_locations (delivery_id, driver_id, latitude, longitude, accuracy, recorded_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (del_id, driver_id, lat_f, lng_f, acc_f, now_str),
     )
     conn.commit()
     conn.close()
-    return jsonify({"ok": True, "delivery_id": int(del_id), "lat": lat_f, "lng": lng_f})
 
+    return jsonify({
+        "ok": True,
+        "delivery_id": del_id,
+        "lat": lat_f,
+        "lng": lng_f,
+        "accuracy": acc_f,
+        "delivery_status": new_status,
+        "last_gps_update": now_str,
+    })
+
+@main_bp.route("/api/gps/stop-tracking/<int:delivery_id>", methods=["POST"])
+@login_required()
+def api_gps_stop_tracking(delivery_id):
+    """Stop live GPS tracking session for a delivery."""
+    conn = get_db()
+    deliv = conn.execute("SELECT * FROM deliveries WHERE id = ?", (delivery_id,)).fetchone()
+    if not deliv:
+        conn.close()
+        return jsonify({"ok": False, "error": "Delivery not found"}), 404
+
+    if session.get("role") != "admin" and deliv["driver_id"] != session.get("user_id"):
+        conn.close()
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
+
+    conn.execute("UPDATE deliveries SET tracking_active = 0 WHERE id = ?", (delivery_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "delivery_id": delivery_id, "tracking_active": False})
+
+@main_bp.route("/api/gps/track/<int:delivery_id>")
+@login_required()
+def api_gps_track(delivery_id):
+    """Detailed live tracking payload for a delivery including route, metrics, and breadcrumbs."""
+    conn = get_db()
+    row = conn.execute(
+        """
+        SELECT d.*,
+               u.name AS driver_name, u.phone AS driver_phone,
+               t.truck_code, t.plate_number, t.capacity AS truck_capacity,
+               o.id AS order_id, o.order_code, o.order_status, o.recipient_name,
+               o.phone AS recipient_phone, o.delivery_address, o.special_instructions,
+               o.assigned_date, o.assigned_time_slot, o.customer_id
+        FROM deliveries d
+        JOIN orders o ON d.order_id = o.id
+        LEFT JOIN users u ON d.driver_id = u.id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        WHERE d.id = ?
+        """,
+        (delivery_id,),
+    ).fetchone()
+
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "Delivery not found"}), 404
+
+    # Security check: Customer can only view their own order; Driver can view assigned; Admin can view all
+    role = session.get("role")
+    user_id = session.get("user_id")
+    if role == "customer" and row["customer_id"] != user_id:
+        conn.close()
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
+
+    # Resolve destination coordinates if not stored
+    dest_lat = row["dest_lat"]
+    dest_lng = row["dest_lng"]
+    if not dest_lat or not dest_lng:
+        dest_lat, dest_lng = resolve_delivery_coords(row["delivery_address"])
+        conn.execute("UPDATE deliveries SET dest_lat = ?, dest_lng = ? WHERE id = ?", (dest_lat, dest_lng, delivery_id))
+        conn.execute("UPDATE orders SET dest_lat = ?, dest_lng = ? WHERE id = ?", (dest_lat, dest_lng, row["order_id"]))
+        conn.commit()
+
+    cur_lat = row["current_lat"] or RML_DEPOT_LAT
+    cur_lng = row["current_lng"] or RML_DEPOT_LNG
+
+    # Fetch recent breadcrumbs from delivery_locations
+    breadcrumbs_rows = conn.execute(
+        """
+        SELECT latitude, longitude, accuracy, recorded_at
+        FROM delivery_locations
+        WHERE delivery_id = ?
+        ORDER BY id DESC
+        LIMIT 40
+        """,
+        (delivery_id,),
+    ).fetchall()
+    conn.close()
+
+    breadcrumbs = [
+        {"lat": b["latitude"], "lng": b["longitude"], "accuracy": b["accuracy"], "recorded_at": b["recorded_at"]}
+        for b in reversed(breadcrumbs_rows)
+    ]
+
+    stale = is_gps_stale(row["last_gps_update"], row["delivery_status"])
+
+    return jsonify({
+        "ok": True,
+        "delivery": {
+            "id": row["id"],
+            "delivery_code": row["delivery_code"],
+            "delivery_status": row["delivery_status"],
+            "tracking_active": bool(row["tracking_active"]),
+            "current_lat": cur_lat,
+            "current_lng": cur_lng,
+            "last_gps_update": row["last_gps_update"],
+            "is_stale": stale,
+            "dest_lat": dest_lat,
+            "dest_lng": dest_lng,
+            "depot_lat": RML_DEPOT_LAT,
+            "depot_lng": RML_DEPOT_LNG,
+            "depot_name": RML_DEPOT_NAME,
+            "depot_address": RML_DEPOT_ADDRESS,
+            "driver_name": row["driver_name"] or "Unassigned Driver",
+            "driver_phone": row["driver_phone"] or "0917 555 0140",
+            "truck_code": row["truck_code"] or "RML-07",
+            "plate_number": row["plate_number"] or "DAE 4402",
+            "order_id": row["order_id"],
+            "order_code": clean_order_code(row["order_code"]),
+            "order_status": row["order_status"],
+            "recipient_name": row["recipient_name"],
+            "recipient_phone": row["recipient_phone"] or "",
+            "delivery_address": row["delivery_address"],
+            "assigned_date": row["assigned_date"],
+            "assigned_time_slot": row["assigned_time_slot"],
+        },
+        "breadcrumbs": breadcrumbs,
+    })
 
 @main_bp.route("/api/gps/location/<int:order_id>")
 @login_required()
 def api_gps_order_location(order_id):
-    """Customer endpoint to poll current delivery location for an order."""
+    """Customer & driver polling endpoint for an order's delivery location."""
     conn = get_db()
     row = conn.execute(
         """
-        SELECT id, delivery_code, delivery_status, current_lat, current_lng, last_gps_update
-        FROM deliveries
-        WHERE order_id = ?
+        SELECT d.id, d.delivery_code, d.delivery_status, d.current_lat, d.current_lng, d.last_gps_update,
+               d.dest_lat, d.dest_lng, d.tracking_active,
+               u.name AS driver_name, u.phone AS driver_phone,
+               t.truck_code, t.plate_number,
+               o.id AS order_id, o.order_code, o.delivery_address, o.customer_id
+        FROM deliveries d
+        JOIN orders o ON d.order_id = o.id
+        LEFT JOIN users u ON d.driver_id = u.id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        WHERE d.order_id = ?
         """,
         (order_id,),
     ).fetchone()
+
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "No delivery registered for this order"}), 404
+
+    # Security check: Customer can only view their own order
+    if session.get("role") == "customer" and row["customer_id"] != session.get("user_id"):
+        conn.close()
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
+
+    dest_lat = row["dest_lat"]
+    dest_lng = row["dest_lng"]
+    if not dest_lat or not dest_lng:
+        dest_lat, dest_lng = resolve_delivery_coords(row["delivery_address"])
+        conn.execute("UPDATE deliveries SET dest_lat = ?, dest_lng = ? WHERE id = ?", (dest_lat, dest_lng, row["id"]))
+        conn.execute("UPDATE orders SET dest_lat = ?, dest_lng = ? WHERE id = ?", (dest_lat, dest_lng, order_id))
+        conn.commit()
+
     conn.close()
 
-    if not row or not row["current_lat"] or not row["current_lng"]:
-        return jsonify({"ok": False, "error": "No GPS data for this order"}), 404
+    stale = is_gps_stale(row["last_gps_update"], row["delivery_status"])
 
     return jsonify({
         "ok": True,
         "delivery_id": row["id"],
         "delivery_code": row["delivery_code"],
         "delivery_status": row["delivery_status"],
-        "lat": row["current_lat"],
-        "lng": row["current_lng"],
+        "lat": row["current_lat"] or RML_DEPOT_LAT,
+        "lng": row["current_lng"] or RML_DEPOT_LNG,
         "last_gps_update": row["last_gps_update"],
+        "is_stale": stale,
+        "tracking_active": bool(row["tracking_active"]),
+        "depot_lat": RML_DEPOT_LAT,
+        "depot_lng": RML_DEPOT_LNG,
+        "dest_lat": dest_lat,
+        "dest_lng": dest_lng,
+        "driver_name": row["driver_name"],
+        "truck_code": row["truck_code"],
+        "plate_number": row["plate_number"],
     })
-
 
 @main_bp.route("/api/gps/delivery/<int:delivery_id>")
 @login_required()
@@ -2288,7 +2628,8 @@ def api_gps_get(delivery_id):
     row = conn.execute(
         """
         SELECT d.id, d.delivery_code, d.delivery_status, d.current_lat, d.current_lng, d.last_gps_update,
-               u.name AS driver_name, t.truck_code, t.plate_number, o.order_code
+               d.dest_lat, d.dest_lng, d.tracking_active,
+               u.name AS driver_name, t.truck_code, t.plate_number, o.order_code, o.delivery_address
         FROM deliveries d
         LEFT JOIN users u ON d.driver_id = u.id
         LEFT JOIN trucks t ON d.truck_id = t.id
@@ -2299,54 +2640,259 @@ def api_gps_get(delivery_id):
     ).fetchone()
     conn.close()
     if not row:
-        return jsonify({"ok": False}), 404
+        return jsonify({"ok": False, "error": "Not found"}), 404
     return jsonify(dict(row))
-
 
 @main_bp.route("/api/gps/fleet")
 @login_required("admin")
 def api_gps_fleet():
-    """Admin endpoint to get live locations of all active deliveries."""
+    """Admin endpoint to get live locations of all deliveries across the fleet."""
     conn = get_db()
     rows = conn.execute(
         """
         SELECT d.id, d.delivery_code, d.delivery_status, d.current_lat, d.current_lng, d.last_gps_update,
-               u.name AS driver_name, t.truck_code, t.plate_number, o.order_code, o.recipient_name, o.delivery_address
+               d.dest_lat, d.dest_lng, d.tracking_active,
+               u.name AS driver_name, u.phone AS driver_phone,
+               t.truck_code, t.plate_number,
+               o.id AS order_id, o.order_code, o.recipient_name, o.delivery_address
         FROM deliveries d
         LEFT JOIN users u ON d.driver_id = u.id
         LEFT JOIN trucks t ON d.truck_id = t.id
         LEFT JOIN orders o ON d.order_id = o.id
-        WHERE d.delivery_status IN ('assigned', 'loading', 'en_route')
-        ORDER BY d.id DESC
+        ORDER BY
+            CASE
+                WHEN d.delivery_status = 'en_route' THEN 1
+                WHEN d.delivery_status = 'loading' THEN 2
+                WHEN d.delivery_status = 'authorized' THEN 3
+                WHEN d.delivery_status = 'assigned' THEN 4
+                ELSE 5
+            END,
+            d.id DESC
+        LIMIT 25
         """
     ).fetchall()
     conn.close()
-    return jsonify([dict(r) for r in rows])
 
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["order_code"] = clean_order_code(d.get("order_code"))
+        d["is_stale"] = is_gps_stale(d.get("last_gps_update"), d.get("delivery_status"))
+        d["depot_lat"] = RML_DEPOT_LAT
+        d["depot_lng"] = RML_DEPOT_LNG
+        if not d.get("dest_lat") or not d.get("dest_lng"):
+            clat, clng = resolve_delivery_coords(d.get("delivery_address"))
+            d["dest_lat"] = clat
+            d["dest_lng"] = clng
+        result.append(d)
+
+    return jsonify(result)
+
+@main_bp.route("/api/gps/route-osrm", methods=["GET", "POST"])
+@login_required()
+def api_gps_route_osrm():
+    """Calculate driving route and road geometry between two points using OSRM."""
+    args = request.get_json(silent=True) or request.args or request.form or {}
+    try:
+        start_lat = float(args.get("start_lat", RML_DEPOT_LAT))
+        start_lng = float(args.get("start_lng", RML_DEPOT_LNG))
+        dest_lat = float(args.get("dest_lat", 13.9535))
+        dest_lng = float(args.get("dest_lng", 121.1550))
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "Invalid start or destination coordinates"}), 400
+
+    route_data = fetch_osrm_route(start_lat, start_lng, dest_lat, dest_lng)
+    return jsonify(route_data)
 
 @main_bp.route("/api/gps/simulate/<int:delivery_id>", methods=["POST"])
 @login_required()
 def api_gps_simulate(delivery_id):
-    """Simulate GPS advancement for testing and demonstration."""
+    """
+    Simulate GPS vehicle advancement from current position towards delivery destination.
+    Updates deliveries and records in delivery_locations history table.
+    """
     conn = get_db()
-    row = conn.execute("SELECT current_lat, current_lng FROM deliveries WHERE id = ?", (delivery_id,)).fetchone()
-    if not row:
-        conn.close()
-        return jsonify({"ok": False, "error": "Not found"}), 404
+    deliv = conn.execute(
+        """
+        SELECT d.*, o.delivery_address, o.order_code, o.customer_id
+        FROM deliveries d
+        JOIN orders o ON d.order_id = o.id
+        WHERE d.id = ?
+        """,
+        (delivery_id,),
+    ).fetchone()
 
-    # Jitter or step location slightly within Lipa City
-    cur_lat = row["current_lat"] or 13.9411
-    cur_lng = row["current_lng"] or 121.1631
-    next_lat = round(cur_lat + random.uniform(0.0010, 0.0030), 5)
-    next_lng = round(cur_lng + random.uniform(-0.0015, 0.0020), 5)
+    if not deliv:
+        conn.close()
+        return jsonify({"ok": False, "error": "Delivery not found"}), 404
+
+    # Security check: driver or admin
+    if session.get("role") != "admin" and deliv["driver_id"] != session.get("user_id"):
+        conn.close()
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
+
+    cur_lat = deliv["current_lat"] or RML_DEPOT_LAT
+    cur_lng = deliv["current_lng"] or RML_DEPOT_LNG
+
+    dest_lat = deliv["dest_lat"]
+    dest_lng = deliv["dest_lng"]
+    if not dest_lat or not dest_lng:
+        dest_lat, dest_lng = resolve_delivery_coords(deliv["delivery_address"])
+        conn.execute("UPDATE deliveries SET dest_lat = ?, dest_lng = ? WHERE id = ?", (dest_lat, dest_lng, delivery_id))
+
+    # Vector movement step towards destination (approx 150m - 250m step)
+    d_lat = dest_lat - cur_lat
+    d_lng = dest_lng - cur_lng
+    dist = math.sqrt(d_lat * d_lat + d_lng * d_lng)
+
+    if dist < 0.0008:
+        # Reached destination!
+        next_lat = dest_lat
+        next_lng = dest_lng
+        arrived = True
+    else:
+        step_factor = min(0.12, 0.0018 / max(dist, 0.0001))
+        # Add slight road jitter
+        jitter_lat = random.uniform(-0.00015, 0.00015)
+        jitter_lng = random.uniform(-0.00015, 0.00015)
+        next_lat = round(cur_lat + (d_lat * step_factor) + jitter_lat, 5)
+        next_lng = round(cur_lng + (d_lng * step_factor) + jitter_lng, 5)
+        arrived = False
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    new_status = deliv["delivery_status"]
+
+    if new_status in ("assigned", "authorized", "loading"):
+        new_status = "en_route"
+        conn.execute("UPDATE deliveries SET delivery_status = 'en_route' WHERE id = ?", (delivery_id,))
+        conn.execute("UPDATE orders SET order_status = 'out_for_delivery' WHERE id = ?", (deliv["order_id"],))
+        create_notification(
+            conn,
+            deliv["customer_id"],
+            "Out for Delivery",
+            f"Delivery truck is now en route with your materials for order {clean_order_code(deliv['order_code'])}. Live GPS tracking is active.",
+            "delivery",
+            deliv["order_id"],
+        )
 
     conn.execute(
-        "UPDATE deliveries SET current_lat = ?, current_lng = ?, last_gps_update = datetime('now', 'localtime') WHERE id = ?",
-        (next_lat, next_lng, delivery_id),
+        """
+        UPDATE deliveries
+        SET current_lat = ?, current_lng = ?, last_gps_update = ?, tracking_active = 1
+        WHERE id = ?
+        """,
+        (next_lat, next_lng, now_str, delivery_id),
+    )
+
+    driver_id = deliv["driver_id"] or session.get("user_id") or 1
+    conn.execute(
+        """
+        INSERT INTO delivery_locations (delivery_id, driver_id, latitude, longitude, accuracy, recorded_at)
+        VALUES (?, ?, ?, ?, 8.5, ?)
+        """,
+        (delivery_id, driver_id, next_lat, next_lng, now_str),
     )
     conn.commit()
     conn.close()
-    return jsonify({"ok": True, "lat": next_lat, "lng": next_lng})
+
+    dist_km = haversine_distance_km(next_lat, next_lng, dest_lat, dest_lng)
+
+    return jsonify({
+        "ok": True,
+        "lat": next_lat,
+        "lng": next_lng,
+        "delivery_status": new_status,
+        "arrived": arrived,
+        "distance_remaining_km": dist_km,
+        "last_gps_update": now_str,
+    })
+
+@main_bp.route("/admin/deliveries/<int:delivery_id>/tracking")
+@login_required("admin")
+def admin_delivery_live_tracking(delivery_id):
+    """Dedicated full-page Live Delivery Route & GPS Tracking console for Administrator."""
+    conn = get_db()
+    deliv = conn.execute(
+        """
+        SELECT d.*,
+               u.name AS driver_name, u.phone AS driver_phone,
+               t.truck_code, t.plate_number, t.capacity AS truck_capacity,
+               o.id AS order_id, o.order_code, o.order_status, o.recipient_name,
+               o.phone AS recipient_phone, o.delivery_address, o.special_instructions,
+               o.assigned_date, o.assigned_time_slot, o.total_amount
+        FROM deliveries d
+        JOIN orders o ON d.order_id = o.id
+        LEFT JOIN users u ON d.driver_id = u.id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        WHERE d.id = ?
+        """,
+        (delivery_id,),
+    ).fetchone()
+
+    if not deliv:
+        conn.close()
+        flash("Delivery record not found.", "danger")
+        return redirect(url_for("main.admin_deliveries"))
+
+    # Resolve destination coordinates
+    dest_lat = deliv["dest_lat"]
+    dest_lng = deliv["dest_lng"]
+    if not dest_lat or not dest_lng:
+        dest_lat, dest_lng = resolve_delivery_coords(deliv["delivery_address"])
+        conn.execute("UPDATE deliveries SET dest_lat = ?, dest_lng = ? WHERE id = ?", (dest_lat, dest_lng, delivery_id))
+        conn.execute("UPDATE orders SET dest_lat = ?, dest_lng = ? WHERE id = ?", (dest_lat, dest_lng, deliv["order_id"]))
+        conn.commit()
+
+    # Retrieve all active deliveries for quick switcher
+    active_deliveries = conn.execute(
+        """
+        SELECT d.id, d.delivery_code, d.delivery_status, o.order_code, o.recipient_name, t.truck_code
+        FROM deliveries d
+        JOIN orders o ON d.order_id = o.id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        ORDER BY d.id DESC
+        """
+    ).fetchall()
+
+    # Retrieve latest breadcrumbs
+    breadcrumbs = conn.execute(
+        """
+        SELECT latitude, longitude, accuracy, recorded_at
+        FROM delivery_locations
+        WHERE delivery_id = ?
+        ORDER BY id DESC
+        LIMIT 15
+        """,
+        (delivery_id,),
+    ).fetchall()
+
+    items = conn.execute(
+        """
+        SELECT oi.*, p.name AS product_name, p.unit
+        FROM order_items oi
+        JOIN products p ON oi.product_id = p.id
+        WHERE oi.order_id = ?
+        """,
+        (deliv["order_id"],),
+    ).fetchall()
+    conn.close()
+
+    is_stale = is_gps_stale(deliv["last_gps_update"], deliv["delivery_status"])
+
+    return render_template(
+        "admin/delivery_live_tracking.html",
+        delivery=deliv,
+        active_deliveries=active_deliveries,
+        breadcrumbs=breadcrumbs,
+        items=items,
+        is_stale=is_stale,
+        depot_lat=RML_DEPOT_LAT,
+        depot_lng=RML_DEPOT_LNG,
+        depot_name=RML_DEPOT_NAME,
+        depot_address=RML_DEPOT_ADDRESS,
+        dest_lat=dest_lat,
+        dest_lng=dest_lng,
+    )
 
 
 # -------------------------------------------------------------------------

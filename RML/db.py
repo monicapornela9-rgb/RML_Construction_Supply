@@ -289,6 +289,13 @@ def init_db():
         ("deliveries", "proof_file", "TEXT"),
         ("deliveries", "authorized_by", "INTEGER"),
         ("deliveries", "authorized_at", "TEXT"),
+        ("orders", "dest_lat", "REAL"),
+        ("orders", "dest_lng", "REAL"),
+        ("deliveries", "dest_lat", "REAL"),
+        ("deliveries", "dest_lng", "REAL"),
+        ("deliveries", "estimated_distance_km", "REAL"),
+        ("deliveries", "estimated_duration_min", "INTEGER"),
+        ("deliveries", "tracking_active", "INTEGER DEFAULT 0"),
     ]
     for tbl, col, col_def in table_migrations:
         try:
@@ -382,6 +389,26 @@ def init_db():
         """
     )
     cur.execute("CREATE INDEX IF NOT EXISTS idx_access_logs_created ON access_logs(created_at);")
+
+    # Ensure delivery_locations tracking history table exists
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS delivery_locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            delivery_id INTEGER NOT NULL,
+            driver_id INTEGER NOT NULL,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            accuracy REAL,
+            recorded_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+            FOREIGN KEY (delivery_id) REFERENCES deliveries(id) ON DELETE CASCADE,
+            FOREIGN KEY (driver_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        """
+    )
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_deliv_loc_deliv ON delivery_locations(delivery_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_deliv_loc_driver ON delivery_locations(driver_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_deliv_loc_recorded ON delivery_locations(recorded_at);")
 
     # Seed default delivery settings
     cur.executemany(

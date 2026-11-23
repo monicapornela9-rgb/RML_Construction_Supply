@@ -2644,6 +2644,62 @@ footer.compact-footer a:hover {
   }
 }
 
+/* -------------------------------------------------------------------------
+   Live GPS & Leaflet Map Styling
+   ------------------------------------------------------------------------- */
+.rml-map {
+  min-height: 380px;
+  border-radius: var(--rml-radius);
+  border: 1px solid var(--rml-border);
+  z-index: 1;
+}
+
+.custom-fleet-pin,
+.custom-truck-pin,
+.custom-truck-live-pin {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+}
+
+.custom-truck-live-pin::after {
+  content: "";
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid #C83126;
+  opacity: 0.7;
+  animation: gpsPulse 2s infinite ease-out;
+  pointer-events: none;
+}
+
+@keyframes gpsPulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
+  font-family: var(--rml-font-sans) !important;
+  font-size: 0.85rem !important;
+  padding: 2px !important;
+}
+
+.leaflet-popup-content {
+  margin: 10px 14px !important;
+  line-height: 1.4 !important;
+}
+
+
 
 
 

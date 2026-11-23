@@ -1,0 +1,507 @@
+{% extends "base.html" %}
+{% block title %}Live GPS Tracking · {{ delivery.delivery_code }} · RML Construction Supply{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb and Page Header -->
+<div class="mb-3">
+  <a href="{{ url_for('main.admin_deliveries') }}" class="small text-decoration-none text-muted">
+    <i class="bi bi-arrow-left me-1"></i> Back to Fleet Dispatch &amp; Deliveries
+  </a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <div class="text-muted small">Fleet Operations &middot; Live GPS Route Console</div>
+    <h2 class="fw-bold mb-1 d-flex align-items-center gap-2">
+      <span>{{ delivery.delivery_code }}</span>
+      <span class="fs-6 text-muted fw-normal">({{ delivery.order_code }})</span>
+      <span id="headerStatusBadge" class="badge fs-6 {% if delivery.delivery_status == 'en_route' %}bg-primary{% elif delivery.delivery_status == 'delivered' %}bg-success{% elif delivery.delivery_status == 'loading' %}bg-warning text-dark{% else %}bg-secondary{% endif %} text-uppercase">
+        {{ delivery.delivery_status|replace('_', ' ') }}
+      </span>
+    </h2>
+    <div class="text-muted small">
+      <strong>Customer:</strong> {{ delivery.recipient_name }} &middot;
+      <strong>Destination:</strong> {{ delivery.delivery_address }}
+    </div>
+  </div>
+
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <!-- Active Delivery Switcher Dropdown -->
+    <div class="dropdown">
+      <button class="btn btn-outline-dark btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+        <i class="bi bi-truck me-1"></i> Switch Vehicle / Delivery
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="max-height: 280px; overflow-y: auto;">
+        <li><h6 class="dropdown-header">Active &amp; Dispatched Deliveries</h6></li>
+        {% for a in active_deliveries %}
+        <li>
+          <a class="dropdown-item d-flex justify-content-between align-items-center gap-2 {% if a.id == delivery.id %}active{% endif %}"
+             href="{{ url_for('main.admin_delivery_live_tracking', delivery_id=a.id) }}">
+            <span><strong>{{ a.delivery_code }}</strong> ({{ a.truck_code or 'Truck' }})</span>
+            <span class="badge {% if a.delivery_status == 'en_route' %}bg-primary{% elif a.delivery_status == 'delivered' %}bg-success{% else %}bg-secondary{% endif %} smaller">
+              {{ a.delivery_status }}
+            </span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <!-- Live Auto-refresh Pill -->
+    <div class="d-flex align-items-center bg-white border rounded px-3 py-1 shadow-sm">
+      <span class="spinner-grow spinner-grow-sm text-success me-2" role="status" style="width: 10px; height: 10px;"></span>
+      <span class="small fw-semibold text-dark me-2">Live GPS</span>
+      <span id="countdownTimer" class="badge bg-light text-muted border">5s</span>
+    </div>
+
+    <button id="manualRefreshBtn" class="btn btn-outline-secondary btn-sm" title="Refresh GPS Now">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
+  </div>
+</div>
+
+<!-- Main 2-Column Console Layout -->
+<div class="row g-4 mb-4">
+  <!-- Map Column (Left / 7 cols) -->
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm overflow-hidden h-100">
+      <!-- Map Action Toolbar -->
+      <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-semibold">
+            <i class="bi bi-geo-alt-fill me-1"></i> OpenStreetMap + OSRM
+          </span>
+          <span id="signalLostBadge" class="badge bg-warning text-dark border {% if not is_stale %}d-none{% endif %}">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i> Signal Lost / Driver Offline (&gt;2m)
+          </span>
+        </div>
+
+        <div class="btn-group btn-group-sm">
+          <button id="btnCenterTruck" class="btn btn-outline-secondary" title="Center on Vehicle">
+            <i class="bi bi-crosshair me-1"></i> Focus Truck
+          </button>
+          <button id="btnFitRoute" class="btn btn-outline-secondary" title="Fit Entire Route">
+            <i class="bi bi-arrows-fullscreen me-1"></i> Full Route
+          </button>
+        </div>
+      </div>
+
+      <!-- Leaflet Map Container -->
+      <div id="liveTrackingMap" style="height: 520px; width: 100%; position: relative;"></div>
+
+      <!-- Map Legend & Simulation Testing Controls -->
+      <div class="card-footer bg-light border-top p-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-3 small text-muted">
+            <span class="d-flex align-items-center gap-1">
+              <span style="display:inline-block;width:12px;height:12px;background:#142235;border-radius:50%;border:1px solid #fff;"></span>
+              <strong>Depot:</strong> Lipa Central Yard
+            </span>
+            <span class="d-flex align-items-center gap-1">
+              <span style="display:inline-block;width:12px;height:12px;background:#C83126;border-radius:50%;border:1px solid #fff;"></span>
+              <strong>Live Truck:</strong> {{ delivery.truck_code }}
+            </span>
+            <span class="d-flex align-items-center gap-1">
+              <span style="display:inline-block;width:12px;height:12px;background:#059669;border-radius:50%;border:1px solid #fff;"></span>
+              <strong>Destination:</strong> Site Address
+            </span>
+          </div>
+
+          <!-- Simulation Controls for Verification & Demo -->
+          <div class="d-flex align-items-center gap-2">
+            <span class="small text-muted fw-semibold">Demo / Testing:</span>
+            <button id="btnSimulateStep" class="btn btn-sm btn-outline-danger">
+              <i class="bi bi-play-fill me-1"></i> Step +200m
+            </button>
+            <button id="btnAutoSimulate" class="btn btn-sm btn-danger">
+              <i class="bi bi-fast-forward-fill me-1"></i> Auto-Drive
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Vehicle, Driver, Route Metrics & Log (4 cols) -->
+  <div class="col-lg-4">
+    <!-- Live OSRM Route Metrics Card -->
+    <div class="card border-0 shadow-sm p-3 mb-3">
+      <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-speedometer2 text-danger"></i>
+        <span>Real-Time Logistics &amp; Route</span>
+      </h6>
+
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <div class="p-3 bg-light rounded border text-center">
+            <div class="text-muted small">Est. Distance</div>
+            <div id="statDistance" class="fs-4 fw-bold text-dark">-- km</div>
+            <div class="smaller text-muted">from Lipa Yard</div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="p-3 bg-light rounded border text-center">
+            <div class="text-muted small">Travel Duration</div>
+            <div id="statDuration" class="fs-4 fw-bold text-primary">-- min</div>
+            <div class="smaller text-muted">via OSRM road route</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="list-group list-group-flush small">
+        <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+          <span class="text-muted">Assigned Truck</span>
+          <span class="fw-bold text-dark">{{ delivery.truck_code }} ({{ delivery.plate_number }})</span>
+        </div>
+        <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+          <span class="text-muted">Assigned Driver</span>
+          <span class="fw-semibold text-dark">
+            {{ delivery.driver_name }}
+            {% if delivery.driver_phone %}
+              &middot; <a href="tel:{{ delivery.driver_phone }}" class="text-decoration-none"><i class="bi bi-telephone-fill"></i></a>
+            {% endif %}
+          </span>
+        </div>
+        <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+          <span class="text-muted">Last GPS Ping</span>
+          <span id="statLastPing" class="fw-semibold text-dark">{{ delivery.last_gps_update or 'Awaiting initial signal' }}</span>
+        </div>
+        <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+          <span class="text-muted">GPS Accuracy</span>
+          <span id="statAccuracy" class="badge bg-light text-dark border">High &plusmn; 8m</span>
+        </div>
+        <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+          <span class="text-muted">Current Coordinates</span>
+          <span id="statCoords" class="font-monospace smaller text-muted">{{ delivery.current_lat }}, {{ delivery.current_lng }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drop-off Destination & Contact Details -->
+    <div class="card border-0 shadow-sm p-3 mb-3">
+      <h6 class="fw-bold mb-2 d-flex align-items-center gap-2">
+        <i class="bi bi-pin-map-fill text-success"></i>
+        <span>Delivery Destination</span>
+      </h6>
+      <div class="small">
+        <div class="fw-bold text-dark">{{ delivery.recipient_name }}</div>
+        <div class="text-muted mb-2">{{ delivery.delivery_address }}</div>
+        {% if delivery.recipient_phone %}
+        <div class="mb-2">
+          <i class="bi bi-telephone me-1 text-muted"></i>
+          <a href="tel:{{ delivery.recipient_phone }}" class="text-decoration-none">{{ delivery.recipient_phone }}</a>
+        </div>
+        {% endif %}
+        <div class="p-2 bg-light rounded smaller text-muted border">
+          <strong>Schedule Window:</strong> {{ delivery.assigned_date or 'N/A' }} &middot; {{ delivery.assigned_time_slot or delivery.delivery_window or 'Morning' }}
+        </div>
+        {% if delivery.special_instructions %}
+        <div class="alert alert-warning py-1 px-2 mt-2 mb-0 smaller">
+          <strong>Instructions:</strong> {{ delivery.special_instructions }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Historical GPS Breadcrumbs Log -->
+    <div class="card border-0 shadow-sm p-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="fw-bold mb-0">
+          <i class="bi bi-clock-history text-muted me-1"></i> Recent GPS Pings
+        </h6>
+        <span id="breadcrumbCount" class="badge bg-light text-muted border">{{ breadcrumbs|length }} logged</span>
+      </div>
+      <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+        <table class="table table-sm table-borderless smaller mb-0">
+          <thead>
+            <tr class="text-muted border-bottom">
+              <th>Time</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+            </tr>
+          </thead>
+          <tbody id="breadcrumbsTableBody">
+            {% for b in breadcrumbs %}
+            <tr>
+              <td class="text-muted">{{ b.recorded_at[11:19] if b.recorded_at else 'N/A' }}</td>
+              <td class="font-monospace">{{ b.latitude|round(5) }}</td>
+              <td class="font-monospace">{{ b.longitude|round(5) }}</td>
+            </tr>
+            {% else %}
+            <tr id="emptyBreadcrumbRow">
+              <td colspan="3" class="text-muted text-center py-2">No GPS breadcrumbs logged yet.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const deliveryId = {{ delivery.id }};
+  const depotCoords = [{{ depot_lat }}, {{ depot_lng }}];
+  const destCoords = [{{ dest_lat }}, {{ dest_lng }}];
+  let curLat = {{ delivery.current_lat or depot_lat }};
+  let curLng = {{ delivery.current_lng or depot_lng }};
+  let pollInterval = 5000;
+  let pollTimer = null;
+  let countdownSec = 5;
+  let countdownTimer = null;
+  let autoSimTimer = null;
+
+  // Initialize Leaflet Map
+  const map = L.map("liveTrackingMap", {
+    zoomControl: true,
+  }).setView([curLat, curLng], 13);
+
+  // OpenStreetMap Tile Layer (Free & Open Source)
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | OSRM Routing',
+  }).addTo(map);
+
+  // Custom Icon Helpers
+  const depotIcon = L.divIcon({
+    className: "custom-depot-pin",
+    html: '<div style="background-color:#142235;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,0.35);border:2px solid #ffffff;"><i class="bi bi-building"></i></div>',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -18],
+  });
+
+  const destIcon = L.divIcon({
+    className: "custom-dest-pin",
+    html: '<div style="background-color:#059669;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,0.35);border:2px solid #ffffff;"><i class="bi bi-geo-alt-fill"></i></div>',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -18],
+  });
+
+  const truckIcon = L.divIcon({
+    className: "custom-truck-live-pin",
+    html: '<div style="background-color:#C83126;color:white;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(200,49,38,0.45);border:3px solid #ffffff;"><i class="bi bi-truck fs-5"></i></div>',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20],
+  });
+
+  // Depot Marker
+  const depotMarker = L.marker(depotCoords, { icon: depotIcon })
+    .addTo(map)
+    .bindPopup('<strong>RML Lipa City Central Depot</strong><br><small class="text-muted">Ayala Highway, Lipa City</small>');
+
+  // Destination Marker
+  const destMarker = L.marker(destCoords, { icon: destIcon })
+    .addTo(map)
+    .bindPopup('<strong>Delivery Drop-off Site</strong><br>{{ delivery.recipient_name }}<br><small class="text-muted">{{ delivery.delivery_address }}</small>');
+
+  // Moving Truck Marker
+  const truckMarker = L.marker([curLat, curLng], { icon: truckIcon, zIndexOffset: 1000 })
+    .addTo(map)
+    .bindPopup('<strong>Truck {{ delivery.truck_code }} ({{ delivery.plate_number }})</strong><br>Driver: {{ delivery.driver_name }}<br>Status: <span class="badge bg-primary">{{ delivery.delivery_status }}</span>');
+
+  // Route Polyline Layer
+  let routePolyline = null;
+  let breadcrumbLayerGroup = L.layerGroup().addTo(map);
+
+  // Fetch OSRM Road Route
+  function loadOsrmRoute() {
+    fetch('/api/gps/route-osrm?start_lat=' + depotCoords[0] + '&start_lng=' + depotCoords[1] + '&dest_lat=' + destCoords[0] + '&dest_lng=' + destCoords[1])
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok && data.coordinates && data.coordinates.length > 0) {
+          if (routePolyline) {
+            map.removeLayer(routePolyline);
+          }
+
+          // Casing line (dark shadow effect)
+          const casingLine = L.polyline(data.coordinates, {
+            color: '#1E3A8A',
+            weight: 7,
+            opacity: 0.5,
+          }).addTo(map);
+
+          // Vibrant blue OSRM route line
+          routePolyline = L.polyline(data.coordinates, {
+            color: '#2563EB',
+            weight: 5,
+            opacity: 0.9,
+            lineJoin: 'round',
+          }).addTo(map);
+
+          // Update metrics display
+          const distEl = document.getElementById('statDistance');
+          const durEl = document.getElementById('statDuration');
+          if (distEl) distEl.textContent = data.distance_km + ' km';
+          if (durEl) durEl.textContent = data.duration_min + ' min';
+
+          // Fit all points comfortably
+          fitEntireRoute();
+        }
+      })
+      .catch(err => {
+        console.warn('OSRM Route fetch error:', err);
+      });
+  }
+
+  function fitEntireRoute() {
+    const group = L.featureGroup([depotMarker, destMarker, truckMarker]);
+    if (routePolyline) group.addLayer(routePolyline);
+    map.fitBounds(group.getBounds().pad(0.15));
+  }
+
+  function focusTruck() {
+    map.setView(truckMarker.getLatLng(), 15, { animate: true });
+    truckMarker.openPopup();
+  }
+
+  // Poll for Live Coordinates & Status Updates
+  function pollLiveGps() {
+    fetch('/api/gps/track/' + deliveryId)
+      .then(res => res.json())
+      .then(res => {
+        if (!res.ok || !res.delivery) return;
+        const d = res.delivery;
+
+        const newPos = [d.current_lat, d.current_lng];
+        truckMarker.setLatLng(newPos);
+        truckMarker.getPopup().setContent(
+          '<strong>Truck ' + (d.truck_code || 'RML') + ' (' + (d.plate_number || '') + ')</strong><br>' +
+          'Driver: ' + (d.driver_name || 'Assigned Driver') + '<br>' +
+          'Status: <span class="badge bg-primary text-uppercase">' + d.delivery_status + '</span><br>' +
+          '<small class="text-muted">Last ping: ' + (d.last_gps_update || 'Just now') + '</small>'
+        );
+
+        // Update Info Cards
+        const lastPingEl = document.getElementById('statLastPing');
+        const coordsEl = document.getElementById('statCoords');
+        const headerBadge = document.getElementById('headerStatusBadge');
+        const signalLostBadge = document.getElementById('signalLostBadge');
+
+        if (lastPingEl) lastPingEl.textContent = d.last_gps_update || 'Just now';
+        if (coordsEl) coordsEl.textContent = d.current_lat.toFixed(5) + ', ' + d.current_lng.toFixed(5);
+        if (headerBadge) {
+          headerBadge.textContent = d.delivery_status.replace('_', ' ');
+          if (d.delivery_status === 'en_route') headerBadge.className = 'badge fs-6 bg-primary text-uppercase';
+          else if (d.delivery_status === 'delivered') headerBadge.className = 'badge fs-6 bg-success text-uppercase';
+        }
+
+        // Stale signal alert
+        if (signalLostBadge) {
+          if (d.is_stale) signalLostBadge.classList.remove('d-none');
+          else signalLostBadge.classList.add('d-none');
+        }
+
+        // Update Breadcrumbs
+        if (res.breadcrumbs && res.breadcrumbs.length > 0) {
+          renderBreadcrumbs(res.breadcrumbs);
+        }
+      })
+      .catch(err => console.warn('GPS Poll error:', err));
+  }
+
+  function renderBreadcrumbs(crumbs) {
+    breadcrumbLayerGroup.clearLayers();
+    const tbody = document.getElementById('breadcrumbsTableBody');
+    const countEl = document.getElementById('breadcrumbCount');
+    if (countEl) countEl.textContent = crumbs.length + ' logged';
+
+    if (tbody) {
+      let rowsHtml = '';
+      crumbs.slice(-15).reverse().forEach(c => {
+        const timePart = c.recorded_at ? c.recorded_at.substring(11, 19) : '--:--';
+        rowsHtml += '<tr><td class="text-muted">' + timePart + '</td><td class="font-monospace">' + c.lat.toFixed(5) + '</td><td class="font-monospace">' + c.lng.toFixed(5) + '</td></tr>';
+
+        // Add subtle circle marker on map
+        L.circleMarker([c.lat, c.lng], {
+          radius: 4,
+          color: '#C83126',
+          fillColor: '#ffffff',
+          fillOpacity: 0.8,
+          weight: 2,
+        }).addTo(breadcrumbLayerGroup);
+      });
+      tbody.innerHTML = rowsHtml;
+    }
+  }
+
+  // Countdown timer for next AJAX poll
+  function resetCountdown() {
+    countdownSec = 5;
+    const cdEl = document.getElementById('countdownTimer');
+    if (cdEl) cdEl.textContent = countdownSec + 's';
+  }
+
+  countdownTimer = setInterval(function () {
+    countdownSec--;
+    if (countdownSec <= 0) {
+      resetCountdown();
+      pollLiveGps();
+    } else {
+      const cdEl = document.getElementById('countdownTimer');
+      if (cdEl) cdEl.textContent = countdownSec + 's';
+    }
+  }, 1000);
+
+  // Manual Toolbar Handlers
+  document.getElementById('btnCenterTruck').addEventListener('click', focusTruck);
+  document.getElementById('btnFitRoute').addEventListener('click', fitEntireRoute);
+  document.getElementById('manualRefreshBtn').addEventListener('click', function () {
+    resetCountdown();
+    pollLiveGps();
+  });
+
+  // Simulation Controls for Verification
+  document.getElementById('btnSimulateStep').addEventListener('click', function () {
+    const btn = this;
+    btn.disabled = true;
+    fetch('/api/gps/simulate/' + deliveryId, { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        btn.disabled = false;
+        if (data.ok) {
+          pollLiveGps();
+        }
+      })
+      .catch(() => { btn.disabled = false; });
+  });
+
+  const autoBtn = document.getElementById('btnAutoSimulate');
+  autoBtn.addEventListener('click', function () {
+    if (autoSimTimer) {
+      clearInterval(autoSimTimer);
+      autoSimTimer = null;
+      autoBtn.innerHTML = '<i class="bi bi-fast-forward-fill me-1"></i> Auto-Drive';
+      autoBtn.className = 'btn btn-sm btn-danger';
+    } else {
+      autoBtn.innerHTML = '<i class="bi bi-pause-fill me-1"></i> Pause Auto-Drive';
+      autoBtn.className = 'btn btn-sm btn-warning text-dark';
+      autoSimTimer = setInterval(function () {
+        fetch('/api/gps/simulate/' + deliveryId, { method: 'POST' })
+          .then(res => res.json())
+          .then(data => {
+            if (data.ok) {
+              pollLiveGps();
+              if (data.arrived) {
+                clearInterval(autoSimTimer);
+                autoSimTimer = null;
+                autoBtn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Arrived at Site';
+                autoBtn.className = 'btn btn-sm btn-success disabled';
+              }
+            }
+          });
+      }, 3000);
+    }
+  });
+
+  // Initial load
+  loadOsrmRoute();
+  pollLiveGps();
+});
+</script>
+{% endblock %}

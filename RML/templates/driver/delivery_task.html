@@ -94,8 +94,83 @@
   </div>
 
   <div id="gpsStatus" class="small text-muted mt-2">
-    Click "Start Live GPS" while en route to share truck coordinates with Lipa dispatch and customer tracking.
+    Use the live route map below to preview your journey and broadcast real-time GPS coordinates to dispatch.
   </div>
+</div>
+
+<!-- Live Driver Route Preview & GPS Broadcast Console -->
+<div class="card border-0 shadow-sm p-4 mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h5 class="fw-bold mb-1"><i class="bi bi-geo-alt-fill text-rml me-2"></i>Delivery Route &amp; Live GPS Broadcast</h5>
+      <p class="small text-muted mb-0">Track your delivery journey from Central Depot to the customer's site. Coordinates are shared live with Lipa Dispatch.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span id="driverGpsBadge" class="badge bg-secondary">
+        <i class="bi bi-broadcast me-1"></i> GPS Inactive
+      </span>
+      <span id="driverAccuracyBadge" class="badge bg-light text-dark border d-none">
+        &plusmn; 0m
+      </span>
+    </div>
+  </div>
+
+  <!-- Route Map Preview -->
+  <div id="driverRouteMap" style="height: 340px; border-radius: 8px; border: 1px solid #DDE5EC;" class="mb-3"></div>
+
+  <!-- Route Distance & Duration Indicators -->
+  <div class="row g-2 mb-3 text-center">
+    <div class="col-6 col-md-3">
+      <div class="p-2 bg-light rounded border">
+        <div class="smaller text-muted">Total Distance</div>
+        <div id="driverRouteDist" class="fw-bold fs-6 text-dark">Calculating...</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="p-2 bg-light rounded border">
+        <div class="smaller text-muted">Est. Drive Time</div>
+        <div id="driverRouteDur" class="fw-bold fs-6 text-primary">Calculating...</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="p-2 bg-light rounded border">
+        <div class="smaller text-muted">Current Coords</div>
+        <div id="driverLiveCoords" class="fw-semibold smaller font-monospace text-muted">{{ delivery.current_lat }}, {{ delivery.current_lng }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="p-2 bg-light rounded border">
+        <div class="smaller text-muted">Last Transmission</div>
+        <div id="driverLastSent" class="fw-semibold smaller text-muted">{{ delivery.last_gps_update or 'Not started' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Prominent GPS Broadcast Control Button -->
+  {% if delivery.delivery_status != 'delivered' %}
+    <div class="d-flex gap-2 flex-wrap">
+      <button type="button" id="btnDriverGpsToggle" class="btn btn-rml btn-lg fw-bold flex-grow-1 py-3" {% if not is_authorized %}disabled{% endif %}>
+        <i class="bi bi-broadcast me-2"></i> Start Delivery &amp; GPS Tracking
+      </button>
+
+      <button type="button" id="btnDriverSimulate" class="btn btn-outline-secondary" {% if not is_authorized %}disabled{% endif %} title="Simulate vehicle moving on map for desktop testing">
+        <i class="bi bi-play-circle me-1"></i> Demo Step
+      </button>
+    </div>
+
+    <!-- Permission / Status Guidance Alert -->
+    <div id="gpsAlertBox" class="alert alert-info py-2 px-3 small mt-3 mb-0 d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-info-circle-fill text-primary fs-5"></i>
+        <span id="gpsAlertText">Click <strong>Start Delivery &amp; GPS Tracking</strong> when departing the yard to begin real-time broadcasting.</span>
+      </div>
+      <button type="button" id="btnRetryPermission" class="btn btn-sm btn-outline-primary d-none">Retry Permission</button>
+    </div>
+  {% else %}
+    <div class="alert alert-success py-2 px-3 small mb-0">
+      <i class="bi bi-check-circle-fill text-success me-2"></i> Delivery completed. GPS broadcasting has ended.
+    </div>
+  {% endif %}
 </div>
 
 <div class="row g-4">
@@ -232,3 +307,257 @@
   </div>
 </div>
 {% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const deliveryId = {{ delivery.id }};
+  const depotCoords = [13.9411, 121.1631];
+  const destCoords = [{{ delivery.dest_lat or 13.9535 }}, {{ delivery.dest_lng or 121.1550 }}];
+  let curLat = {{ delivery.current_lat or 13.9411 }};
+  let curLng = {{ delivery.current_lng or 121.1631 }};
+
+  let watchId = null;
+  let isTrackingActive = false;
+  let lastSentTime = null;
+  let simInterval = null;
+
+  // Initialize Map
+  const mapEl = document.getElementById("driverRouteMap");
+  if (!mapEl || typeof L === "undefined") return;
+
+  const map = L.map("driverRouteMap").setView([curLat, curLng], 13);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | OSRM',
+  }).addTo(map);
+
+  // Custom Markers
+  const depotIcon = L.divIcon({
+    className: "driver-depot-pin",
+    html: '<div style="background-color:#142235;color:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid #fff;"><i class="bi bi-building"></i></div>',
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+    popupAnchor: [0, -17],
+  });
+
+  const destIcon = L.divIcon({
+    className: "driver-dest-pin",
+    html: '<div style="background-color:#059669;color:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid #fff;"><i class="bi bi-geo-alt-fill"></i></div>',
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+    popupAnchor: [0, -17],
+  });
+
+  const truckIcon = L.divIcon({
+    className: "driver-truck-pin",
+    html: '<div style="background-color:#C83126;color:white;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(200,49,38,0.4);border:2px solid #fff;"><i class="bi bi-truck fs-5"></i></div>',
+    iconSize: [38, 38],
+    iconAnchor: [19, 19],
+    popupAnchor: [0, -19],
+  });
+
+  const depotMarker = L.marker(depotCoords, { icon: depotIcon })
+    .addTo(map)
+    .bindPopup('<strong>RML Lipa City Central Depot</strong><br>Starting Yard');
+
+  const destMarker = L.marker(destCoords, { icon: destIcon })
+    .addTo(map)
+    .bindPopup('<strong>Customer Delivery Site</strong><br>{{ delivery.recipient_name }}<br><small>{{ delivery.delivery_address }}</small>');
+
+  const truckMarker = L.marker([curLat, curLng], { icon: truckIcon, zIndexOffset: 1000 })
+    .addTo(map)
+    .bindPopup('<strong>Your Current Truck Location</strong>');
+
+  let routeLine = null;
+
+  // Load OSRM Route
+  function fetchRoute() {
+    fetch('/api/gps/route-osrm?start_lat=' + depotCoords[0] + '&start_lng=' + depotCoords[1] + '&dest_lat=' + destCoords[0] + '&dest_lng=' + destCoords[1])
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok && data.coordinates && data.coordinates.length > 0) {
+          if (routeLine) map.removeLayer(routeLine);
+          routeLine = L.polyline(data.coordinates, {
+            color: '#2563EB',
+            weight: 5,
+            opacity: 0.85,
+            lineJoin: 'round',
+          }).addTo(map);
+
+          document.getElementById('driverRouteDist').textContent = data.distance_km + ' km';
+          document.getElementById('driverRouteDur').textContent = data.duration_min + ' min';
+
+          const bounds = L.featureGroup([depotMarker, destMarker, truckMarker, routeLine]).getBounds();
+          map.fitBounds(bounds.pad(0.12));
+        }
+      })
+      .catch(err => console.warn('Route load error:', err));
+  }
+  fetchRoute();
+
+  // Send Coordinates to Backend
+  function sendGpsUpdate(lat, lng, accuracy, isInitial) {
+    curLat = lat;
+    curLng = lng;
+    truckMarker.setLatLng([lat, lng]);
+
+    document.getElementById('driverLiveCoords').textContent = lat.toFixed(5) + ', ' + lng.toFixed(5);
+    const nowStr = new Date().toLocaleTimeString();
+    document.getElementById('driverLastSent').textContent = nowStr;
+
+    const accBadge = document.getElementById('driverAccuracyBadge');
+    if (accBadge) {
+      accBadge.classList.remove('d-none');
+      accBadge.textContent = '± ' + Math.round(accuracy || 10) + 'm';
+    }
+
+    fetch('/api/gps/update/' + deliveryId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lat: lat,
+        lng: lng,
+        accuracy: accuracy,
+        start_transit: isInitial || false,
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          const alertText = document.getElementById('gpsAlertText');
+          if (alertText) {
+            alertText.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i> Transmitting live GPS signal</span> · Lipa Dispatch receiving location updates every 5 seconds.';
+          }
+        }
+      })
+      .catch(err => console.warn('GPS update transmission error:', err));
+  }
+
+  // Toggle Tracking Handler
+  const toggleBtn = document.getElementById('btnDriverGpsToggle');
+  const gpsBadge = document.getElementById('driverGpsBadge');
+  const alertBox = document.getElementById('gpsAlertBox');
+  const alertText = document.getElementById('gpsAlertText');
+  const retryBtn = document.getElementById('btnRetryPermission');
+
+  function startTracking() {
+    if (!navigator.geolocation) {
+      alertText.textContent = "Geolocation is not supported by your browser. You can use simulation mode.";
+      alertBox.className = "alert alert-warning py-2 px-3 small mt-3 mb-0";
+      return;
+    }
+
+    isTrackingActive = true;
+    toggleBtn.innerHTML = '<i class="bi bi-stop-circle-fill me-2"></i> Stop GPS Tracking';
+    toggleBtn.className = 'btn btn-danger btn-lg fw-bold flex-grow-1 py-3';
+
+    gpsBadge.className = 'badge bg-success';
+    gpsBadge.innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" role="status"></span> Broadcasting Live';
+
+    alertBox.className = 'alert alert-success py-2 px-3 small mt-3 mb-0 d-flex align-items-center justify-content-between flex-wrap gap-2';
+    alertText.innerHTML = 'Acquiring GPS fix from device satellites / mobile network...';
+    if (retryBtn) retryBtn.classList.add('d-none');
+
+    // Start watchPosition
+    watchId = navigator.geolocation.watchPosition(
+      function (pos) {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const acc = pos.coords.accuracy;
+        sendGpsUpdate(lat, lng, acc, true);
+      },
+      function (err) {
+        console.warn('Geolocation watch error:', err);
+        let msg = "GPS error: " + err.message;
+        if (err.code === 1) { // PERMISSION_DENIED
+          msg = "Location permission denied. Please allow location access in your browser settings or use the demo step button.";
+          if (retryBtn) retryBtn.classList.remove('d-none');
+        } else if (err.code === 2) { // POSITION_UNAVAILABLE
+          msg = "GPS position unavailable. Switching to assisted mode...";
+        } else if (err.code === 3) { // TIMEOUT
+          msg = "GPS request timed out. Retrying...";
+        }
+        alertBox.className = "alert alert-warning py-2 px-3 small mt-3 mb-0 d-flex align-items-center justify-content-between flex-wrap gap-2";
+        alertText.textContent = msg;
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 5000,
+      }
+    );
+  }
+
+  function stopTracking() {
+    isTrackingActive = false;
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
+    if (simInterval) {
+      clearInterval(simInterval);
+      simInterval = null;
+    }
+
+    fetch('/api/gps/stop-tracking/' + deliveryId, { method: 'POST' }).catch(() => {});
+
+    if (toggleBtn) {
+      toggleBtn.innerHTML = '<i class="bi bi-broadcast me-2"></i> Start Delivery &amp; GPS Tracking';
+      toggleBtn.className = 'btn btn-rml btn-lg fw-bold flex-grow-1 py-3';
+    }
+    if (gpsBadge) {
+      gpsBadge.className = 'badge bg-secondary';
+      gpsBadge.innerHTML = '<i class="bi bi-broadcast me-1"></i> GPS Inactive';
+    }
+    if (alertBox) {
+      alertBox.className = 'alert alert-info py-2 px-3 small mt-3 mb-0';
+      alertText.textContent = 'GPS tracking stopped. Click Start Delivery & GPS Tracking to resume.';
+    }
+  }
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function () {
+      if (!isTrackingActive) {
+        startTracking();
+      } else {
+        stopTracking();
+      }
+    });
+  }
+
+  if (retryBtn) {
+    retryBtn.addEventListener('click', function () {
+      startTracking();
+    });
+  }
+
+  // Demo step simulation for desktop testing
+  const simBtn = document.getElementById('btnDriverSimulate');
+  if (simBtn) {
+    simBtn.addEventListener('click', function () {
+      fetch('/api/gps/simulate/' + deliveryId, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.ok) {
+            sendGpsUpdate(data.lat, data.lng, 8.0, true);
+            map.panTo([data.lat, data.lng]);
+          }
+        });
+    });
+  }
+
+  // Clear tracking if driver submits site confirmation
+  const confirmForm = document.querySelector('form[action*="driver_delivery_task"] input[value="confirm_delivered"]');
+  if (confirmForm) {
+    const parentForm = confirmForm.closest('form');
+    if (parentForm) {
+      parentForm.addEventListener('submit', function () {
+        stopTracking();
+      });
+    }
+  }
+});
+</script>
+{% endblock %}
+
