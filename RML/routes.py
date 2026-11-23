@@ -2357,6 +2357,7 @@ def api_gps_simulate(delivery_id):
 @login_required("admin")
 def admin_dashboard():
     conn = get_db()
+    total_orders = conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
     total_products = conn.execute("SELECT COUNT(*) FROM products WHERE is_active = 1").fetchone()[0]
     total_customers = conn.execute("SELECT COUNT(*) FROM users WHERE role = 'customer' AND is_active = 1").fetchone()[0]
     total_revenue = conn.execute("SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE order_status IN ('payment_verified', 'ready_for_dispatch', 'out_for_delivery', 'in_transit', 'delivered')").fetchone()[0]
@@ -2396,6 +2397,7 @@ def admin_dashboard():
 
     return render_template(
         "admin/dashboard.html",
+        total_orders=total_orders,
         total_products=total_products,
         total_customers=total_customers,
         total_revenue=total_revenue,

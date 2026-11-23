@@ -1,270 +1,351 @@
 {% extends "base.html" %}
-{% block title %}Admin Operations Dashboard · RML Construction Supply{% endblock %}
+{% block title %}Operations Dashboard · RML Construction Supply Admin{% endblock %}
 
 {% block content %}
-<div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-  <div>
-    <div class="text-muted smaller text-uppercase fw-bold">Ops Console &middot; Overview</div>
-    <h2 class="fw-bold mb-0 text-navy" style="font-size: 1.5rem;">Executive Operations Dashboard</h2>
-    <p class="text-muted small mb-0">Oversee customer accounts, yard inventory, scheduling queues, and fleet dispatches.</p>
-  </div>
-  <div class="d-flex flex-wrap gap-2">
-    <a href="{{ url_for('main.admin_orders', tab='pending') }}" class="btn btn-rml btn-sm shadow-sm">
-      <i class="bi bi-clock-history me-1"></i> Orders Queue ({{ pending_orders }})
-    </a>
-    <a href="{{ url_for('main.admin_inventory') }}" class="btn btn-outline-dark btn-sm">
-      <i class="bi bi-box-seam me-1"></i> Yard Inventory
-    </a>
-    <a href="{{ url_for('main.admin_deliveries') }}" class="btn btn-outline-dark btn-sm">
-      <i class="bi bi-truck me-1"></i> Fleet &amp; GPS
-    </a>
-  </div>
-</div>
+<div class="admin-dashboard-container" style="padding-bottom: 24px;">
 
-<!-- Primary 4-Column KPI Metric Cards (Figma Reference Layout) -->
-<div class="row g-3 mb-4">
-  <div class="col-sm-6 col-xl-3">
-    <div class="card border-0 shadow-sm p-3 h-100">
-      <div class="d-flex justify-content-between align-items-center mb-1">
-        <span class="text-muted smaller fw-bold text-uppercase">Total Catalog Items</span>
-        <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle text-primary rounded-2" style="width: 32px; height: 32px;">
-          <i class="bi bi-box-seam fs-6"></i>
+  <!-- 1. Compact Welcome Header -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 pb-1">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="badge rounded-pill" style="background: #EFF6FF; color: #2563EB; font-weight: 600; font-size: 0.75rem; border: 1px solid #DBEAFE;">
+          Operations Console
+        </span>
+        <span class="text-muted smaller">&middot; Lipa City Central Depot</span>
+      </div>
+      <h1 class="fw-bold mb-0" style="color: #0F172A; font-size: 1.75rem; letter-spacing: -0.5px;">Executive Operations Dashboard</h1>
+      <p class="text-secondary small mb-0" style="color: #64748B !important; font-size: 0.88rem;">
+        Real-time operational overview of customer orders, active fleet dispatches, and procurement revenue.
+      </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-white text-secondary border px-3 py-1.5 fw-normal smaller" style="font-size: 0.8rem; border-color: #E2E8F0 !important;">
+        <i class="bi bi-clock me-1 text-primary"></i> Live Operations
+      </span>
+      <a href="{{ url_for('main.admin_orders', tab='pending') }}" class="btn btn-sm btn-rml fw-semibold px-3 py-1.5 shadow-sm" style="font-size: 0.84rem;">
+        <i class="bi bi-receipt me-1"></i> Orders Queue ({{ pending_orders }})
+      </a>
+    </div>
+  </div>
+
+  <!-- 2. Four Primary KPI Cards (Top Priority Only) -->
+  <div class="row g-3 mb-4">
+    <!-- KPI 1: Total Orders -->
+    <div class="col-sm-6 col-xl-3">
+      <a href="{{ url_for('main.admin_orders') }}" class="text-decoration-none">
+        <div class="admin-kpi-card p-3 h-100">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <span class="text-uppercase fw-semibold smaller text-muted" style="letter-spacing: 0.5px; font-size: 0.74rem;">Total Orders</span>
+            <div class="admin-icon-box" style="background: #EFF6FF; color: #2563EB;">
+              <i class="bi bi-receipt"></i>
+            </div>
+          </div>
+          <div class="fs-3 fw-bold mb-1" style="color: #0F172A;">{{ total_orders }}</div>
+          <div class="d-flex justify-content-between align-items-center smaller text-muted" style="font-size: 0.78rem;">
+            <span>All-time submitted orders</span>
+            <span class="text-primary fw-medium">View &rarr;</span>
+          </div>
         </div>
-      </div>
-      <div class="fs-3 fw-bold text-navy my-1">{{ total_products }}</div>
-      <div class="smaller text-muted d-flex justify-content-between align-items-center">
-        <span>Active yard catalog materials</span>
-        <a href="{{ url_for('main.admin_inventory') }}" class="text-rml fw-semibold text-decoration-none">Manage &rarr;</a>
-      </div>
+      </a>
     </div>
-  </div>
 
-  <div class="col-sm-6 col-xl-3">
-    <div class="card border-0 shadow-sm p-3 h-100">
-      <div class="d-flex justify-content-between align-items-center mb-1">
-        <span class="text-muted smaller fw-bold text-uppercase">Verified Customers</span>
-        <div class="d-inline-flex align-items-center justify-content-center bg-success-subtle text-success rounded-2" style="width: 32px; height: 32px;">
-          <i class="bi bi-people fs-6"></i>
+    <!-- KPI 2: Pending Orders -->
+    <div class="col-sm-6 col-xl-3">
+      <a href="{{ url_for('main.admin_orders', tab='pending') }}" class="text-decoration-none">
+        <div class="admin-kpi-card p-3 h-100 {% if pending_orders > 0 %}border-warning-subtle{% endif %}">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <span class="text-uppercase fw-semibold smaller text-muted" style="letter-spacing: 0.5px; font-size: 0.74rem;">Pending Orders</span>
+            <div class="admin-icon-box" style="background: #FFFBEB; color: #D97706;">
+              <i class="bi bi-clock-history"></i>
+            </div>
+          </div>
+          <div class="fs-3 fw-bold mb-1 {% if pending_orders > 0 %}text-danger{% else %}text-navy{% endif %}">
+            {{ pending_orders }}
+          </div>
+          <div class="d-flex justify-content-between align-items-center smaller text-muted" style="font-size: 0.78rem;">
+            <span>Awaiting scheduling review</span>
+            <span class="text-danger fw-medium">Review &rarr;</span>
+          </div>
         </div>
-      </div>
-      <div class="fs-3 fw-bold text-navy my-1">{{ total_customers }}</div>
-      <div class="smaller text-muted d-flex justify-content-between align-items-center">
-        <span>Contractors &amp; site owners</span>
-        <a href="{{ url_for('main.admin_customers') }}" class="text-rml fw-semibold text-decoration-none">View All &rarr;</a>
-      </div>
+      </a>
     </div>
-  </div>
 
-  <div class="col-sm-6 col-xl-3">
-    <div class="card border-0 shadow-sm p-3 h-100">
-      <div class="d-flex justify-content-between align-items-center mb-1">
-        <span class="text-muted smaller fw-bold text-uppercase">Pending Orders</span>
-        <div class="d-inline-flex align-items-center justify-content-center {% if pending_orders > 0 %}bg-warning-subtle text-warning-emphasis{% else %}bg-light text-muted{% endif %} rounded-2" style="width: 32px; height: 32px;">
-          <i class="bi bi-receipt fs-6"></i>
+    <!-- KPI 3: Active Deliveries -->
+    <div class="col-sm-6 col-xl-3">
+      <a href="{{ url_for('main.admin_deliveries') }}" class="text-decoration-none">
+        <div class="admin-kpi-card p-3 h-100">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <span class="text-uppercase fw-semibold smaller text-muted" style="letter-spacing: 0.5px; font-size: 0.74rem;">Active Deliveries</span>
+            <div class="admin-icon-box" style="background: #F0F9FF; color: #0284C7;">
+              <i class="bi bi-truck"></i>
+            </div>
+          </div>
+          <div class="fs-3 fw-bold mb-1" style="color: #0F172A;">{{ in_progress_deliveries }}</div>
+          <div class="d-flex justify-content-between align-items-center smaller text-muted" style="font-size: 0.78rem;">
+            <span>En route &amp; assigned trucks</span>
+            <span class="text-primary fw-medium">Track &rarr;</span>
+          </div>
         </div>
-      </div>
-      <div class="fs-3 fw-bold {% if pending_orders > 0 %}text-danger{% else %}text-navy{% endif %} my-1">{{ pending_orders }}</div>
-      <div class="smaller text-muted d-flex justify-content-between align-items-center">
-        <span>Awaiting scheduling / review</span>
-        <a href="{{ url_for('main.admin_orders', tab='pending') }}" class="text-rml fw-semibold text-decoration-none">Review &rarr;</a>
-      </div>
+      </a>
     </div>
-  </div>
 
-  <div class="col-sm-6 col-xl-3">
-    <div class="card border-0 shadow-sm p-3 h-100">
-      <div class="d-flex justify-content-between align-items-center mb-1">
-        <span class="text-muted smaller fw-bold text-uppercase">Active Deliveries</span>
-        <div class="d-inline-flex align-items-center justify-content-center bg-info-subtle text-info-emphasis rounded-2" style="width: 32px; height: 32px;">
-          <i class="bi bi-truck fs-6"></i>
+    <!-- KPI 4: Total Revenue -->
+    <div class="col-sm-6 col-xl-3">
+      <a href="{{ url_for('main.admin_reports') }}" class="text-decoration-none">
+        <div class="admin-kpi-card p-3 h-100">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <span class="text-uppercase fw-semibold smaller text-muted" style="letter-spacing: 0.5px; font-size: 0.74rem;">Total Revenue</span>
+            <div class="admin-icon-box" style="background: #ECFDF5; color: #059669;">
+              <i class="bi bi-cash-stack"></i>
+            </div>
+          </div>
+          <div class="fs-3 fw-bold mb-1 text-rml">&#8369;{{ "{:,.2f}".format(total_revenue) }}</div>
+          <div class="d-flex justify-content-between align-items-center smaller text-muted" style="font-size: 0.78rem;">
+            <span>Confirmed transactions</span>
+            <span class="text-success fw-medium">Reports &rarr;</span>
+          </div>
         </div>
-      </div>
-      <div class="fs-3 fw-bold text-navy my-1">{{ in_progress_deliveries }}</div>
-      <div class="smaller text-muted d-flex justify-content-between align-items-center">
-        <span>Assigned &amp; en route trucks</span>
-        <a href="{{ url_for('main.admin_deliveries') }}" class="text-rml fw-semibold text-decoration-none">Track &rarr;</a>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Secondary Metrics Strip -->
-<div class="row g-3 mb-4">
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border p-3 bg-white">
-      <div class="smaller text-muted">Confirmed Revenue</div>
-      <div class="fs-4 fw-bold text-rml my-1">&#8369;{{ "{:,.2f}".format(total_revenue) }}</div>
-      <div class="smaller text-muted">From verified &amp; delivered dispatches</div>
+      </a>
     </div>
   </div>
 
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border p-3 bg-white">
-      <div class="smaller text-muted">Low-Stock Warnings</div>
-      <div class="fs-4 fw-bold {% if low_stock > 0 %}text-warning{% else %}text-dark{% endif %} my-1">{{ low_stock }} items</div>
-      <div class="smaller text-muted">Materials below reorder point</div>
-    </div>
-  </div>
+  <!-- 3. Main Content: Recent Orders Table (8 cols) & Compact Fleet Overview (4 cols) -->
+  <div class="row g-4 mb-4">
+    <!-- Left Column: Recent Customer Orders Table -->
+    <div class="col-lg-8">
+      <div class="admin-card overflow-hidden h-100 d-flex flex-column justify-content-between">
+        <div>
+          <!-- Header -->
+          <div class="p-3.5 px-4 d-flex justify-content-between align-items-center border-bottom" style="background: #FFFFFF; border-color: #F1F5F9 !important;">
+            <div class="d-flex align-items-center gap-2">
+              <div class="admin-icon-badge" style="background: #EFF6FF; color: #2563EB;">
+                <i class="bi bi-receipt"></i>
+              </div>
+              <div>
+                <h5 class="fw-bold mb-0" style="color: #0F172A; font-size: 1.05rem;">Recent Customer Orders</h5>
+                <div class="text-muted smaller" style="font-size: 0.78rem;">Latest transactions requiring review, scheduling, or dispatch</div>
+              </div>
+            </div>
+            <a href="{{ url_for('main.admin_orders') }}" class="btn btn-sm btn-outline-dark fw-semibold px-3 py-1.5 rounded-pill" style="font-size: 0.8rem; border-color: #E2E8F0; color: #475569;">
+              View All Orders &rarr;
+            </a>
+          </div>
 
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border p-3 bg-white">
-      <div class="smaller text-muted">Total Stock Restocked</div>
-      <div class="fs-4 fw-bold text-success my-1">{{ "{:,}".format(stock_in) }} units</div>
-      <div class="smaller text-muted">Inbound warehouse logs</div>
-    </div>
-  </div>
-
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border p-3 bg-white">
-      <div class="smaller text-muted">Pending QR Verifications</div>
-      <div class="fs-4 fw-bold {% if pending_receipts > 0 %}text-danger{% else %}text-dark{% endif %} my-1">{{ pending_receipts }} payments</div>
-      <div class="smaller text-muted">
-        <a href="{{ url_for('main.admin_payments', tab='awaiting') }}" class="text-rml text-decoration-none">Verify receipts &rarr;</a>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Main 2-Column Content Area (Data Tables & Fleet Oversight) -->
-<div class="row g-4 mb-4">
-  <!-- Left Column: Recent Orders Table -->
-  <div class="col-lg-8">
-    <div class="card border-0 shadow-sm overflow-hidden h-100">
-      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom">
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-receipt text-rml fs-5"></i>
-          <h5 class="fw-bold mb-0 text-navy">Recent Customer Orders</h5>
-        </div>
-        <a href="{{ url_for('main.admin_orders') }}" class="smaller text-rml fw-semibold text-decoration-none">
-          View All Orders &rarr;
-        </a>
-      </div>
-      <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-          <thead class="table-light">
-            <tr>
-              <th>Order</th>
-              <th>Customer</th>
-              <th>Delivery Slot</th>
-              <th>Total</th>
-              <th>Payment</th>
-              <th>Status</th>
-              <th class="text-end">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for o in recent_orders %}
-            <tr>
-              <td class="fw-bold">{{ o.order_code|order_code }}</td>
-              <td>
-                <div class="fw-semibold text-dark">{{ o.customer_name }}</div>
-                <div class="smaller text-muted text-truncate" style="max-width: 140px;">{{ o.delivery_address }}</div>
-              </td>
-              <td>
-                {% if o.assigned_date %}
-                  <div class="fw-semibold small text-dark">{{ o.assigned_date }}</div>
-                  <div class="smaller text-muted">{{ o.assigned_time_slot }}</div>
+          <!-- Table -->
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead style="background: #F8FAFC;">
+                <tr>
+                  <th class="ps-4 py-2.5 text-uppercase text-muted smaller fw-semibold" style="font-size: 0.72rem;">Order</th>
+                  <th class="py-2.5 text-uppercase text-muted smaller fw-semibold" style="font-size: 0.72rem;">Customer</th>
+                  <th class="py-2.5 text-uppercase text-muted smaller fw-semibold" style="font-size: 0.72rem;">Delivery Schedule</th>
+                  <th class="py-2.5 text-uppercase text-muted smaller fw-semibold" style="font-size: 0.72rem;">Total</th>
+                  <th class="py-2.5 text-uppercase text-muted smaller fw-semibold" style="font-size: 0.72rem;">Payment</th>
+                  <th class="py-2.5 text-uppercase text-muted smaller fw-semibold" style="font-size: 0.72rem;">Status</th>
+                  <th class="pe-4 py-2.5 text-end text-uppercase text-muted smaller fw-semibold" style="font-size: 0.72rem;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for o in recent_orders %}
+                <tr style="border-bottom: 1px solid #F1F5F9;">
+                  <td class="ps-4 py-2.5">
+                    <span class="badge fw-semibold" style="background: #F1F5F9; color: #0F172A; border: 1px solid #E2E8F0; font-size: 0.78rem;">
+                      {{ o.order_code|order_code }}
+                    </span>
+                  </td>
+                  <td class="py-2.5">
+                    <div class="fw-semibold text-dark small">{{ o.customer_name }}</div>
+                  </td>
+                  <td class="py-2.5 small">
+                    {% if o.assigned_date %}
+                      <div class="fw-semibold text-dark" style="font-size: 0.82rem;">{{ o.assigned_date }}</div>
+                      <div class="text-muted smaller" style="font-size: 0.74rem;">{{ o.assigned_time_slot }}</div>
+                    {% else %}
+                      <span class="badge text-bg-light border text-muted" style="font-size: 0.72rem;">Awaiting Date</span>
+                    {% endif %}
+                  </td>
+                  <td class="py-2.5 fw-bold text-navy small">
+                    &#8369;{{ "{:,.2f}".format(o.total_amount) }}
+                  </td>
+                  <td class="py-2.5">
+                    {% if o.payment_method %}
+                      <span class="badge rounded-pill {% if o.payment_status in ('verified', 'paid') %}bg-success-subtle text-success border border-success-subtle{% elif o.payment_status == 'pending' %}bg-warning-subtle text-warning-emphasis border border-warning-subtle{% else %}bg-light text-secondary border{% endif %}" style="font-size: 0.72rem; padding: 3px 8px;">
+                        {{ 'COD' if o.payment_method == 'cash' else 'QR' }} &middot; {{ o.payment_status|title }}
+                      </span>
+                    {% else %}
+                      <span class="badge rounded-pill bg-light text-muted border" style="font-size: 0.72rem; padding: 3px 8px;">Unpaid</span>
+                    {% endif %}
+                  </td>
+                  <td class="py-2.5">
+                    {% if o.order_status in ('pending', 'pending_scheduling') %}
+                      <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.72rem; padding: 3px 8px;">Pending</span>
+                    {% elif o.order_status == 'for_scheduling' %}
+                      <span class="badge rounded-pill bg-info-subtle text-info-emphasis border border-info-subtle" style="font-size: 0.72rem; padding: 3px 8px;">For Scheduling</span>
+                    {% elif o.order_status == 'awaiting_confirmation' %}
+                      <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.72rem; padding: 3px 8px;">Awaiting Customer</span>
+                    {% elif o.order_status in ('scheduled', 'schedule_confirmed') %}
+                      <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.72rem; padding: 3px 8px;">Confirmed</span>
+                    {% elif o.order_status == 'payment_verified' %}
+                      <span class="badge rounded-pill bg-primary text-white" style="font-size: 0.72rem; padding: 3px 8px;">Ready to Authorize</span>
+                    {% elif o.order_status == 'ready_for_dispatch' %}
+                      <span class="badge rounded-pill bg-primary text-white" style="font-size: 0.72rem; padding: 3px 8px;">Ready</span>
+                    {% elif o.order_status in ('out_for_delivery', 'in_transit') %}
+                      <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.72rem; padding: 3px 8px;"><i class="bi bi-truck me-0.5"></i> Out for Delivery</span>
+                    {% elif o.order_status == 'delivered' %}
+                      <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle" style="font-size: 0.72rem; padding: 3px 8px;"><i class="bi bi-check2 me-0.5"></i> Delivered</span>
+                    {% elif o.order_status == 'cancelled' %}
+                      <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.72rem; padding: 3px 8px;">Cancelled</span>
+                    {% else %}
+                      <span class="badge rounded-pill bg-secondary-subtle text-secondary border" style="font-size: 0.72rem; padding: 3px 8px;">{{ o.order_status|title }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="pe-4 py-2.5 text-end">
+                    <a href="{{ url_for('main.admin_orders') }}" class="btn btn-sm btn-outline-dark py-1 px-2.5 fw-semibold" style="font-size: 0.76rem; border-radius: 6px;">
+                      Review &rarr;
+                    </a>
+                  </td>
+                </tr>
                 {% else %}
-                  <span class="badge text-bg-light border text-muted smaller">Not Assigned</span>
-                {% endif %}
-              </td>
-              <td class="fw-semibold">&#8369;{{ "{:,.2f}".format(o.total_amount) }}</td>
-              <td>
-                {% if o.payment_method %}
-                  <span class="badge {% if o.payment_status in ('verified', 'paid') %}badge-instock{% elif o.payment_status == 'payment_due' %}bg-info text-dark{% else %}badge-check{% endif %} smaller">
-                    {{ 'COD' if o.payment_method == 'cash' else 'QR' }} &middot; {{ o.payment_status|title }}
-                  </span>
-                {% else %}
-                  <span class="badge text-bg-light border text-muted smaller">Unpaid</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if o.order_status in ('pending', 'pending_scheduling') %}
-                  <span class="badge badge-check smaller">Pending Scheduling</span>
-                {% elif o.order_status == 'for_scheduling' %}
-                  <span class="badge bg-info text-dark smaller">For Scheduling</span>
-                {% elif o.order_status == 'awaiting_confirmation' %}
-                  <span class="badge bg-warning text-dark smaller">Awaiting Customer</span>
-                {% elif o.order_status in ('scheduled', 'schedule_confirmed') %}
-                  <span class="badge bg-secondary text-white smaller">Schedule Confirmed</span>
-                {% elif o.order_status == 'payment_verified' %}
-                  <span class="badge bg-primary text-white smaller">Ready to Authorize</span>
-                {% elif o.order_status == 'ready_for_dispatch' %}
-                  <span class="badge bg-success text-white smaller">Authorized &middot; Ready</span>
-                {% elif o.order_status in ('out_for_delivery', 'in_transit') %}
-                  <span class="badge badge-transit smaller">Out for Delivery</span>
-                {% elif o.order_status == 'delivered' %}
-                  <span class="badge badge-instock smaller">Delivered</span>
-                {% else %}
-                  <span class="badge bg-secondary smaller text-uppercase">{{ o.order_status }}</span>
-                {% endif %}
-              </td>
-              <td class="text-end">
-                <a href="{{ url_for('main.admin_orders') }}" class="btn btn-sm btn-outline-dark py-1 px-2 smaller">
-                  Review &rarr;
-                </a>
-              </td>
-            </tr>
+                <tr>
+                  <td colspan="7" class="text-center py-4 text-muted">
+                    <i class="bi bi-inbox fs-3 d-block mb-1 text-secondary"></i>
+                    No recent order activity.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Simplified Fleet Overview -->
+    <div class="col-lg-4">
+      <div class="admin-card p-3.5 h-100 d-flex flex-column justify-content-between">
+        <div>
+          <!-- Header -->
+          <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom" style="border-color: #F1F5F9 !important;">
+            <div class="d-flex align-items-center gap-2">
+              <div class="admin-icon-badge" style="background: #F0F9FF; color: #0284C7;">
+                <i class="bi bi-truck"></i>
+              </div>
+              <div>
+                <h5 class="fw-bold mb-0" style="color: #0F172A; font-size: 1.05rem;">Fleet Overview</h5>
+                <div class="text-muted smaller" style="font-size: 0.78rem;">Active dispatch progress</div>
+              </div>
+            </div>
+            <a href="{{ url_for('main.admin_deliveries') }}" class="text-primary fw-semibold smaller text-decoration-none" style="font-size: 0.8rem;">
+              Live Map &rarr;
+            </a>
+          </div>
+
+          <!-- Essential Delivery Items List (Order, Truck, Driver, Status only) -->
+          <div class="d-flex flex-column gap-2">
+            {% for d in recent_deliveries %}
+            <div class="p-2.5 rounded-3 border" style="background: #F8FAFC; border-color: #E2E8F0 !important;">
+              <div class="d-flex justify-content-between align-items-center mb-1.5">
+                <span class="fw-bold small text-navy">{{ d.order_code|order_code }}</span>
+                <span class="badge rounded-pill {% if d.delivery_status == 'delivered' %}bg-success-subtle text-success border border-success-subtle{% elif d.delivery_status in ('en_route', 'out_for_delivery') %}bg-primary-subtle text-primary border border-primary-subtle{% else %}bg-warning-subtle text-warning-emphasis border border-warning-subtle{% endif %}" style="font-size: 0.7rem; padding: 2px 7px;">
+                  {{ d.delivery_status|replace('_', ' ')|title }}
+                </span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center smaller text-muted" style="font-size: 0.78rem;">
+                <span><i class="bi bi-truck me-1 text-secondary"></i>{{ d.truck_code or 'Truck Unassigned' }}</span>
+                <span><i class="bi bi-person me-1 text-secondary"></i>{{ d.driver_name or 'Driver Pending' }}</span>
+              </div>
+            </div>
             {% else %}
-            <tr>
-              <td colspan="7" class="text-center py-4 text-muted">
-                <i class="bi bi-inbox fs-2 d-block mb-1"></i>
-                No order activity recorded.
-              </td>
-            </tr>
+            <div class="text-center py-4 text-muted small">
+              <i class="bi bi-truck text-muted fs-3 d-block mb-1"></i>
+              No active dispatches at this moment.
+            </div>
             {% endfor %}
-          </tbody>
-        </table>
+          </div>
+        </div>
+
+        <!-- Single clean link to Fleet Management -->
+        <div class="pt-3 border-top mt-3" style="border-color: #F1F5F9 !important;">
+          <a href="{{ url_for('main.admin_deliveries') }}" class="btn btn-sm btn-outline-dark w-100 fw-semibold py-2 d-flex justify-content-between align-items-center" style="font-size: 0.82rem; border-radius: 8px;">
+            <span><i class="bi bi-geo-alt me-1.5 text-rml"></i> Open Fleet &amp; GPS Tracking</span>
+            <i class="bi bi-chevron-right smaller text-muted"></i>
+          </a>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Right Column: Active Fleet & Dispatch Activity -->
-  <div class="col-lg-4">
-    <div class="card border-0 shadow-sm p-4 h-100">
-      <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-        <h5 class="fw-bold mb-0 text-navy"><i class="bi bi-truck text-rml me-2"></i>Fleet Oversight</h5>
-        <a href="{{ url_for('main.admin_deliveries') }}" class="smaller text-rml fw-semibold text-decoration-none">
-          Live Map &rarr;
-        </a>
+  <!-- 4. Secondary Operational Information (Compact Status Bar) -->
+  <div class="admin-card p-3" style="background: #FFFFFF;">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div class="d-flex align-items-center gap-2">
+        <span class="text-uppercase fw-bold text-muted smaller" style="letter-spacing: 0.5px; font-size: 0.72rem;">Operational Snapshot:</span>
       </div>
-
-      <div class="d-flex flex-column gap-3">
-        {% for d in recent_deliveries %}
-        <div class="p-3 bg-light rounded border">
-          <div class="d-flex justify-content-between align-items-center mb-1">
-            <strong class="text-dark small">{{ d.order_code|order_code }}</strong>
-            <span class="badge {% if d.delivery_status == 'delivered' %}badge-instock{% elif d.delivery_status in ('en_route', 'out_for_delivery') %}badge-transit{% else %}badge-check{% endif %} smaller">
-              {{ d.delivery_status|replace('_', ' ')|title }}
-            </span>
-          </div>
-          <div class="smaller text-muted mb-2">
-            <i class="bi bi-truck text-rml me-1"></i> {{ d.truck_code or 'Truck Unassigned' }} &middot; Driver: {{ d.driver_name or 'Pending' }}
-          </div>
-          <div class="smaller text-secondary text-truncate">
-            <i class="bi bi-geo-alt me-1"></i> {{ d.delivery_address }}
-          </div>
-        </div>
-        {% else %}
-        <div class="text-center py-4 text-muted small">
-          <i class="bi bi-calendar2-check fs-2 d-block mb-1"></i>
-          No active fleet dispatches right now.
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="d-flex flex-column gap-2 mt-4 pt-3 border-top">
-        <a href="{{ url_for('main.admin_delivery_availability') }}" class="btn btn-outline-dark btn-sm text-start py-2">
-          <i class="bi bi-calendar2-range me-2 text-rml"></i> Manage Delivery Availability Rules
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <a href="{{ url_for('main.admin_customers') }}" class="text-decoration-none d-flex align-items-center gap-1.5 text-secondary smaller" style="font-size: 0.82rem;">
+          <i class="bi bi-people text-primary"></i>
+          <span><strong>{{ total_customers }}</strong> Verified Customers</span>
         </a>
-        <a href="{{ url_for('main.admin_payments') }}" class="btn btn-outline-dark btn-sm text-start py-2">
-          <i class="bi bi-credit-card me-2 text-rml"></i> Payment Verification Queue ({{ pending_receipts }})
+        <span class="text-muted opacity-50">&middot;</span>
+        <a href="{{ url_for('main.admin_inventory') }}" class="text-decoration-none d-flex align-items-center gap-1.5 text-secondary smaller" style="font-size: 0.82rem;">
+          <i class="bi bi-exclamation-triangle {% if low_stock > 0 %}text-warning{% else %}text-muted{% endif %}"></i>
+          <span><strong class="{% if low_stock > 0 %}text-danger{% endif %}">{{ low_stock }}</strong> Low-Stock Items</span>
         </a>
-        <a href="{{ url_for('main.admin_reports') }}" class="btn btn-outline-dark btn-sm text-start py-2">
-          <i class="bi bi-bar-chart-line me-2 text-rml"></i> View Reports &amp; Analytics
+        <span class="text-muted opacity-50">&middot;</span>
+        <a href="{{ url_for('main.admin_inventory') }}" class="text-decoration-none d-flex align-items-center gap-1.5 text-secondary smaller" style="font-size: 0.82rem;">
+          <i class="bi bi-box-arrow-in-down text-success"></i>
+          <span><strong>{{ "{:,}".format(stock_in) }}</strong> Units Restocked</span>
+        </a>
+        <span class="text-muted opacity-50">&middot;</span>
+        <a href="{{ url_for('main.admin_payments') }}" class="text-decoration-none d-flex align-items-center gap-1.5 text-secondary smaller" style="font-size: 0.82rem;">
+          <i class="bi bi-qr-code-scan {% if pending_receipts > 0 %}text-danger{% else %}text-muted{% endif %}"></i>
+          <span><strong class="{% if pending_receipts > 0 %}text-danger{% endif %}">{{ pending_receipts }}</strong> Pending QR Verifications</span>
         </a>
       </div>
     </div>
   </div>
+
 </div>
+
+<!-- Scoped SaaS Admin Dashboard Styling -->
+<style>
+  .admin-kpi-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    transition: all 0.16s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  }
+  .admin-kpi-card:hover {
+    border-color: #CBD5E1;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+    transform: translateY(-1px);
+  }
+  .admin-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  }
+  .admin-icon-box {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .admin-icon-badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+</style>
 {% endblock %}
