@@ -45,28 +45,40 @@ class TestCustomerNotificationsAndDashboard(unittest.TestCase):
         self.assertIn("/customer/tracking", html)
 
     def test_notifications_page_renders_with_required_elements(self):
-        """Verify Notifications page displays real customer notifications with required elements."""
+        """Verify Notifications page displays modern e-commerce notification center with date grouping and required elements."""
         self.set_session(user_id=7, role="customer", user_name="Monica")
         resp = self.client.get("/customer/notifications")
         self.assertEqual(resp.status_code, 200)
         html = resp.data.decode("utf-8")
 
-        # Header and section
-        self.assertIn("Notifications &amp; Activity", html)
-        self.assertIn("Recent Order &amp; Delivery Updates", html)
+        # Header and modern subtitle
+        self.assertIn("Notifications", html)
+        self.assertIn("Stay updated on your orders and deliveries.", html)
 
-        # Check required notification types exist for customer 7
+        # Filters are present
+        self.assertIn("All", html)
+        self.assertIn("Unread", html)
+        self.assertIn("Orders", html)
+        self.assertIn("Schedules", html)
+        self.assertIn("Payments", html)
+        self.assertIn("Deliveries", html)
+
+        # Check notification types exist for customer 7
         self.assertIn("Order Submitted Successfully", html)
         self.assertIn("Delivery Schedule Assigned", html)
         self.assertIn("Payment Verified", html)
         self.assertIn("Order Delivered", html)
 
-        # Each notification must have a View Order link
-        self.assertIn("View Order Details", html)
+        # Each notification must have a View order details link
+        self.assertIn("View order details", html)
         self.assertIn("/customer/orders/", html)
 
-        # Timestamps must be present
-        self.assertIn("2026-", html)
+        # Date group heading
+        self.assertTrue("Earlier" in html or "Today" in html or "Yesterday" in html)
+
+        # Minimal support section
+        self.assertIn("Need help with your delivery?", html)
+        self.assertIn("Contact RML Support", html)
 
     def test_notifications_for_user_38(self):
         """Verify notifications for User 38 (which has Payment Submitted, Ready for Dispatch, Order Cancelled)."""

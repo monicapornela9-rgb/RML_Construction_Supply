@@ -2,153 +2,315 @@
 {% block title %}Account Settings &amp; Security - RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="customer-portal-header">
-  <div class="customer-breadcrumb">Customer Portal &middot; Account Settings</div>
-  <h1 class="customer-portal-title">Account Settings &amp; Security</h1>
-  <p class="customer-portal-subtitle">Manage your personal contact details, registered email, default site delivery address, and security credentials.</p>
-</div>
+<div class="account-settings-container" style="max-width: 960px; margin: 0 auto; padding: 8px 0 40px 0;">
 
-<!-- Account Information Metadata Card -->
-<div class="customer-portal-card border-0 mb-4 p-4 text-white" style="background: linear-gradient(135deg, #142235 0%, #1e3352 100%); border-radius: 12px; box-shadow: 0 4px 14px rgba(20, 34, 53, 0.12);">
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-    <div class="d-flex align-items-center gap-3">
-      <div class="rounded-circle bg-white bg-opacity-10 d-flex align-items-center justify-content-center text-white fw-bold fs-3" style="width: 58px; height: 58px; border: 2px solid rgba(255,255,255,0.2);">
-        {{ customer.name[:1]|upper }}
-      </div>
-      <div>
-        <h3 class="fw-bold mb-0 text-white">{{ customer.name }}</h3>
-        <div class="small text-white-50">Customer ID: <span class="fw-bold text-white">#{{ "%04d"|format(customer.id) }}</span> &middot; {{ customer.email }}</div>
-      </div>
+  <!-- 1. Page Header -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 pb-1">
+    <div>
+      <h1 class="fw-bold mb-1" style="color: #0F172A; font-size: 1.85rem; letter-spacing: -0.5px;">Account Settings &amp; Security</h1>
+      <p class="text-secondary small mb-0" style="color: #64748B !important; font-size: 0.92rem;">
+        Manage your personal information, delivery site addresses, and login credentials.
+      </p>
     </div>
-    <div class="d-flex align-items-center gap-3 flex-wrap">
-      <div class="text-start text-sm-end">
-        <div class="smaller text-white-50 text-uppercase fw-semibold">Account Status</div>
-        <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1">
-          <i class="bi bi-shield-check me-1"></i> Active &amp; Verified
-        </span>
-      </div>
-      <div class="text-start text-sm-end ps-3 border-start border-white border-opacity-25">
-        <div class="smaller text-white-50 text-uppercase fw-semibold">Member Since</div>
-        <div class="fw-bold text-white">{{ customer.created_at[:10] if customer.created_at else 'Active' }}</div>
-      </div>
-      <div class="text-start text-sm-end ps-3 border-start border-white border-opacity-25">
-        <div class="smaller text-white-50 text-uppercase fw-semibold">Total Orders</div>
-        <div class="fw-bold text-white">{{ orders_count }} Placed</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="row g-4">
-  <!-- Form 1: Personal & Site Delivery Information -->
-  <div class="col-lg-6">
-    <div class="customer-portal-card p-4 h-100">
-      <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
-        <i class="bi bi-person-lines-fill text-rml fs-5"></i>
-        <h5 class="fw-bold mb-0 text-navy">Personal &amp; Delivery Information</h5>
-      </div>
-
-      <form method="POST" action="{{ url_for('main.customer_settings') }}">
-        <input type="hidden" name="action" value="update_settings">
-
-        <div class="mb-3">
-          <label class="form-label small fw-semibold text-dark">Full / Company Name <span class="text-danger">*</span></label>
-          <input type="text" name="name" class="form-control" required value="{{ customer.name }}" placeholder="e.g. Monica Pornela or ABC Builders">
-          <div class="form-text smaller text-muted">Primary name appearing on purchase orders, invoices, and dispatch manifests.</div>
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label small fw-semibold text-dark">Registered Email Address <span class="text-danger">*</span></label>
-          <input type="email" name="email" class="form-control" required value="{{ customer.email }}" placeholder="e.g. customer@example.com">
-          <div class="form-text smaller text-muted">Used for login credentials and order verification notifications.</div>
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label small fw-semibold text-dark">Contact Mobile Number <span class="text-danger">*</span></label>
-          <input type="tel" name="phone" class="form-control" required value="{{ customer.phone or '' }}" placeholder="09171234567">
-          <div class="form-text smaller text-muted">Philippine format: 09XXXXXXXXX or +639XXXXXXXXX (used for delivery driver updates).</div>
-        </div>
-
-        <div class="mb-4">
-          <label class="form-label small fw-semibold text-dark">Default Site Delivery Address <span class="text-danger">*</span></label>
-          <textarea name="address" class="form-control" rows="3" required placeholder="House/Unit No., Street, Barangay, Lipa City, Batangas">{{ customer.address or '' }}</textarea>
-          <div class="form-text smaller text-muted">Complete site address used as the default drop-off location during checkout.</div>
-        </div>
-
-        <button type="submit" class="btn btn-rml fw-semibold py-2 px-4 shadow-sm">
-          <i class="bi bi-check2-circle me-1"></i> Save Account Settings
-        </button>
-      </form>
+    <div>
+      <a href="{{ url_for('main.customer_dashboard') }}" class="btn btn-sm btn-outline-dark fw-semibold px-3 py-1.5 rounded-pill" style="font-size: 0.84rem; border-color: #E2E8F0; color: #475569; background: #FFFFFF;">
+        <i class="bi bi-arrow-left me-1"></i> Dashboard
+      </a>
     </div>
   </div>
 
-  <!-- Form 2: Change Password -->
-  <div class="col-lg-6">
-    <div class="customer-portal-card p-4 h-100">
-      <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
-        <i class="bi bi-shield-lock text-rml fs-5"></i>
-        <h5 class="fw-bold mb-0 text-navy">Change Account Password</h5>
+  <!-- 2. Customer Profile Section (Compact Modern Profile Card) -->
+  <div class="settings-profile-card mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <!-- Avatar / Initials in soft blue container -->
+        <div class="settings-avatar-box">
+          {{ customer.name[:1]|upper }}
+        </div>
+        <div>
+          <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+            <h4 class="fw-bold mb-0" style="color: #0F172A; font-size: 1.25rem;">{{ customer.name }}</h4>
+            <span class="badge" style="background: #F1F5F9; color: #475569; font-weight: 500; font-size: 0.75rem; border: 1px solid #E2E8F0; padding: 3px 8px;">
+              #CUST-{{ "%04d"|format(customer.id) }}
+            </span>
+            <span class="badge rounded-pill" style="background: #ECFDF5; color: #059669; font-weight: 600; font-size: 0.75rem; border: 1px solid #A7F3D0; padding: 3px 8px;">
+              <i class="bi bi-shield-check me-1"></i> Active Account
+            </span>
+          </div>
+          <div class="text-muted smaller" style="color: #64748B !important; font-size: 0.85rem;">
+            {{ customer.email }} &middot; Verified Customer
+          </div>
+        </div>
       </div>
 
-      <form method="POST" action="{{ url_for('main.customer_settings') }}" id="settingsPwdForm">
-        <input type="hidden" name="action" value="change_password">
-
-        <div class="mb-3">
-          <label class="form-label small fw-semibold text-dark">Current Password <span class="text-danger">*</span></label>
-          <div class="input-group">
-            <input type="password" name="current_password" id="curPwdInput" class="form-control" required placeholder="Enter current password">
-            <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('curPwdInput', this)">
-              <i class="bi bi-eye"></i>
-            </button>
-          </div>
-          <div class="form-text smaller text-muted">Required to authorize security credential updates.</div>
+      <!-- Subtle Member Stats -->
+      <div class="d-flex align-items-center gap-2.5 flex-wrap">
+        <div class="settings-stat-pill">
+          <span class="text-muted smaller" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px;">Member Since</span>
+          <span class="fw-semibold text-dark" style="font-size: 0.88rem;">{{ customer.created_at[:10] if customer.created_at else 'Active' }}</span>
         </div>
+        <div class="settings-stat-pill">
+          <span class="text-muted smaller" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px;">Total Orders</span>
+          <span class="fw-semibold text-dark" style="font-size: 0.88rem;">{{ orders_count }} Placed</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        <div class="mb-3">
-          <label class="form-label small fw-semibold text-dark">New Password <span class="text-danger">*</span></label>
-          <div class="input-group">
-            <input type="password" name="new_password" id="newPwdInput" class="form-control" required
-                   placeholder="Enter new strong password"
-                   onfocus="showPwdHelper()" oninput="validateNewPassword()">
-            <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('newPwdInput', this)">
-              <i class="bi bi-eye"></i>
-            </button>
-          </div>
-
-          <!-- Subtle Interactive Helper -->
-          <div id="pwdHelperContainer" class="mt-2" style="display: none;">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <span class="smaller text-muted" id="pwdHelperText">
-                <i class="bi bi-info-circle me-1"></i> Must be 8+ chars with uppercase, lowercase, number, and special symbol.
-              </span>
-              <span class="smaller fw-bold text-muted" id="pwdStrengthLabel"></span>
+  <!-- 3. Form Sections: Two-Column Balanced Layout on Desktop, Stacks on Mobile -->
+  <div class="row g-4">
+    <!-- Left Column: Personal & Delivery Information -->
+    <div class="col-lg-6">
+      <div class="settings-card h-100 d-flex flex-column justify-content-between">
+        <div>
+          <!-- Card Header -->
+          <div class="d-flex align-items-center gap-2.5 mb-3 pb-2 border-bottom" style="border-color: #F1F5F9 !important;">
+            <div class="settings-icon-badge" style="background: #EFF6FF; color: #2563EB;">
+              <i class="bi bi-person"></i>
             </div>
-            <div class="progress" style="height: 4px;">
-              <div class="progress-bar" id="pwdStrengthBar" role="progressbar" style="width: 0%;"></div>
+            <div>
+              <h5 class="fw-bold mb-0" style="color: #0F172A; font-size: 1.05rem;">Personal &amp; Delivery Information</h5>
+              <div class="text-muted smaller" style="color: #64748B !important; font-size: 0.8rem;">Update contact info and default jobsite address</div>
             </div>
           </div>
-        </div>
 
-        <div class="mb-4">
-          <label class="form-label small fw-semibold text-dark">Confirm New Password <span class="text-danger">*</span></label>
-          <div class="input-group">
-            <input type="password" name="confirm_password" id="confirmPwdInput" class="form-control" required
-                   placeholder="Re-enter new password" oninput="checkPasswordMatch()">
-            <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('confirmPwdInput', this)">
-              <i class="bi bi-eye"></i>
-            </button>
+          <form method="POST" action="{{ url_for('main.customer_settings') }}" id="personalInfoForm">
+            <input type="hidden" name="action" value="update_settings">
+
+            <div class="mb-3">
+              <label class="form-label settings-label">Full / Company Name <span class="text-danger">*</span></label>
+              <input type="text" name="name" class="form-control settings-input" required value="{{ customer.name }}" placeholder="e.g. Monica Pornela or ABC Builders">
+              <div class="form-text settings-helper">Name displayed on invoices, purchase orders, and delivery manifests.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label settings-label">Registered Email Address <span class="text-danger">*</span></label>
+              <input type="email" name="email" class="form-control settings-input" required value="{{ customer.email }}" placeholder="e.g. customer@example.com">
+              <div class="form-text settings-helper">Primary email used for sign-in and automated order receipts.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label settings-label">Contact Mobile Number <span class="text-danger">*</span></label>
+              <input type="tel" name="phone" class="form-control settings-input" required value="{{ customer.phone or '' }}" placeholder="09171234567">
+              <div class="form-text settings-helper">Philippine mobile format (e.g. 09171234567). Used by drivers for site coordination.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label settings-label">Default Site Delivery Address <span class="text-danger">*</span></label>
+              <textarea name="address" class="form-control settings-input" rows="3" required placeholder="Project Site / Unit No., Street, Barangay, Lipa City, Batangas">{{ customer.address or '' }}</textarea>
+              <div class="form-text settings-helper">Default drop-off location applied automatically during materials checkout.</div>
+            </div>
+
+            <div class="pt-2">
+              <button type="submit" class="btn settings-btn-primary w-100">
+                <i class="bi bi-check2-circle me-1.5"></i> Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Change Account Password -->
+    <div class="col-lg-6">
+      <div class="settings-card h-100 d-flex flex-column justify-content-between">
+        <div>
+          <!-- Card Header -->
+          <div class="d-flex align-items-center gap-2.5 mb-3 pb-2 border-bottom" style="border-color: #F1F5F9 !important;">
+            <div class="settings-icon-badge" style="background: #EFF6FF; color: #2563EB;">
+              <i class="bi bi-shield-lock"></i>
+            </div>
+            <div>
+              <h5 class="fw-bold mb-0" style="color: #0F172A; font-size: 1.05rem;">Change Account Password</h5>
+              <div class="text-muted smaller" style="color: #64748B !important; font-size: 0.8rem;">Ensure your account remains safe with strong credentials</div>
+            </div>
           </div>
-          <div class="smaller mt-1" id="matchIndicator"></div>
-        </div>
 
-        <button type="submit" class="btn btn-dark fw-semibold py-2 px-4 shadow-sm">
-          <i class="bi bi-key me-1"></i> Update Password
-        </button>
-      </form>
+          <form method="POST" action="{{ url_for('main.customer_settings') }}" id="settingsPwdForm">
+            <input type="hidden" name="action" value="change_password">
+
+            <div class="mb-3">
+              <label class="form-label settings-label">Current Password <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <input type="password" name="current_password" id="curPwdInput" class="form-control settings-input" required placeholder="Enter current password" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
+                <button type="button" class="btn btn-outline-secondary settings-toggle-btn" onclick="togglePasswordVisibility('curPwdInput', this)">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </div>
+              <div class="form-text settings-helper">Required to authorize security credential updates.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label settings-label">New Password <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <input type="password" name="new_password" id="newPwdInput" class="form-control settings-input" required
+                       placeholder="Enter new strong password"
+                       onfocus="showPwdHelper()" oninput="validateNewPassword()"
+                       style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
+                <button type="button" class="btn btn-outline-secondary settings-toggle-btn" onclick="togglePasswordVisibility('newPwdInput', this)">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </div>
+
+              <!-- Interactive Password Strength Meter -->
+              <div id="pwdHelperContainer" class="mt-2" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="settings-helper" id="pwdHelperText">
+                    Must be 8+ chars with uppercase, lowercase, number, and special symbol.
+                  </span>
+                  <span class="smaller fw-bold text-muted" id="pwdStrengthLabel"></span>
+                </div>
+                <div class="progress" style="height: 4px; border-radius: 2px;">
+                  <div class="progress-bar" id="pwdStrengthBar" role="progressbar" style="width: 0%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label settings-label">Confirm New Password <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <input type="password" name="confirm_password" id="confirmPwdInput" class="form-control settings-input" required
+                       placeholder="Re-enter new password" oninput="checkPasswordMatch()"
+                       style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
+                <button type="button" class="btn btn-outline-secondary settings-toggle-btn" onclick="togglePasswordVisibility('confirmPwdInput', this)">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </div>
+              <div class="smaller mt-1.5" id="matchIndicator"></div>
+            </div>
+
+            <div class="pt-2">
+              <button type="submit" class="btn settings-btn-primary w-100">
+                <i class="bi bi-key me-1.5"></i> Update Password
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
+
+  <!-- Help & Support Prompt (Consistent with Notifications Page) -->
+  <div class="text-center py-4 mt-3 border-top" style="border-color: #F1F5F9 !important;">
+    <p class="text-muted small mb-0" style="color: #64748B !important;">
+      Need help updating your account details or delivery site info? 
+      <a href="{{ url_for('main.customer_support') }}" class="text-primary text-decoration-none fw-semibold ms-1" style="color: #2563EB !important;">
+        Contact RML Support &rarr;
+      </a>
+    </p>
+  </div>
+
 </div>
 
+<!-- Scoped Clean CSS Styles for Modern E-commerce Settings Interface -->
+<style>
+  .settings-profile-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 20px 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  }
+  .settings-avatar-box {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #EFF6FF;
+    color: #2563EB;
+    font-weight: 700;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #DBEAFE;
+    flex-shrink: 0;
+  }
+  .settings-stat-pill {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 6px 14px;
+    display: flex;
+    flex-direction: column;
+    min-width: 110px;
+  }
+  .settings-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  }
+  .settings-icon-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .settings-label {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #1E293B;
+    margin-bottom: 5px;
+  }
+  .settings-input {
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 9px 13px;
+    font-size: 0.88rem;
+    color: #0F172A;
+    background-color: #FFFFFF;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .settings-input:focus {
+    border-color: #2563EB;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    outline: none;
+    background-color: #FFFFFF;
+  }
+  .settings-toggle-btn {
+    border: 1px solid #E2E8F0;
+    border-left: 0;
+    border-radius: 0 8px 8px 0;
+    background: #F8FAFC;
+    color: #64748B;
+    padding: 9px 12px;
+  }
+  .settings-toggle-btn:hover {
+    background: #F1F5F9;
+    color: #0F172A;
+    border-color: #CBD5E1;
+  }
+  .settings-helper {
+    font-size: 0.77rem;
+    color: #64748B;
+    line-height: 1.4;
+    margin-top: 4px;
+  }
+  .settings-btn-primary {
+    background: #142235;
+    color: #FFFFFF;
+    border: 1px solid #142235;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    transition: all 0.15s ease-in-out;
+    box-shadow: 0 1px 2px rgba(20, 34, 53, 0.1);
+  }
+  .settings-btn-primary:hover {
+    background: #1e3352;
+    border-color: #1e3352;
+    color: #FFFFFF;
+    box-shadow: 0 3px 8px rgba(20, 34, 53, 0.15);
+  }
+</style>
+
+<!-- Password Visibility, Interactive Strength, and Matching Logic -->
 <script>
 function togglePasswordVisibility(inputId, btn) {
   const input = document.getElementById(inputId);

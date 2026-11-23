@@ -292,7 +292,8 @@ class CustomerPortalComprehensiveTest(unittest.TestCase):
         resp = self.client.get("/customer/notifications")
         self.assertEqual(resp.status_code, 200)
         html = resp.data.decode("utf-8")
-        self.assertIn("Notifications &amp; Activity", html)
+        self.assertIn("Notifications", html)
+        self.assertIn("Stay updated on your orders and deliveries.", html)
 
         conn = get_db()
         notifs = conn.execute("SELECT id, is_read FROM notifications WHERE user_id = 7").fetchall()
