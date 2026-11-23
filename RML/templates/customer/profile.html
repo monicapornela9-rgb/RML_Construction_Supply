@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}Account Settings &amp; Security - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="customer-portal-header">
+  <div class="customer-breadcrumb">Customer Portal &middot; Account Settings</div>
+  <h1 class="customer-portal-title">Account Settings &amp; Security</h1>
+  <p class="customer-portal-subtitle">Manage your personal contact details, registered email, default site delivery address, and security credentials.</p>
+</div>
+
+<!-- Account Information Metadata Card -->
+<div class="customer-portal-card border-0 mb-4 p-4 text-white" style="background: linear-gradient(135deg, #142235 0%, #1e3352 100%); border-radius: 12px; box-shadow: 0 4px 14px rgba(20, 34, 53, 0.12);">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-3">
+      <div class="rounded-circle bg-white bg-opacity-10 d-flex align-items-center justify-content-center text-white fw-bold fs-3" style="width: 58px; height: 58px; border: 2px solid rgba(255,255,255,0.2);">
+        {{ customer.name[:1]|upper }}
+      </div>
+      <div>
+        <h3 class="fw-bold mb-0 text-white">{{ customer.name }}</h3>
+        <div class="small text-white-50">Customer ID: <span class="fw-bold text-white">#{{ "%04d"|format(customer.id) }}</span> &middot; {{ customer.email }}</div>
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <div class="text-start text-sm-end">
+        <div class="smaller text-white-50 text-uppercase fw-semibold">Account Status</div>
+        <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1">
+          <i class="bi bi-shield-check me-1"></i> Active &amp; Verified
+        </span>
+      </div>
+      <div class="text-start text-sm-end ps-3 border-start border-white border-opacity-25">
+        <div class="smaller text-white-50 text-uppercase fw-semibold">Member Since</div>
+        <div class="fw-bold text-white">{{ customer.created_at[:10] if customer.created_at else 'Active' }}</div>
+      </div>
+      <div class="text-start text-sm-end ps-3 border-start border-white border-opacity-25">
+        <div class="smaller text-white-50 text-uppercase fw-semibold">Total Orders</div>
+        <div class="fw-bold text-white">{{ orders_count }} Placed</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Form 1: Personal & Site Delivery Information -->
+  <div class="col-lg-6">
+    <div class="customer-portal-card p-4 h-100">
+      <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+        <i class="bi bi-person-lines-fill text-rml fs-5"></i>
+        <h5 class="fw-bold mb-0 text-navy">Personal &amp; Delivery Information</h5>
+      </div>
+
+      <form method="POST" action="{{ url_for('main.customer_settings') }}">
+        <input type="hidden" name="action" value="update_settings">
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-dark">Full / Company Name <span class="text-danger">*</span></label>
+          <input type="text" name="name" class="form-control" required value="{{ customer.name }}" placeholder="e.g. Monica Pornela or ABC Builders">
+          <div class="form-text smaller text-muted">Primary name appearing on purchase orders, invoices, and dispatch manifests.</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-dark">Registered Email Address <span class="text-danger">*</span></label>
+          <input type="email" name="email" class="form-control" required value="{{ customer.email }}" placeholder="e.g. customer@example.com">
+          <div class="form-text smaller text-muted">Used for login credentials and order verification notifications.</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-dark">Contact Mobile Number <span class="text-danger">*</span></label>
+          <input type="tel" name="phone" class="form-control" required value="{{ customer.phone or '' }}" placeholder="09171234567">
+          <div class="form-text smaller text-muted">Philippine format: 09XXXXXXXXX or +639XXXXXXXXX (used for delivery driver updates).</div>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label small fw-semibold text-dark">Default Site Delivery Address <span class="text-danger">*</span></label>
+          <textarea name="address" class="form-control" rows="3" required placeholder="House/Unit No., Street, Barangay, Lipa City, Batangas">{{ customer.address or '' }}</textarea>
+          <div class="form-text smaller text-muted">Complete site address used as the default drop-off location during checkout.</div>
+        </div>
+
+        <button type="submit" class="btn btn-rml fw-semibold py-2 px-4 shadow-sm">
+          <i class="bi bi-check2-circle me-1"></i> Save Account Settings
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Form 2: Change Password -->
+  <div class="col-lg-6">
+    <div class="customer-portal-card p-4 h-100">
+      <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+        <i class="bi bi-shield-lock text-rml fs-5"></i>
+        <h5 class="fw-bold mb-0 text-navy">Change Account Password</h5>
+      </div>
+
+      <form method="POST" action="{{ url_for('main.customer_settings') }}" id="settingsPwdForm">
+        <input type="hidden" name="action" value="change_password">
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-dark">Current Password <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <input type="password" name="current_password" id="curPwdInput" class="form-control" required placeholder="Enter current password">
+            <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('curPwdInput', this)">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+          <div class="form-text smaller text-muted">Required to authorize security credential updates.</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-dark">New Password <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <input type="password" name="new_password" id="newPwdInput" class="form-control" required
+                   placeholder="Enter new strong password"
+                   onfocus="showPwdHelper()" oninput="validateNewPassword()">
+            <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('newPwdInput', this)">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+
+          <!-- Subtle Interactive Helper -->
+          <div id="pwdHelperContainer" class="mt-2" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="smaller text-muted" id="pwdHelperText">
+                <i class="bi bi-info-circle me-1"></i> Must be 8+ chars with uppercase, lowercase, number, and special symbol.
+              </span>
+              <span class="smaller fw-bold text-muted" id="pwdStrengthLabel"></span>
+            </div>
+            <div class="progress" style="height: 4px;">
+              <div class="progress-bar" id="pwdStrengthBar" role="progressbar" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label small fw-semibold text-dark">Confirm New Password <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <input type="password" name="confirm_password" id="confirmPwdInput" class="form-control" required
+                   placeholder="Re-enter new password" oninput="checkPasswordMatch()">
+            <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('confirmPwdInput', this)">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+          <div class="smaller mt-1" id="matchIndicator"></div>
+        </div>
+
+        <button type="submit" class="btn btn-dark fw-semibold py-2 px-4 shadow-sm">
+          <i class="bi bi-key me-1"></i> Update Password
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const icon = btn.querySelector('i');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.classList.remove('bi-eye');
+    icon.classList.add('bi-eye-slash');
+  } else {
+    input.type = 'password';
+    icon.classList.remove('bi-eye-slash');
+    icon.classList.add('bi-eye');
+  }
+}
+
+function showPwdHelper() {
+  document.getElementById('pwdHelperContainer').style.display = 'block';
+}
+
+function validateNewPassword() {
+  const pwd = document.getElementById('newPwdInput').value;
+  const bar = document.getElementById('pwdStrengthBar');
+  const label = document.getElementById('pwdStrengthLabel');
+
+  let strength = 0;
+  if (pwd.length >= 8) strength++;
+  if (/[A-Z]/.test(pwd)) strength++;
+  if (/[a-z]/.test(pwd)) strength++;
+  if (/[0-9]/.test(pwd)) strength++;
+  if (/[@$!%*?&#^()_+\-=\[\]{}|]/.test(pwd)) strength++;
+
+  const pct = (strength / 5) * 100;
+  bar.style.width = pct + '%';
+
+  if (strength <= 2) {
+    bar.className = 'progress-bar bg-danger';
+    label.textContent = 'Weak';
+    label.className = 'smaller fw-bold text-danger';
+  } else if (strength <= 4) {
+    bar.className = 'progress-bar bg-warning';
+    label.textContent = 'Medium';
+    label.className = 'smaller fw-bold text-warning-emphasis';
+  } else {
+    bar.className = 'progress-bar bg-success';
+    label.textContent = 'Strong';
+    label.className = 'smaller fw-bold text-success';
+  }
+
+  checkPasswordMatch();
+}
+
+function checkPasswordMatch() {
+  const pwd = document.getElementById('newPwdInput').value;
+  const confirm = document.getElementById('confirmPwdInput').value;
+  const indicator = document.getElementById('matchIndicator');
+
+  if (!confirm) {
+    indicator.textContent = '';
+    return;
+  }
+
+  if (pwd === confirm) {
+    indicator.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i> Passwords match</span>';
+  } else {
+    indicator.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i> Passwords do not match</span>';
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,580 @@
+<USER_REQUEST>
+# COMPLETE SYSTEM CLEANUP, REDESIGN, AND SECURITY IMPROVEMENT PROMPT
+## RML Construction Supply Management System
+
+I want you to thoroughly review, clean up, improve, and redesign my existing **RML Construction Supply Management System**.
+
+My main objective is to make the entire system cleaner, more professional, user-friendly, organized, and secure.
+
+Focus especially on the following:
+1. Landing Page Redesign
+2. Separate Customer, Admin/Staff, and Driver Portals
+3. Customer Registration and Login
+4. Strict Password Validation
+5. Authentication and Role-Based Access Control
+6. Database and Backend Improvements
+7. Overall UI/UX Consistency and Responsiveness
+
+**IMPORTANT: Do not rebuild the entire system from scratch. Inspect and understand the existing project first. Improve the current implementation while preserving its working features, database records, relationships, and business logic.**
+
+---
+
+# 1. SEPARATE THE THREE USER PORTALS
+
+The system must have three independent portals with different login pages and access permissions.
+
+## A. CUSTOMER PORTAL
+
+This is the public-facing side of the website.
+
+When customers first visit the website, they should ONLY see the customer-facing landing page.
+
+Remove the existing Customer, Admin/Staff, and Driver tabs from the shared login interface.
+
+Customers must not see Admin/Staff or Driver login options on the public landing page.
+
+The Customer Portal should include:
+
+- Public landing page
+- Customer registration
+- Customer login
+- Customer dashboard
+- Product and construction material browsing
+- Shopping cart or ordering functionality, if already implemented
+- Order history and order tracking
+- Customer profile management
+
+New customers should be able to register using the registration form.
+
+Existing customers should be able to sign in using their registered email and password.
+
+After successful authentication, redirect customers to their Customer Dashboard.
+
+## B. ADMIN/STAFF PORTAL
+
+Create a separate and restricted login page for Admin/Staff.
+
+Requirements:
+
+- Admin/Staff must have their own dedicated login URL.
+- Do not display Admin/Staff login options on the public customer landing page.
+- Only authorized Admin/Staff accounts can access this portal.
+- Validate their credentials using the existing authentication and database structure.
+- Redirect users to the appropriate Admin/Staff Dashboard after successful login.
+- Protect all administrative routes and functionalities.
+- Customers and drivers must not be able to access this portal.
+
+Preserve all existing administrative features, including inventory management, order management, customer management, reports, and other existing functionalities.
+
+## C. DRIVER PORTAL
+
+Create a separate and restricted login page for Drivers.
+
+Requirements:
+
+- Drivers must have their own dedicated login URL.
+- Do not display the Driver login option on the customer landing page.
+- Only authorized Driver accounts can access this portal.
+- Validate driver credentials against the existing database.
+- Redirect drivers to their Driver Dashboard after successful login.
+- Restrict drivers to their authorized functionalities.
+- Prevent customers and unauthorized users from accessing the Driver Portal.
+
+Preserve existing driver functionalities, including delivery assignments, delivery status updates, GPS tracking, and other existing features.
+
+---
+
+# 2. WEBSITE ROUTING STRUCTURE
+
+Organize the system using the following suggested routes:
+
+| Page | Suggested Route |
+|---|---|
+| Customer Landing Page | `/` |
+| Customer Login | `/login` |
+| Customer Registration | `/register` |
+| Customer Dashboard | `/customer/dashboard` |
+| Admin/Staff Login | `/admin/login` |
+| Admin/Staff Dashboard | `/admin/dashboard` |
+| Driver Login | `/driver/login` |
+| Driver Dashboard | `/driver/dashboard` |
+| Customer Logout | `/logout` |
+| Admin/Staff Logout | `/admin/logout` |
+| Driver Logout | `/driver/logout` |
+
+These are suggested routes. Review the existing routes first and reuse or adjust them when necessary to avoid conflicts.
+
+Each portal must have its own authentication flow and appropriate post-login redirect.
+
+---
+
+# 3. REDESIGN THE CUSTOMER LANDING PAGE
+
+Create a professional, modern, and welcoming landing page for RML Construction Supply.
+
+The landing page should be designed specifically for customers.
+
+### Design requirements:
+
+- Professional corporate appearance.
+- Clean and minimal layout.
+- Maintain the existing RML Construction Supply branding.
+- Use the existing red, dark navy blue, and white color scheme.
+- Consistent typography, spacing, buttons, and components.
+- Responsive layout for desktop, tablet, and mobile devices.
+- Avoid unnecessary visual elements and clutter.
+
+### Landing page sections:
+
+**A. Navigation Bar**
+- RML Construction Supply logo and name.
+- Home
+- About Us
+- Products
+- Services
+- Contact Us
+- Customer Login
+- Register Now
+
+Do not include Admin/Staff or Driver login links.
+
+**B. Hero Section**
+
+Include a strong welcome message, such as:
+
+"Keep Every Construction Project Moving."
+
+Add a short description explaining how RML Construction Supply helps customers browse construction materials, place orders, and track deliveries.
+
+Include two main buttons:
+- Browse Materials
+- Register Now
+
+**C. About Us Section**
+
+Provide a short introduction to RML Construction Supply and its commitment to providing construction materials and reliable services across Lipa City, Batangas.
+
+**D. Products and Materials Section**
+
+Showcase available construction materials using organized product cards.
+
+Display relevant information such as:
+- Product image
+- Product name
+- Price
+- Availability or stock status
+- View Details button
+
+Use existing product records and images whenever available.
+
+**E. Services Section**
+
+Highlight the system's existing services, such as:
+- Construction Material Ordering
+- Inventory Availability
+- Order Management
+- Delivery Tracking
+- GPS-Based Delivery Monitoring
+
+Do not advertise functionalities that are not implemented.
+
+**F. Contact Information Section**
+
+Display existing company contact information, business address, and other available contact details.
+
+**G. Footer**
+
+Include:
+- Company name
+- Copyright information
+- Contact information
+- Important customer navigation links
+
+---
+
+# 4. CUSTOMER REGISTRATION PAGE
+
+Redesign the customer registration page to make it clean, organized, and easy to understand.
+
+### Registration fields:
+
+1. Full Name
+2. Email Address
+3. Contact Number
+4. Complete Address
+5. Password
+6. Confirm Password
+
+### Registration validation:
+
+- All required fields must be completed.
+- Validate the email address format.
+- Prevent duplicate email registrations.
+- Validate Philippine mobile number formats.
+- Ensure that the password and confirm password fields match.
+- Display clear and understandable error messages.
+- Prevent submission if required information is invalid.
+- Save customer information properly in the existing database.
+- Assign the correct Customer role automatically.
+- Do not allow users to register themselves as Admin/Staff or Driver through the public registration form.
+
+### After successful registration:
+
+- Display a registration success message.
+- Redirect the customer to the Customer Login page.
+- Ensure the new account is saved and can be used for authentication.
+
+---
+
+# 5. STRICT PASSWORD POLICY AND VALIDATION
+
+Implement a strict password policy for all newly registered customer accounts.
+
+### Required password conditions:
+
+Every password must:
+
+1. Contain at least 8 characters.
+2. Include at least one uppercase letter (A–Z).
+3. Include at least one lowercase letter (a–z).
+4. Include at least one number (0–9).
+5. Include at least one special character (such as @, #, $, !, %, or &).
+6. Not contain spaces.
+7. Not be a commonly used or easily guessed password.
+
+### Password Validation UI
+
+Display the password requirements directly below the password input field.
+
+Implement:
+
+- Real-time password validation.
+- Password strength indicator: Weak, Medium, or Strong.
+- A checkmark beside every requirement once satisfied.
+- Show/Hide Password functionality.
+- Confirm Password field.
+- Clear error messages when requirements are not met.
+- Prevent account submission until all password requirements are satisfied.
+
+The password strength indicator should update automatically as the customer types.
+
+### Password Security
+
+- Validate passwords on both the frontend and backend.
+- Never store passwords in plain text.
+- Use a secure password hashing algorithm such as Argon2id or bcrypt with appropriate settings.
+- Never expose passwords in application logs or error messages.
+- Prevent commonly used and compromised passwords where practical.
+- Apply secure password handling to password changes and resets.
+- Do not unnecessarily modify existing Admin/Staff and Driver passwords.
+- Do not force existing accounts to reset their passwords unless required by an approved migration.
+
+---
+
+# 6. CUSTOMER LOGIN PAGE
+
+Redesign the Customer Login page with a clean and professional interface.
+
+Include:
+
+- Email Address
+- Password
+- Show/Hide Password
+- Sign In button
+- Forgot Password link
+- Register Here link
+
+### Login requirements:
+
+- Authenticate using the registered customer credentials.
+- Verify the correct account role.
+- Reject incorrect email addresses or passwords.
+- Display appropriate error messages.
+- Prevent unauthorized access.
+- Redirect successfully authenticated customers to the Customer Dashboard.
+- Maintain secure session handling.
+- Implement login rate limiting to prevent brute-force attacks.
+
+Do not allow Admin/Staff or Driver accounts to use the Customer Login page unless the existing authentication architecture explicitly requires shared authentication with strict role validation.
+
+---
+
+# 7. FORGOT PASSWORD AND EMAIL VERIFICATION
+
+Implement additional account security features.
+
+### Email Verification
+
+- Send a verification link or code to the customer's registered email address.
+- Verify that the email address belongs to the customer.
+- Use time-limited verification tokens.
+- Prevent expired or already-used verification tokens from being reused.
+- Provide a way to resend verification emails with rate limits.
+
+### Forgot Password
+
+- Allow customers to request a password reset.
+- Send a secure password reset link to their registered email address.
+- Make reset tokens unique, time-limited, and single-use.
+- Require the customer to create a new password that meets the strict password policy.
+- Display a successful password reset confirmation.
+
+If email delivery is not configured in the existing project, identify the requirements and implement the feature in a way that can be configured without breaking the system. Do not pretend an email has been sent if no email service is connected.
+
+---
+
+# 8. ROLE-BASED AUTHENTICATION AND ACCESS CONTROL
+
+This is one of the most important requirements.
+
+Implement proper Role-Based Access Control (RBAC).
+
+The system must recognize these roles:
+
+- Customer
+- Admin/Staff
+- Driver
+
+### Access restrictions:
+
+**Customer**
+- Can access customer pages and customer functionalities.
+- Cannot access Admin/Staff dashboards.
+- Cannot access Driver dashboards.
+- Cannot access administrative inventory or user management functions.
+
+**Admin/Staff**
+- Can access authorized administrative functionalities.
+- Cannot access Driver-only functionalities unless explicitly permitted by the existing role permissions.
+
+**Driver**
+- Can access authorized delivery and driver functionalities.
+- Cannot access Admin/Staff management functions.
+- Cannot manage user accounts or administrative inventory functions unless explicitly permitted.
+
+### Backend security:
+
+- Protect all restricted backend routes.
+- Validate the user's authenticated session and role on every protected request.
+- Do not rely only on hiding navigation links or buttons.
+- Prevent unauthorized access through manually entered URLs.
+- Prevent role manipulation through form submissions or client-side requests.
+- Use server-side authorization checks.
+- Clear sessions properly upon logout.
+- Use secure session cookie settings where supported.
+
+When an unauthorized user attempts to access a restricted page, redirect them to the appropriate login page or display an access-denied message.
+
+---
+
+# 9. SYSTEM-WIDE UI/UX CLEANUP
+
+Review and improve the entire system, not just the login and registration pages.
+
+Ensure that all pages have a consistent design.
+
+### Design consistency:
+
+- Consistent red, dark navy blue, and white color palette.
+- Consistent typography.
+- Consistent button styles.
+- Consistent form layouts.
+- Consistent navigation bars.
+- Consistent card designs.
+- Proper margins, padding, and spacing.
+- Clear headings and section labels.
+- Readable text and appropriate font sizes.
+- Responsive layouts.
+
+### Improve usability:
+
+- Add loading indicators where appropriate.
+- Display clear success and error messages.
+- Add confirmation dialogs before destructive actions.
+- Provide helpful empty states when there are no records.
+- Prevent accidental multiple form submissions.
+- Ensure buttons and links work correctly.
+- Avoid unnecessary pop-ups and confusing navigation.
+- Fix overlapping elements and layout inconsistencies.
+
+Do not introduce excessive animations or unnecessary design elements.
+
+---
+
+# 10. DATABASE AND BACKEND CLEANUP
+
+Before making database changes, inspect the existing database structure.
+
+Requirements:
+
+- Review existing database models and relationships.
+- Maintain existing customer, admin, staff, and driver records.
+- Preserve existing orders, products, inventory, and delivery records.
+- Avoid unnecessary duplicate database tables.
+- Avoid deleting existing records.
+- Maintain foreign key relationships.
+- Add or modify database fields only when necessary.
+- Ensure registration data is saved correctly.
+- Ensure login retrieves the correct user account and role.
+- Ensure database transactions and error handling are implemented properly.
+
+If database migrations are required, implement them safely and preserve existing data.
+
+---
+
+# 11. PRESERVE ALL EXISTING SYSTEM FUNCTIONALITIES
+
+Do not remove or break any existing working features.
+
+Review and preserve the existing functionalities of:
+
+### Customer
+- Product browsing
+- Construction material ordering
+- Cart management
+- Order placement
+- Order history
+- Order tracking
+- Customer profile
+
+### Admin/Staff
+- Dashboard
+- Inventory management
+- Product management
+- Customer management
+- Order management
+- Delivery management
+- Reports and other existing administrative features
+
+### Driver
+- Driver dashboard
+- Assigned deliveries
+- Delivery status updates
+- GPS tracking
+- Delivery confirmation
+- Other existing driver functionalities
+
+If a feature is not currently implemented, do not fabricate it. Identify it as a missing feature rather than claiming it works.
+
+---
+
+# 12. PROJECT CODE ORGANIZATION
+
+Inspect the existing project structure and clean up the code.
+
+Requirements:
+
+- Remove unnecessary duplicated code.
+- Organize backend routes and authentication logic.
+- Organize HTML templates.
+- Organize CSS and JavaScript files.
+- Use reusable templates and components where appropriate.
+- Keep naming conventions consistent.
+- Remove unused imports and obsolete functions.
+- Fix broken routes and incorrect redirects.
+- Fix frontend and backend integration issues.
+- Avoid unnecessary dependencies.
+- Keep the existing framework and technology stack unless there is a strong technical reason to change it.
+
+Do not create duplicate routes or conflicting authentication systems.
+
+---
+
+# 13. TESTING AND QUALITY ASSURANCE
+
+After implementing all improvements, thoroughly test the system.
+
+### Customer Registration Testing
+- Register a new customer successfully.
+- Reject incomplete registration forms.
+- Reject invalid email addresses.
+- Reject duplicate email addresses.
+- Reject invalid contact numbers.
+- Reject passwords shorter than 8 characters.
+- Reject passwords without uppercase letters.
+- Reject passwords without lowercase letters.
+- Reject passwords without numbers.
+- Reject passwords without special characters.
+- Reject passwords containing spaces.
+- Reject mismatched password confirmation.
+- Accept valid passwords.
+- Verify that customer information is saved correctly.
+
+### Customer Login Testing
+- Login using valid credentials.
+- Reject incorrect passwords.
+- Reject unregistered accounts.
+- Verify that the correct role is authenticated.
+- Test login rate limiting.
+- Verify logout functionality.
+
+### Admin/Staff Testing
+- Verify that Admin/Staff can access their dedicated login page.
+- Verify that valid accounts can log in.
+- Verify that customers cannot access Admin/Staff dashboards.
+- Verify that drivers cannot access unauthorized administrative features.
+
+### Driver Testing
+- Verify that drivers can access their dedicated login page.
+- Verify that valid driver accounts can log in.
+- Verify that customers cannot access Driver dashboards.
+- Verify that drivers cannot access unauthorized administrative features.
+
+### Navigation Testing
+- Test all links and buttons.
+- Test all redirects.
+- Test all login and logout routes.
+- Test direct URL access.
+- Test responsive layouts on desktop and mobile.
+
+---
+
+# 14. FINAL IMPLEMENTATION INSTRUCTIONS
+
+Follow these instructions carefully:
+
+1. Inspect the entire existing project before modifying anything.
+2. Understand the current database structure, authentication system, routes, and templates.
+3. Identify existing problems and possible conflicts.
+4. Implement changes in an organized manner.
+5. Preserve all existing working features.
+6. Do not delete existing database records.
+7. Do not rebuild the system from scratch.
+8. Do not introduce unnecessary dependencies.
+9. Make sure the frontend and backend validation work together.
+10. Test all changes before considering the task complete.
+
+After implementation, provide a summary of:
+
+- Files modified.
+- Files created.
+- Existing problems fixed.
+- New features implemented.
+- Database changes made.
+- Security improvements.
+- Testing results.
+- Any remaining issues or features requiring external configuration.
+
+If you encounter an error, investigate and fix its actual cause instead of applying temporary workarounds.
+
+**FINAL EXPECTED RESULT:**
+
+The RML Construction Supply Management System should have a clean, professional, modern, and secure interface.
+
+When a customer visits the website, they should only see the public RML Construction Supply landing page with the following main actions:
+
+- Browse Materials
+- Register Now
+- Customer Login
+
+The customer registration page must have complete form validation and a strict password policy.
+
+Admin/Staff and Drivers must have their own separate and restricted login pages, dashboards, and authentication permissions.
+
+All existing system functionalities must continue working correctly.
+
+The final system should be fully integrated, responsive, organized, secure, and ready for demonstration and testing.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-11-20T23:52:04+08:00.
+</ADDITIONAL_METADATA>

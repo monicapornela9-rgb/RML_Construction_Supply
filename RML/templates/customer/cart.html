@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Shopping Cart - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="customer-portal-header">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <div class="text-muted smaller mb-1">
+        <a href="{{ url_for('main.customer_dashboard') }}" class="text-decoration-none text-muted">Customer Portal</a>
+        <span class="mx-1">&middot;</span>
+        <span class="text-dark fw-semibold">Shopping Cart</span>
+      </div>
+      <h1 class="customer-portal-title">My shopping cart</h1>
+      <p class="customer-portal-subtitle">Review selected specifications, adjust quantities, or remove materials before checkout.</p>
+    </div>
+    {% if cart_items %}
+      <div class="d-flex gap-2">
+        <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-outline-dark btn-sm fw-semibold">
+          <i class="bi bi-arrow-left me-1"></i> Continue Shopping
+        </a>
+        <form method="POST" action="{{ url_for('main.cart_clear') }}" onsubmit="return confirm('Empty entire shopping cart?');" class="m-0">
+          <button type="submit" class="btn btn-outline-danger btn-sm fw-semibold">
+            <i class="bi bi-trash3 me-1"></i> Clear Cart
+          </button>
+        </form>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if cart_items %}
+<div class="row g-4">
+  <!-- Left Column: Cart Items List (Figma Node 172:6533) -->
+  <div class="col-lg-8">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold text-navy mb-0">Selected Materials ({{ cart_items|length }})</h5>
+      <span class="smaller text-muted">Direct warehouse dispatch from Lipa City</span>
+    </div>
+    <div class="d-flex flex-column gap-3 mb-4">
+      {% for item in cart_items %}
+      <div class="customer-cart-card">
+        <img src="{{ item.image_url }}" alt="{{ item.display_name }}"
+             class="customer-cart-img"
+             onerror="this.src='https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500'">
+        
+        <div class="customer-cart-info">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <h3 class="customer-cart-item-title">{{ item.product_name }}</h3>
+              {% if item.variation_name %}
+                <div class="customer-cart-item-spec">{{ item.variation_name }} &middot; Per {{ item.unit }}</div>
+              {% else %}
+                <div class="customer-cart-item-spec">Standard Specification &middot; Per {{ item.unit }}</div>
+              {% endif %}
+            </div>
+            
+            <!-- Remove Button -->
+            <form method="POST" action="{{ url_for('main.cart_remove', item_id=item.cart_item_id) }}" class="m-0"
+                  onsubmit="return confirm('Remove {{ item.display_name }} from cart?');">
+              <button type="submit" class="btn btn-link text-danger p-0 border-0" title="Remove item">
+                <i class="bi bi-x-circle fs-5"></i>
+              </button>
+            </form>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mt-3 pt-2 border-top">
+            <!-- Stepper Form -->
+            <div class="d-flex align-items-center gap-2">
+              <form method="POST" action="{{ url_for('main.cart_update') }}" class="m-0" id="cartQtyForm_{{ item.cart_item_id }}">
+                <input type="hidden" name="cart_item_id" value="{{ item.cart_item_id }}">
+                <div class="customer-stepper">
+                  <button type="button" class="customer-stepper-btn"
+                          onclick="stepQty('qty_{{ item.cart_item_id }}', -1, {{ item.stock }})"
+                          title="Decrease">
+                    &minus;
+                  </button>
+                  <input type="number" name="quantity" id="qty_{{ item.cart_item_id }}"
+                         value="{{ item.quantity }}" min="1" max="{{ item.stock }}"
+                         class="customer-stepper-input"
+                         onchange="document.getElementById('cartQtyForm_{{ item.cart_item_id }}').submit();">
+                  <button type="button" class="customer-stepper-btn"
+                          onclick="stepQty('qty_{{ item.cart_item_id }}', 1, {{ item.stock }})"
+                          title="Increase">
+                    +
+                  </button>
+                </div>
+              </form>
+              <span class="customer-status-pill success ms-1">
+                <i class="bi bi-check-circle-fill"></i> {{ item.stock }} {{ item.unit }}s available
+              </span>
+            </div>
+
+            <!-- Price and Subtotal -->
+            <div class="text-end">
+              <div class="smaller text-muted">&#8369;{{ "{:,.2f}".format(item.price) }} / {{ item.unit }}</div>
+              <div class="fw-bold text-navy fs-5">&#8369;{{ "{:,.2f}".format(item.line_total) }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Commercial Guarantee Highlights -->
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="customer-portal-card mb-0 p-3 h-100">
+          <div class="text-rml fs-4 mb-1"><i class="bi bi-truck"></i></div>
+          <strong class="text-navy small d-block">Dedicated Fleet</strong>
+          <span class="smaller text-muted">Direct dispatch from Lipa depot yard to job site.</span>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="customer-portal-card mb-0 p-3 h-100">
+          <div class="text-rml fs-4 mb-1"><i class="bi bi-calendar2-check"></i></div>
+          <strong class="text-navy small d-block">Delivery Scheduling</strong>
+          <span class="smaller text-muted">Select preferred Morning or Afternoon delivery windows.</span>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="customer-portal-card mb-0 p-3 h-100">
+          <div class="text-rml fs-4 mb-1"><i class="bi bi-file-earmark-check"></i></div>
+          <strong class="text-navy small d-block">Official Invoicing</strong>
+          <span class="smaller text-muted">Itemized BIR-compliant documentation for accounting.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Order Summary (Figma Node 172:6533) -->
+  <div class="col-lg-4">
+    <div class="customer-summary-box">
+      <h2 class="customer-summary-title">Order summary</h2>
+      
+      <div class="customer-summary-row">
+        <span>Product lines</span>
+        <span class="fw-bold text-dark">{{ total_items_count }} items</span>
+      </div>
+
+      <div class="customer-summary-row">
+        <span>Materials subtotal</span>
+        <span class="fw-bold text-dark">&#8369;{{ "{:,.2f}".format(subtotal) }}</span>
+      </div>
+
+      <div class="customer-summary-row">
+        <span>Standard Delivery Fee</span>
+        <span class="fw-bold text-dark">&#8369;{{ "{:,.2f}".format(delivery_fee) }}</span>
+      </div>
+
+      <div class="customer-summary-row">
+        <span>Estimated tax (12% VAT)</span>
+        <span class="fw-bold text-dark">&#8369;{{ "{:,.2f}".format(vat_amount) }}</span>
+      </div>
+
+      <div class="customer-summary-row total">
+        <span>Total to pay</span>
+        <span class="text-rml">&#8369;{{ "{:,.2f}".format(total_amount) }}</span>
+      </div>
+
+      <a href="{{ url_for('main.customer_checkout') }}" class="figma-landing-btn-primary w-100 mt-4 mb-2">
+        Proceed to Checkout &rarr;
+      </a>
+
+      <div class="text-center mt-3">
+        <p class="smaller text-muted mb-0">
+          Changes to quantities and removed items are reflected in the order summary.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<!-- Empty Cart State (Figma Node 172:6762) -->
+<div class="customer-portal-card text-center py-5">
+  <div class="py-4 mx-auto" style="max-width: 480px;">
+    <div class="mb-3 d-inline-flex align-items-center justify-content-center bg-light rounded-circle text-muted" style="width: 84px; height: 84px;">
+      <i class="bi bi-cart-x fs-1 text-secondary"></i>
+    </div>
+    <h2 class="customer-portal-title mb-2">Your shopping cart is empty.</h2>
+    <p class="customer-portal-subtitle mb-4">
+      Browse our catalog and add construction materials to get started.
+    </p>
+    <a href="{{ url_for('main.customer_catalog') }}" class="figma-landing-btn-primary px-4 py-2">
+      <i class="bi bi-box-seam me-2"></i> Browse Materials Catalog
+    </a>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function stepQty(inputId, delta, maxStock) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  let val = parseInt(input.value, 10) || 1;
+  val += delta;
+  if (val < 1) val = 1;
+  if (maxStock && val > maxStock) val = maxStock;
+  input.value = val;
+  input.form.submit();
+}
+</script>
+{% endblock %}

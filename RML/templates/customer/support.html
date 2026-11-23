@@ -2,64 +2,160 @@
 {% block title %}Customer Support - RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-  <div class="text-muted small">Customer Portal &middot; Support</div>
-  <h2 class="fw-bold mb-1">Customer Support</h2>
-  <p class="text-muted small mb-0">Contact RML Construction Supply for order inquiries, delivery coordination, and billing assistance.</p>
+<div class="customer-portal-header">
+  <div class="text-muted smaller mb-1">
+    <a href="{{ url_for('main.customer_dashboard') }}" class="text-decoration-none text-muted">Customer Portal</a>
+    <span class="mx-1">&middot;</span>
+    <span class="text-dark fw-semibold">Support</span>
+  </div>
+  <h1 class="customer-portal-title">How can we help?</h1>
+  <p class="customer-portal-subtitle">Get help with your orders, deliveries, and payments from our dedicated depot support team.</p>
 </div>
 
-<div class="row g-4">
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm p-4 h-100">
-      <h5 class="fw-bold mb-3"><i class="bi bi-geo-alt-fill text-rml me-2"></i>Store &amp; Dispatch Office</h5>
-      <p class="mb-2"><strong>Depot Address:</strong> Purok 6, Brgy. Antipolo del Sur, Lipa City, Batangas</p>
-      <p class="mb-2"><strong>Operations Dispatch:</strong> 0917 555 0140 / +63 (02) 8888-0000</p>
-      <p class="mb-2"><strong>Email Support:</strong> logistics@rml.example / billing@rml.example</p>
-      <p class="mb-0"><strong>Operating Hours:</strong> Monday - Saturday, 06:30 AM - 05:00 PM</p>
-      <hr>
-      <div class="small text-muted">
-        <strong>Delivery Coverage:</strong> Lipa City, Malvar, Tanauan, Sto. Tomas, Batangas City, San Jose, Padre Garcia, Rosario, and nearby construction corridors.
+<!-- 3 Direct Contact Cards (Figma Node 172:9943) -->
+<div class="row g-3 mb-4">
+  <!-- Email Support -->
+  <div class="col-md-4">
+    <div class="customer-portal-card p-4 h-100 mb-0">
+      <div class="d-inline-flex align-items-center justify-content-center bg-danger bg-opacity-10 text-rml rounded-circle mb-3" style="width: 48px; height: 48px;">
+        <i class="bi bi-envelope-fill fs-5"></i>
       </div>
+      <h3 class="fw-bold text-navy fs-5 mb-1">Email Support</h3>
+      <div class="fw-semibold text-dark mb-1">logistics@rml.com</div>
+      <p class="smaller text-muted mb-0">Send order details and inquiries for a prompt response within 1 business day.</p>
     </div>
   </div>
 
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm p-4 h-100">
-      <h5 class="fw-bold mb-3"><i class="bi bi-question-circle text-rml me-2"></i>Frequently Asked Questions</h5>
-      <div class="accordion accordion-flush" id="faqAccordion">
+  <!-- Hotline Support -->
+  <div class="col-md-4">
+    <div class="customer-portal-card p-4 h-100 mb-0">
+      <div class="d-inline-flex align-items-center justify-content-center bg-danger bg-opacity-10 text-rml rounded-circle mb-3" style="width: 48px; height: 48px;">
+        <i class="bi bi-telephone-fill fs-5"></i>
+      </div>
+      <h3 class="fw-bold text-navy fs-5 mb-1">Call Us</h3>
+      <div class="fw-semibold text-dark mb-1">0917 555 0100 &middot; (043) 756-1234</div>
+      <p class="smaller text-muted mb-0">Direct phone support for urgent site delivery concerns and vehicle access coordination.</p>
+    </div>
+  </div>
+
+  <!-- Operating Hours -->
+  <div class="col-md-4">
+    <div class="customer-portal-card p-4 h-100 mb-0">
+      <div class="d-inline-flex align-items-center justify-content-center bg-danger bg-opacity-10 text-rml rounded-circle mb-3" style="width: 48px; height: 48px;">
+        <i class="bi bi-clock-fill fs-5"></i>
+      </div>
+      <h3 class="fw-bold text-navy fs-5 mb-1">Support Hours</h3>
+      <div class="fw-semibold text-dark mb-1">Mon &ndash; Sat, 7:00 AM &ndash; 5:00 PM</div>
+      <p class="smaller text-muted mb-0">Depot operations and customer support follow Philippine Standard Time (PHT).</p>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- Submit Request Form (Figma Node 172:9943) -->
+  <div class="col-lg-7">
+    <div class="customer-portal-card mb-0">
+      <div class="customer-portal-card-header">
+        <h2 class="customer-portal-card-title">
+          <i class="bi bi-chat-square-text text-rml"></i> Submit a Request
+        </h2>
+        <span class="smaller text-muted">We usually reply within one business day</span>
+      </div>
+
+      <form onsubmit="event.preventDefault(); alert('Thank you! Your inquiry has been submitted. Our logistics coordinator will reply via your account email.'); this.reset();">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="figma-auth-label" for="supportTopic">Topic <span class="text-danger">*</span></label>
+            <select class="form-select" id="supportTopic" required>
+              <option value="" selected disabled>Select assistance topic...</option>
+              <option value="order">Order Inquiry / Modification</option>
+              <option value="delivery">Delivery Scheduling &amp; Truck Access</option>
+              <option value="payment">Payment Verification &amp; Official Receipt</option>
+              <option value="pricing">Depot Yard Wholesale Quotes</option>
+              <option value="other">General Account Assistance</option>
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="figma-auth-label" for="supportOrderNo">Order Number (Optional)</label>
+            <input type="text" id="supportOrderNo" class="figma-auth-input" placeholder="#RML-9042">
+          </div>
+
+          <div class="col-12">
+            <label class="figma-auth-label" for="supportSubject">Subject <span class="text-danger">*</span></label>
+            <input type="text" id="supportSubject" class="figma-auth-input" required placeholder="Briefly describe your concern">
+          </div>
+
+          <div class="col-12">
+            <label class="figma-auth-label" for="supportMessage">Message <span class="text-danger">*</span></label>
+            <textarea id="supportMessage" class="form-control" rows="4" required placeholder="Include relevant order or job site details and how our team can help you..."></textarea>
+          </div>
+
+          <div class="col-12">
+            <button type="submit" class="figma-landing-btn-primary px-4 py-2.5">
+              Submit Request &rarr;
+            </button>
+            <span class="smaller text-muted ms-3">Replies will be sent to your verified email address.</span>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Depot Location & FAQs -->
+  <div class="col-lg-5 d-flex flex-column gap-3">
+    <!-- Physical Depot Address -->
+    <div class="customer-portal-card mb-0">
+      <h3 class="fw-bold text-navy fs-6 mb-2">
+        <i class="bi bi-geo-alt-fill text-rml me-1"></i> Depot Yard &amp; Dispatch Office
+      </h3>
+      <div class="small text-dark fw-semibold">RML Construction Supply</div>
+      <div class="small text-muted">Purok 6, Brgy. Antipolo del Sur, Lipa City, Batangas 4217</div>
+      <hr class="my-2">
+      <div class="smaller text-muted">
+        <strong>Coverage Corridors:</strong> Lipa City, Malvar, Tanauan, Sto. Tomas, Batangas City, San Jose, Padre Garcia, Rosario, and nearby construction areas.
+      </div>
+    </div>
+
+    <!-- Quick FAQs -->
+    <div class="customer-portal-card mb-0">
+      <h3 class="fw-bold text-navy fs-6 mb-3">
+        <i class="bi bi-question-circle text-primary me-1"></i> Frequently Asked Questions
+      </h3>
+      <div class="accordion accordion-flush" id="supportFaq">
         <div class="accordion-item">
           <h2 class="accordion-header">
-            <button class="accordion-button collapsed py-2 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
-              How does cash on delivery (COD) work?
+            <button class="accordion-button collapsed py-2 px-0 small fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#sfaq1">
+              How does Cash on Delivery (COD) work?
             </button>
           </h2>
-          <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-            <div class="accordion-body px-0 small text-muted">
-              Prepare the exact cash amount before arrival. Verify your order items and authorized RML collector before handing over payment. The collector will record the payment and provide an official receipt.
+          <div id="sfaq1" class="accordion-collapse collapse" data-bs-parent="#supportFaq">
+            <div class="accordion-body px-0 smaller text-muted">
+              Prepare the exact cash amount before arrival. Verify your materials before handing payment to the authorized RML collector, who provides an official signed receipt.
             </div>
           </div>
         </div>
         <div class="accordion-item">
           <h2 class="accordion-header">
-            <button class="accordion-button collapsed py-2 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
-              How do I track my delivery truck in real time?
+            <button class="accordion-button collapsed py-2 px-0 small fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#sfaq2">
+              How do I monitor live GPS delivery tracking?
             </button>
           </h2>
-          <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-            <div class="accordion-body px-0 small text-muted">
-              Go to "My Orders" and click "Track" on your active order. Once the truck departs the Lipa depot, the map will display the live GPS coordinates of your delivery truck.
+          <div id="sfaq2" class="accordion-collapse collapse" data-bs-parent="#supportFaq">
+            <div class="accordion-body px-0 smaller text-muted">
+              Navigate to "Delivery Tracking" or click "Track" on any active order in "My Orders". Once the truck is dispatched from our Lipa depot, the interactive map updates with live GPS telemetry.
             </div>
           </div>
         </div>
         <div class="accordion-item">
           <h2 class="accordion-header">
-            <button class="accordion-button collapsed py-2 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
-              Can I change my delivery address or slot?
+            <button class="accordion-button collapsed py-2 px-0 small fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#sfaq3">
+              Can I request a delivery slot change?
             </button>
           </h2>
-          <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-            <div class="accordion-body px-0 small text-muted">
-              Please contact the Lipa Operations Dispatch hotline at 0917 555 0140 at least two hours before your scheduled delivery window.
+          <div id="sfaq3" class="accordion-collapse collapse" data-bs-parent="#supportFaq">
+            <div class="accordion-body px-0 smaller text-muted">
+              Yes. Contact our dispatch hotline at 0917 555 0100 at least 2 hours prior to your scheduled delivery window.
             </div>
           </div>
         </div>

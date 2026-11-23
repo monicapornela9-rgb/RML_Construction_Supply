@@ -2,450 +2,404 @@
 {% block title %}Order Tracking {{ order.order_code|order_code }} - RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-  <a href="{{ url_for('main.customer_orders') }}" class="small text-decoration-none text-muted">
-    &larr; Back to My Orders
-  </a>
-  <a href="{{ url_for('main.order_invoice', order_id=order.id) }}" class="btn btn-outline-secondary btn-sm" target="_blank">
-    <i class="bi bi-receipt me-1"></i> Download Invoice
-  </a>
+<!-- Top Portal Header & Breadcrumb -->
+<div class="customer-portal-header">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <div class="customer-breadcrumb">
+        <a href="{{ url_for('main.customer_orders') }}" class="text-decoration-none text-muted">My Orders</a>
+        <span class="mx-1">&rsaquo;</span>
+        <span>Order {{ order.order_code|order_code }}</span>
+      </div>
+      <h1 class="customer-portal-title">Order Tracking</h1>
+      <p class="customer-portal-subtitle">Track your delivery progress, assigned driver and vehicle, and real-time GPS location.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('main.customer_orders') }}" class="btn btn-outline-secondary btn-sm fw-semibold">
+        &larr; Back to Orders
+      </a>
+      <a href="{{ url_for('main.order_invoice', order_id=order.id) }}" class="btn btn-outline-dark btn-sm fw-semibold" target="_blank">
+        <i class="bi bi-receipt me-1"></i> Download Invoice
+      </a>
+    </div>
+  </div>
 </div>
 
 <!-- Header / Status Banner -->
 {% if order.order_status in ('cancelled', 'rejected') %}
-  <div class="card border-0 shadow-sm border-start border-danger border-4 mb-4">
-    <div class="card-body p-4">
-      <div class="d-flex align-items-center gap-3">
-        <div class="d-inline-flex align-items-center justify-content-center bg-danger text-white rounded-circle flex-shrink-0" style="width: 54px; height: 54px;">
-          <i class="bi bi-x-circle-fill fs-2"></i>
-        </div>
-        <div>
-          <h4 class="fw-bold text-danger mb-1">Order Cancelled</h4>
-          <p class="text-muted small mb-0">
-            {{ order.rejection_reason or 'This order was cancelled. Reserved delivery slots, vehicles, and inventory have been released.' }}
-          </p>
-        </div>
+  <div class="customer-portal-card border-start border-danger border-4 mb-4" style="background: #FFFDFD;">
+    <div class="d-flex align-items-center gap-3">
+      <div class="d-inline-flex align-items-center justify-content-center bg-danger text-white rounded-circle flex-shrink-0" style="width: 52px; height: 52px;">
+        <i class="bi bi-x-circle-fill fs-3"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold text-danger mb-1">Order Cancelled</h4>
+        <p class="text-muted small mb-0">
+          {{ order.rejection_reason or 'This order was cancelled. Reserved delivery slots, vehicles, and inventory have been released.' }}
+        </p>
       </div>
     </div>
   </div>
 {% elif order.order_status in ('pending', 'pending_scheduling', 'for_scheduling') %}
-  <div class="card border-0 shadow-sm border-start border-primary border-4 mb-4">
-    <div class="card-body p-4">
-      <div class="d-flex align-items-center gap-3">
-        <div class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle flex-shrink-0" style="width: 54px; height: 54px;">
-          <i class="bi bi-hourglass-split fs-2"></i>
-        </div>
-        <div>
-          <h4 class="fw-bold text-dark mb-1">Your order has been submitted successfully!</h4>
-          <p class="text-muted small mb-0">
-            Please wait while our administrator reviews your order and assigns an available delivery schedule based on fleet and driver availability.
-          </p>
-        </div>
+  <div class="customer-portal-card border-start border-primary border-4 mb-4" style="background: #F8FAFC;">
+    <div class="d-flex align-items-center gap-3">
+      <div class="d-inline-flex align-items-center justify-content-center bg-navy text-white rounded-circle flex-shrink-0" style="width: 52px; height: 52px; background: #142235;">
+        <i class="bi bi-hourglass-split fs-3"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold text-navy mb-1">Your order has been submitted successfully!</h4>
+        <p class="text-muted small mb-0">
+          Please wait while our administrator reviews your order and assigns an available delivery schedule based on Lipa City fleet availability.
+        </p>
       </div>
     </div>
   </div>
 {% elif order.order_status == 'awaiting_confirmation' %}
-  <div class="card border-0 shadow-sm border-start border-warning border-4 mb-4">
-    <div class="card-body p-4">
-      <div class="d-flex align-items-center gap-3">
-        <div class="d-inline-flex align-items-center justify-content-center bg-warning text-dark rounded-circle flex-shrink-0" style="width: 54px; height: 54px;">
-          <i class="bi bi-bell-fill fs-2"></i>
-        </div>
-        <div>
-          <h4 class="fw-bold text-dark mb-1">Proposed Delivery Schedule Assigned</h4>
-          <p class="text-muted small mb-0">
-            Our administrator has proposed a delivery schedule for your order. Please review the schedule below and confirm whether it is convenient for you.
-          </p>
-        </div>
+  <div class="customer-portal-card border-start border-warning border-4 mb-4" style="background: #FFFDF8;">
+    <div class="d-flex align-items-center gap-3">
+      <div class="d-inline-flex align-items-center justify-content-center bg-warning text-dark rounded-circle flex-shrink-0" style="width: 52px; height: 52px;">
+        <i class="bi bi-bell-fill fs-3"></i>
       </div>
-    </div>
-  </div>
-{% elif order.order_status in ('schedule_confirmed', 'scheduled') and not payment %}
-  <div class="card border-0 shadow-sm border-start border-success border-4 mb-4">
-    <div class="card-body p-4">
-      <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <div class="d-flex align-items-center gap-3">
-          <div class="d-inline-flex align-items-center justify-content-center bg-success text-white rounded-circle flex-shrink-0" style="width: 54px; height: 54px;">
-            <i class="bi bi-check2-circle fs-2"></i>
-          </div>
-          <div>
-            <h4 class="fw-bold text-dark mb-1">Delivery Schedule Confirmed!</h4>
-            <p class="text-muted small mb-0">
-              Your delivery is locked for <strong>{{ order.assigned_date }} ({{ order.assigned_time_slot }})</strong>. Complete payment to proceed with dispatch.
-            </p>
-          </div>
-        </div>
-        <a href="{{ url_for('main.customer_payment', order_id=order.id, step=1) }}" class="btn btn-rml py-2 px-4 fw-semibold">
-          <i class="bi bi-credit-card me-1"></i> Proceed to Payment &rarr;
-        </a>
+      <div>
+        <h4 class="fw-bold text-navy mb-1">Proposed Delivery Schedule Assigned</h4>
+        <p class="text-muted small mb-0">
+          Our administrator has proposed a delivery schedule for your site. Please review and confirm the schedule below to proceed with fulfillment.
+        </p>
       </div>
     </div>
   </div>
 {% elif order.order_status in ('out_for_delivery', 'in_transit') %}
-  <div class="card border-0 shadow-sm border-start border-primary border-4 mb-4">
-    <div class="card-body p-4">
-      <div class="d-flex align-items-center gap-3">
-        <div class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle flex-shrink-0" style="width: 54px; height: 54px;">
-          <i class="bi bi-truck fs-2"></i>
-        </div>
-        <div>
-          <h4 class="fw-bold text-dark mb-1">Your Materials are Out for Delivery!</h4>
-          <p class="text-muted small mb-0">
-            Your delivery truck is en route. Monitor the live GPS location below.
-          </p>
-        </div>
+  <div class="customer-portal-card border-start border-primary border-4 mb-4" style="background: #EFF6FF;">
+    <div class="d-flex align-items-center gap-3">
+      <div class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle flex-shrink-0" style="width: 52px; height: 52px;">
+        <i class="bi bi-truck fs-3"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold text-navy mb-1">Your Materials are Out for Delivery!</h4>
+        <p class="text-muted small mb-0">
+          Your delivery truck is currently en route. Monitor the real-time GPS location and route progress below.
+        </p>
       </div>
     </div>
   </div>
 {% elif order.order_status == 'delivered' %}
-  <div class="card border-0 shadow-sm border-start border-success border-4 mb-4">
-    <div class="card-body p-4">
-      <div class="d-flex align-items-center gap-3">
-        <div class="d-inline-flex align-items-center justify-content-center bg-success text-white rounded-circle flex-shrink-0" style="width: 54px; height: 54px;">
-          <i class="bi bi-patch-check-fill fs-2"></i>
-        </div>
-        <div>
-          <h4 class="fw-bold text-success mb-1">Order Delivered Successfully</h4>
-          <p class="text-muted small mb-0">
-            All materials have been received and acknowledged at your delivery site.
-          </p>
-        </div>
+  <div class="customer-portal-card border-start border-success border-4 mb-4" style="background: #ECFDF5;">
+    <div class="d-flex align-items-center gap-3">
+      <div class="d-inline-flex align-items-center justify-content-center bg-success text-white rounded-circle flex-shrink-0" style="width: 52px; height: 52px;">
+        <i class="bi bi-check2-circle fs-3"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold text-success mb-1">Order Delivered Successfully</h4>
+        <p class="text-muted small mb-0">
+          All materials have been safely delivered and acknowledged at your delivery site.
+        </p>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <div class="customer-portal-card border-start border-success border-4 mb-4" style="background: #F8FAFC;">
+    <div class="d-flex align-items-center gap-3">
+      <div class="d-inline-flex align-items-center justify-content-center bg-navy text-white rounded-circle flex-shrink-0" style="width: 52px; height: 52px; background: #142235;">
+        <i class="bi bi-box-seam fs-3"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold text-navy mb-1">Order Placed Successfully!</h4>
+        <p class="text-muted small mb-0">
+          Your construction materials are being processed and prepared for delivery dispatch.
+        </p>
       </div>
     </div>
   </div>
 {% endif %}
 
-<!-- Main Tracking Stepper Card (Requirement 5: 7-Stage Workflow) -->
-<div class="card border-0 shadow-sm p-4 mb-4">
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 pb-3 border-bottom">
-    <div>
+<!-- Proposed Schedule Action Card (Requirement 3) -->
+{% if order.order_status == 'awaiting_confirmation' %}
+  <div class="customer-portal-card border-warning mb-4" style="background: #FFFDF9;">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 pb-3 mb-3 border-bottom" style="border-color: #FDE68A !important;">
       <div class="d-flex align-items-center gap-2">
-        <i class="bi bi-truck fs-4 text-rml"></i>
-        <h4 class="fw-bold mb-0">Order Tracking: {{ order.order_code|order_code }}</h4>
+        <i class="bi bi-calendar2-check-fill text-warning fs-5"></i>
+        <h5 class="fw-bold mb-0 text-navy">Review Proposed Delivery Schedule</h5>
       </div>
-      <div class="text-muted small mt-1">Order Placed: {{ order.created_at }}</div>
+      {% if order.reservation_expires_at %}
+        <span class="customer-status-pill danger">
+          <i class="bi bi-clock-history me-1"></i> Temporary Reservation
+        </span>
+      {% endif %}
+    </div>
+
+    <p class="text-dark small mb-3">
+      Our administrator has proposed a delivery schedule for your order based on fleet capacity. Please review and confirm whether it is convenient for your site.
+    </p>
+
+    <div class="row g-3 p-3 rounded mb-3" style="background: #FFFFFF; border: 1px solid #E2E8F0;">
+      <div class="col-sm-6 col-md-3">
+        <div class="smaller text-muted text-uppercase fw-bold">Order Number</div>
+        <div class="fw-bold text-navy fs-6">{{ order.order_code|order_code }}</div>
+      </div>
+      <div class="col-sm-6 col-md-3">
+        <div class="smaller text-muted text-uppercase fw-bold">Proposed Delivery Date</div>
+        <div class="fw-bold text-navy fs-6">{{ order.assigned_date }}</div>
+      </div>
+      <div class="col-sm-6 col-md-3">
+        <div class="smaller text-muted text-uppercase fw-bold">Proposed Time Slot</div>
+        <div class="fw-bold text-dark fs-6">{{ order.assigned_time_slot }}</div>
+      </div>
+      <div class="col-sm-6 col-md-3">
+        <div class="smaller text-muted text-uppercase fw-bold">Order Total</div>
+        <div class="fw-bold text-rml fs-6">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</div>
+      </div>
+      {% if delivery and delivery.truck_code %}
+        <div class="col-12 border-top pt-2 mt-2">
+          <span class="smaller text-muted text-uppercase fw-bold">Reserved Logistics:</span>
+          <span class="small fw-semibold text-dark">{{ delivery.truck_code }} ({{ delivery.plate_number }})</span>
+          {% if delivery.driver_name %}&middot; <span class="small text-muted">Driver:</span> <span class="small fw-semibold text-dark">{{ delivery.driver_name }}</span>{% endif %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
+      <form method="POST" action="{{ url_for('main.customer_accept_schedule', order_id=order.id) }}" class="m-0">
+        <button type="submit" class="btn btn-success fw-bold px-4 py-2 shadow-sm">
+          <i class="bi bi-check-circle me-1"></i> ACCEPT SCHEDULE &rarr;
+        </button>
+      </form>
+      <button type="button" class="btn btn-outline-danger px-4 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#cancelModal">
+        <i class="bi bi-x-circle me-1"></i> CANCEL ORDER
+      </button>
+    </div>
+  </div>
+{% endif %}
+
+<!-- Schedule Confirmed but Payment Pending Action Card (Requirement 4) -->
+{% if order.order_status in ('schedule_confirmed', 'scheduled') and not payment %}
+  <div class="customer-portal-card border-primary mb-4 p-4" style="background: #EFF6FF;">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div>
+        <h5 class="fw-bold mb-1 text-navy"><i class="bi bi-credit-card text-rml me-2"></i>Complete Payment Selection</h5>
+        <p class="text-muted small mb-0">
+          You have approved the delivery schedule on <strong>{{ order.assigned_date }} ({{ order.assigned_time_slot }})</strong>. Please select your payment method (Cash on Delivery or Online QR) to enable warehouse staging.
+        </p>
+      </div>
+      <a href="{{ url_for('main.customer_payment', order_id=order.id, step=1) }}" class="btn btn-rml px-4 py-2 fw-semibold shadow-sm">
+        Select Payment Method &rarr;
+      </a>
+    </div>
+  </div>
+{% endif %}
+
+<!-- Main Figma Tracking Card (Frame 172:9771) -->
+<div class="customer-portal-card p-0 overflow-hidden mb-4">
+  <!-- Card Header Banner -->
+  <div class="p-4 d-flex justify-content-between align-items-center flex-wrap gap-3" style="background: #EAF1F6; border-bottom: 1px solid #DDE5EC;">
+    <div class="d-flex align-items-center gap-3">
+      <div class="d-inline-flex align-items-center justify-content-center bg-white rounded-circle shadow-sm" style="width: 44px; height: 44px;">
+        <i class="bi bi-truck text-navy fs-5"></i>
+      </div>
+      <div>
+        <h4 class="fw-bold mb-0 text-navy">Order Tracking: {{ order.order_code|order_code }}</h4>
+        <div class="text-muted smaller">Placed on {{ order.created_at }}</div>
+      </div>
     </div>
     <div>
-      {% if order.order_status in ('pending', 'pending_scheduling') %}
-        <span class="badge badge-check fs-6">Pending Scheduling</span>
-      {% elif order.order_status == 'for_scheduling' %}
-        <span class="badge bg-info text-dark fs-6">For Scheduling</span>
-      {% elif order.order_status == 'awaiting_confirmation' %}
-        <span class="badge bg-warning text-dark fs-6">Awaiting Confirmation</span>
-      {% elif order.order_status in ('scheduled', 'schedule_confirmed') %}
-        <span class="badge badge-instock fs-6">Schedule Confirmed</span>
+      {% if order.order_status == 'delivered' %}
+        <span class="customer-status-pill success"><i class="bi bi-check-circle"></i> Delivered</span>
       {% elif order.order_status in ('out_for_delivery', 'in_transit') %}
-        <span class="badge badge-transit fs-6">Out for Delivery</span>
-      {% elif order.order_status == 'delivered' %}
-        <span class="badge badge-instock fs-6">Delivered</span>
+        <span class="customer-status-pill primary"><i class="bi bi-truck"></i> Out for Delivery</span>
+      {% elif order.order_status in ('payment_verified', 'ready_for_dispatch') %}
+        <span class="customer-status-pill primary">Preparing Dispatch</span>
+      {% elif order.order_status in ('scheduled', 'schedule_confirmed') %}
+        <span class="customer-status-pill success">Schedule Confirmed</span>
+      {% elif order.order_status == 'awaiting_confirmation' %}
+        <span class="customer-status-pill warning">Awaiting Confirmation</span>
       {% elif order.order_status in ('cancelled', 'rejected') %}
-        <span class="badge badge-danger fs-6">Cancelled</span>
+        <span class="customer-status-pill danger">Cancelled</span>
       {% else %}
-        <span class="badge bg-secondary fs-6 text-uppercase">{{ order.order_status }}</span>
+        <span class="customer-status-pill secondary">Processing</span>
       {% endif %}
     </div>
   </div>
 
-  <!-- Dynamic 7-Stage Tracking Stepper -->
-  {% set is_cancelled = order.order_status in ('cancelled', 'rejected') %}
+  <div class="p-4 p-lg-5">
+    <!-- Step Completion Calculations -->
+    {% set is_cancelled = order.order_status in ('cancelled', 'rejected') %}
+    {% set st1_done = not is_cancelled %}
+    {% set st2_done = not is_cancelled and order.order_status in ('payment_verified', 'ready_for_dispatch', 'out_for_delivery', 'in_transit', 'delivered') %}
+    {% set st3_done = not is_cancelled and order.order_status in ('out_for_delivery', 'in_transit', 'delivered') %}
+    {% set st4_done = not is_cancelled and order.order_status == 'delivered' %}
 
-  <!-- Step Completion Status Calculations -->
-  {% set s1_done = not is_cancelled %}
-  {% set s2_done = not is_cancelled and order.order_status in ('awaiting_confirmation', 'schedule_confirmed', 'scheduled', 'out_for_delivery', 'in_transit', 'delivered') %}
-  {% set s2_active = not is_cancelled and order.order_status in ('pending', 'pending_scheduling', 'for_scheduling') %}
-
-  {% set s3_done = not is_cancelled and order.order_status in ('schedule_confirmed', 'scheduled', 'out_for_delivery', 'in_transit', 'delivered') %}
-  {% set s3_active = not is_cancelled and order.order_status == 'awaiting_confirmation' %}
-
-  {% set s4_done = not is_cancelled and order.order_status in ('schedule_confirmed', 'scheduled', 'out_for_delivery', 'in_transit', 'delivered') %}
-  {% set s4_active = false %}
-
-  {% set payment_done = payment and (payment.payment_status in ('verified', 'paid') or payment.method == 'cash' or payment.payment_status == 'pending') %}
-  {% set s5_done = not is_cancelled and (payment_done or order.order_status in ('out_for_delivery', 'in_transit', 'delivered')) %}
-  {% set s5_active = not is_cancelled and not s5_done and order.order_status in ('schedule_confirmed', 'scheduled') %}
-
-  {% set s6_done = not is_cancelled and order.order_status == 'delivered' %}
-  {% set s6_active = not is_cancelled and order.order_status in ('out_for_delivery', 'in_transit') %}
-
-  {% set s7_done = not is_cancelled and order.order_status == 'delivered' %}
-
-  <div class="row row-cols-2 row-cols-sm-4 row-cols-lg-7 g-2 my-3 text-center">
-    <!-- Stage 1: Order Submitted -->
-    <div class="col">
-      <div class="p-2 h-100 rounded border {% if s1_done %}border-success bg-light{% else %}bg-light opacity-50{% endif %}">
-        <div class="step-circle {% if s1_done %}bg-success text-white{% else %}bg-secondary text-white{% endif %} mx-auto mb-2">
+    <!-- 4-Stage High-Fidelity Tracking Stepper (Figma Node 172:9786) -->
+    <div class="customer-tracking-timeline">
+      <!-- Stage 1: Confirmed -->
+      <div class="customer-tracking-step {% if st1_done %}completed{% else %}active{% endif %}">
+        <div class="customer-tracking-dot">
           <i class="bi bi-check-lg"></i>
         </div>
-        <div class="fw-bold smaller text-dark">1. Order Submitted</div>
-        <div class="smaller text-success">Submitted</div>
+        <div class="customer-tracking-step-label">Confirmed</div>
+        <div class="customer-tracking-step-time">{{ order.created_at[:10] if order.created_at else 'Recorded' }}</div>
       </div>
-    </div>
 
-    <!-- Stage 2: Admin Scheduling -->
-    <div class="col">
-      <div class="p-2 h-100 rounded border {% if s2_done %}border-success bg-light{% elif s2_active %}border-primary bg-light shadow-sm{% else %}bg-light opacity-50{% endif %}">
-        <div class="step-circle {% if s2_done %}bg-success text-white{% elif s2_active %}bg-primary text-white{% else %}bg-secondary text-white{% endif %} mx-auto mb-2">
-          {% if s2_done %}<i class="bi bi-check-lg"></i>{% else %}2{% endif %}
+      <!-- Stage 2: Preparing -->
+      <div class="customer-tracking-step {% if st2_done %}completed{% elif st1_done and not st2_done %}active{% endif %}">
+        <div class="customer-tracking-dot">
+          {% if st2_done %}<i class="bi bi-check-lg"></i>{% else %}<i class="bi bi-box-seam"></i>{% endif %}
         </div>
-        <div class="fw-bold smaller text-dark">2. Admin Scheduling</div>
-        <div class="smaller {% if s2_done %}text-success{% elif s2_active %}text-primary fw-semibold{% else %}text-muted{% endif %}">
-          {% if s2_done %}Assigned{% elif s2_active %}Reviewing Fleet{% else %}Pending{% endif %}
+        <div class="customer-tracking-step-label">Preparing</div>
+        <div class="customer-tracking-step-time">
+          {% if st2_done %}Warehouse Prepared{% elif st1_done %}Staging Materials{% else %}Upcoming{% endif %}
         </div>
       </div>
-    </div>
 
-    <!-- Stage 3: Awaiting Customer Confirmation -->
-    <div class="col">
-      <div class="p-2 h-100 rounded border {% if s3_done %}border-success bg-light{% elif s3_active %}border-warning bg-warning bg-opacity-10 shadow-sm{% else %}bg-light opacity-50{% endif %}">
-        <div class="step-circle {% if s3_done %}bg-success text-white{% elif s3_active %}bg-warning text-dark{% else %}bg-secondary text-white{% endif %} mx-auto mb-2">
-          {% if s3_done %}<i class="bi bi-check-lg"></i>{% else %}3{% endif %}
+      <!-- Stage 3: In Transit -->
+      <div class="customer-tracking-step {% if st3_done %}completed{% elif st2_done and not st3_done %}active{% endif %}">
+        <div class="customer-tracking-dot">
+          {% if st3_done %}<i class="bi bi-check-lg"></i>{% else %}<i class="bi bi-truck"></i>{% endif %}
         </div>
-        <div class="fw-bold smaller text-dark">3. Customer Review</div>
-        <div class="smaller {% if s3_done %}text-success{% elif s3_active %}text-warning fw-semibold{% else %}text-muted{% endif %}">
-          {% if s3_done %}Accepted{% elif s3_active %}Confirm Schedule{% else %}Upcoming{% endif %}
+        <div class="customer-tracking-step-label">In Transit</div>
+        <div class="customer-tracking-step-time">
+          {% if st3_done %}En Route via GPS{% elif order.assigned_date %}Est. {{ order.assigned_date }}{% else %}Upcoming{% endif %}
         </div>
       </div>
-    </div>
 
-    <!-- Stage 4: Schedule Confirmed -->
-    <div class="col">
-      <div class="p-2 h-100 rounded border {% if s4_done %}border-success bg-light{% else %}bg-light opacity-50{% endif %}">
-        <div class="step-circle {% if s4_done %}bg-success text-white{% else %}bg-secondary text-white{% endif %} mx-auto mb-2">
-          {% if s4_done %}<i class="bi bi-check-lg"></i>{% else %}4{% endif %}
+      <!-- Stage 4: Delivered -->
+      <div class="customer-tracking-step {% if st4_done %}completed{% endif %}">
+        <div class="customer-tracking-dot">
+          {% if st4_done %}<i class="bi bi-check-lg"></i>{% else %}<i class="bi bi-pin-map"></i>{% endif %}
         </div>
-        <div class="fw-bold smaller text-dark">4. Schedule Confirmed</div>
-        <div class="smaller {% if s4_done %}text-success{% else %}text-muted{% endif %}">
-          {% if s4_done %}Locked{% else %}Upcoming{% endif %}
+        <div class="customer-tracking-step-label">Delivered</div>
+        <div class="customer-tracking-step-time">
+          {% if st4_done %}Delivered to Site{% else %}Pending Arrival{% endif %}
         </div>
       </div>
     </div>
 
-    <!-- Stage 5: Payment -->
-    <div class="col">
-      <div class="p-2 h-100 rounded border {% if s5_done %}border-success bg-light{% elif s5_active %}border-danger bg-danger bg-opacity-10 shadow-sm{% else %}bg-light opacity-50{% endif %}">
-        <div class="step-circle {% if s5_done %}bg-success text-white{% elif s5_active %}bg-danger text-white{% else %}bg-secondary text-white{% endif %} mx-auto mb-2">
-          {% if s5_done %}<i class="bi bi-check-lg"></i>{% else %}5{% endif %}
-        </div>
-        <div class="fw-bold smaller text-dark">5. Payment</div>
-        <div class="smaller {% if s5_done %}text-success{% elif s5_active %}text-danger fw-semibold{% else %}text-muted{% endif %}">
-          {% if s5_done %}Ready / Confirmed{% elif s5_active %}Pay Now{% else %}Locked{% endif %}
-        </div>
-      </div>
-    </div>
-
-    <!-- Stage 6: Out for Delivery -->
-    <div class="col">
-      <div class="p-2 h-100 rounded border {% if s6_done %}border-success bg-light{% elif s6_active %}border-primary bg-primary bg-opacity-10 shadow-sm{% else %}bg-light opacity-50{% endif %}">
-        <div class="step-circle {% if s6_done %}bg-success text-white{% elif s6_active %}bg-primary text-white{% else %}bg-secondary text-white{% endif %} mx-auto mb-2">
-          {% if s6_done %}<i class="bi bi-check-lg"></i>{% else %}6{% endif %}
-        </div>
-        <div class="fw-bold smaller text-dark">6. Out for Delivery</div>
-        <div class="smaller {% if s6_done %}text-success{% elif s6_active %}text-primary fw-semibold{% else %}text-muted{% endif %}">
-          {% if s6_done %}Departed{% elif s6_active %}En Route (GPS){% else %}Upcoming{% endif %}
-        </div>
-      </div>
-    </div>
-
-    <!-- Stage 7: Delivered -->
-    <div class="col">
-      <div class="p-2 h-100 rounded border {% if s7_done %}border-success bg-light{% else %}bg-light opacity-50{% endif %}">
-        <div class="step-circle {% if s7_done %}bg-success text-white{% else %}bg-secondary text-white{% endif %} mx-auto mb-2">
-          {% if s7_done %}<i class="bi bi-check-lg"></i>{% else %}7{% endif %}
-        </div>
-        <div class="fw-bold smaller text-dark">7. Delivered</div>
-        <div class="smaller {% if s7_done %}text-success fw-semibold{% else %}text-muted{% endif %}">
-          {% if s7_done %}Completed{% else %}Pending Arrival{% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- AWAITING CONFIRMATION ACTION CARD (Requirement 3) -->
-  {% if order.order_status == 'awaiting_confirmation' %}
-    <div class="card border-warning shadow-sm mt-3 mb-2">
-      <div class="card-header bg-warning bg-opacity-10 border-warning py-3">
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-calendar2-check-fill text-warning fs-5"></i>
-          <h5 class="fw-bold mb-0 text-dark">Review Proposed Delivery Schedule</h5>
-        </div>
-      </div>
-      <div class="card-body p-4">
-        <p class="text-dark small mb-3">
-          Our administrator has proposed a delivery schedule for your order. Please review the schedule and confirm whether it is convenient for you.
-        </p>
-
-        <div class="row g-3 bg-light p-3 rounded border mb-4">
-          <div class="col-sm-6 col-md-3">
-            <div class="smaller text-muted text-uppercase fw-bold">Order Number</div>
-            <div class="fw-bold text-dark fs-6">{{ order.order_code|order_code }}</div>
+    <!-- 2-Column Split: Delivery Info (Left) + Order Summary (Right) -->
+    <div class="row g-4 mt-4">
+      <!-- Left: Delivery Information (Figma Node 172:9832) -->
+      <div class="col-lg-6">
+        <div class="p-4 rounded h-100 border" style="background: #F3F6F9; border-color: #DDE5EC !important;">
+          <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom" style="border-color: #DDE5EC !important;">
+            <i class="bi bi-truck text-navy fs-5"></i>
+            <h5 class="fw-bold mb-0 text-navy">Delivery Information</h5>
           </div>
-          <div class="col-sm-6 col-md-3">
-            <div class="smaller text-muted text-uppercase fw-bold">Proposed Delivery Date</div>
-            <div class="fw-bold text-primary fs-6">{{ order.assigned_date }}</div>
-          </div>
-          <div class="col-sm-6 col-md-3">
-            <div class="smaller text-muted text-uppercase fw-bold">Proposed Time Slot</div>
-            <div class="fw-bold text-dark fs-6">{{ order.assigned_time_slot }}</div>
-          </div>
-          <div class="col-sm-6 col-md-3">
-            <div class="smaller text-muted text-uppercase fw-bold">Order Total</div>
-            <div class="fw-bold text-rml fs-6">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</div>
-          </div>
-          {% if delivery and delivery.truck_code %}
-            <div class="col-12 border-top pt-2">
-              <span class="smaller text-muted text-uppercase fw-bold">Assigned Logistics:</span>
-              <span class="small fw-semibold text-dark">{{ delivery.truck_code }} ({{ delivery.plate_number }})</span>
-              {% if delivery.driver_name %}&middot; <span class="small text-muted">Driver:</span> <span class="small fw-semibold text-dark">{{ delivery.driver_name }}</span>{% endif %}
-            </div>
-          {% endif %}
-        </div>
 
-        <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
-          <form method="POST" action="{{ url_for('main.customer_accept_schedule', order_id=order.id) }}" class="m-0">
-            <button type="submit" class="btn btn-success fw-semibold px-4 py-2">
-              <i class="bi bi-check-circle me-1"></i> ACCEPT SCHEDULE
-            </button>
-          </form>
-          <button type="button" class="btn btn-outline-danger px-4 py-2" data-bs-toggle="modal" data-bs-target="#cancelModal">
-            <i class="bi bi-x-circle me-1"></i> CANCEL ORDER
-          </button>
-        </div>
-      </div>
-    </div>
-  {% endif %}
-
-  <!-- SCHEDULE CONFIRMED BUT PAYMENT PENDING ACTION CARD (Requirement 4) -->
-  {% if order.order_status in ('schedule_confirmed', 'scheduled') and not payment %}
-    <div class="card border-primary shadow-sm mt-3 mb-2 bg-light">
-      <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <div>
-          <h5 class="fw-bold mb-1 text-dark"><i class="bi bi-credit-card text-rml me-2"></i>Complete Payment Selection</h5>
-          <p class="text-muted small mb-0">
-            You have approved the delivery schedule on <strong>{{ order.assigned_date }} ({{ order.assigned_time_slot }})</strong>. Please select your payment method (Cash on Delivery or Online QR) to enable warehouse staging.
-          </p>
-        </div>
-        <a href="{{ url_for('main.customer_payment', order_id=order.id, step=1) }}" class="btn btn-rml px-4 py-2 fw-semibold">
-          Select Payment Method &rarr;
-        </a>
-      </div>
-    </div>
-  {% endif %}
-
-  <div class="row g-4 mt-3">
-    <!-- Delivery Information Column -->
-    <div class="col-md-6">
-      <div class="bg-light rounded p-4 h-100 border">
-        <h6 class="fw-bold mb-3"><i class="bi bi-truck text-rml me-2"></i>Delivery Details</h6>
-        
-        <div class="small text-muted fw-semibold">DELIVERY SCHEDULE</div>
-        {% if order.assigned_date %}
-          <div class="fw-bold text-dark fs-6 mb-1">{{ order.assigned_date }} &middot; {{ order.assigned_time_slot }}</div>
-          {% if order.schedule_status == 'accepted' %}
-            <span class="badge bg-success-subtle text-success border border-success-subtle smaller mb-3"><i class="bi bi-check2"></i> Confirmed by Customer</span>
-          {% elif order.order_status == 'awaiting_confirmation' %}
-            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle smaller mb-3"><i class="bi bi-clock"></i> Awaiting Your Confirmation</span>
-          {% endif %}
-        {% else %}
-          <div class="text-muted small mb-3"><i class="bi bi-hourglass me-1"></i> Pending admin schedule assignment.</div>
-        {% endif %}
-
-        <div class="small text-muted fw-semibold mt-2">DRIVER &amp; VEHICLE DETAILS</div>
-        {% if delivery and delivery.driver_name and order.order_status not in ('pending', 'pending_scheduling') %}
-          <div class="d-flex align-items-center gap-2 mb-3 mt-1">
-            <div class="bg-dark text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
-              <i class="bi bi-person"></i>
-            </div>
-            <div>
-              <div class="fw-bold">{{ delivery.driver_name }}</div>
-              <div class="small text-muted">{{ delivery.driver_phone or 'Direct dispatch' }} &middot; Plate: {{ delivery.plate_number }} ({{ delivery.truck_code }})</div>
-            </div>
-          </div>
-        {% else %}
-          <div class="text-muted small mb-3">Vehicle and driver assignment will appear once approved.</div>
-        {% endif %}
-
-        <div class="small text-muted fw-semibold">SHIPPING ADDRESS</div>
-        <div class="fw-semibold mb-2">{{ order.delivery_address }}</div>
-
-        {% if order.special_instructions %}
-          <div class="small text-muted fw-semibold mt-2">SITE INSTRUCTIONS</div>
-          <div class="small text-muted">{{ order.special_instructions }}</div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Order & Payment Summary Column -->
-    <div class="col-md-6">
-      <div class="p-4 border rounded h-100 bg-white">
-        <h6 class="fw-bold mb-3"><i class="bi bi-box-seam text-rml me-2"></i>Order Summary</h6>
-        {% for item in items %}
-        <div class="d-flex justify-content-between small mb-2">
-          <span>{{ item.quantity }} {{ item.unit }} {{ item.name }}</span>
-          <span class="fw-semibold">&#8369;{{ "{:,.2f}".format(item.subtotal) }}</span>
-        </div>
-        {% endfor %}
-        <hr>
-        <div class="d-flex justify-content-between small text-muted mb-1">
-          <span>Subtotal</span>
-          <span>&#8369;{{ "{:,.2f}".format(order.subtotal) }}</span>
-        </div>
-        <div class="d-flex justify-content-between small text-muted mb-2">
-          <span>Delivery &amp; Tax (12% VAT)</span>
-          <span>&#8369;{{ "{:,.2f}".format(order.delivery_fee + order.vat_amount) }}</span>
-        </div>
-        <div class="d-flex justify-content-between fw-bold fs-5 pt-2 border-top">
-          <span>Total Amount</span>
-          <span class="text-rml">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</span>
-        </div>
-
-        <!-- Payment Details: Only shown AFTER schedule is approved / payment initiated -->
-        {% if payment and order.order_status not in ('pending', 'pending_scheduling', 'for_scheduling', 'awaiting_confirmation') %}
-          <div class="mt-3 p-3 bg-light rounded border small">
-            <div class="fw-bold text-dark mb-1">Payment Details:</div>
-            <div class="d-flex align-items-center gap-2">
-              <span class="badge text-bg-light border">
-                {% if payment.method == 'cash' %}Cash on Delivery (COD){% elif payment.method == 'qr' %}Online QR Payment{% else %}{{ payment.method|upper }}{% endif %}
-              </span>
-              <span class="badge {% if payment.payment_status == 'verified' %}badge-instock{% else %}badge-check{% endif %}">
-                {{ payment.payment_status|title }}
-              </span>
-              {% if payment.reference_number %}
-                <span class="text-muted smaller">Ref: {{ payment.reference_number }}</span>
+          <div class="mb-3">
+            <div class="text-muted smaller text-uppercase fw-bold">Estimated Delivery Window</div>
+            <div class="fw-bold text-navy fs-6">
+              {% if order.assigned_date %}
+                {{ order.assigned_date }} &middot; {{ order.assigned_time_slot }}
+              {% else %}
+                <span class="text-muted fw-normal">Pending fleet schedule assignment</span>
               {% endif %}
             </div>
           </div>
-        {% elif order.order_status in ('pending', 'pending_scheduling', 'for_scheduling', 'awaiting_confirmation') %}
-          <div class="mt-3 p-2 bg-light rounded border smaller text-muted text-center">
-            <i class="bi bi-shield-lock me-1"></i> Payment selection unlocks after delivery schedule confirmation.
+
+          <div class="mb-3">
+            <div class="text-muted smaller text-uppercase fw-bold mb-1">Driver &amp; Fleet Logistics</div>
+            {% if delivery and delivery.driver_name and order.order_status not in ('pending', 'pending_scheduling') %}
+              <div class="d-flex align-items-center gap-3 p-2 bg-white rounded border">
+                <div class="bg-navy text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; background: #142235;">
+                  <i class="bi bi-person-fill fs-5"></i>
+                </div>
+                <div>
+                  <div class="fw-bold text-navy">{{ delivery.driver_name }}</div>
+                  <div class="smaller text-muted">
+                    <i class="bi bi-telephone me-1"></i>{{ delivery.driver_phone or 'Direct dispatch' }} &middot; Plate: <span class="fw-semibold text-dark">{{ delivery.plate_number }}</span> ({{ delivery.truck_code }})
+                  </div>
+                </div>
+              </div>
+            {% else %}
+              <div class="small text-muted p-2 bg-white rounded border">
+                <i class="bi bi-info-circle me-1"></i> Vehicle and driver details will appear once scheduled and authorized.
+              </div>
+            {% endif %}
           </div>
-        {% endif %}
+
+          <div class="mb-2">
+            <div class="text-muted smaller text-uppercase fw-bold">Shipping Destination</div>
+            <div class="fw-semibold text-dark">{{ order.delivery_address }}</div>
+            {% if order.recipient_name %}
+              <div class="smaller text-muted mt-1">Recipient: {{ order.recipient_name }} &middot; {{ order.phone }}</div>
+            {% endif %}
+          </div>
+
+          {% if order.special_instructions %}
+          <div class="mt-3 pt-2 border-top" style="border-color: #DDE5EC !important;">
+            <div class="text-muted smaller text-uppercase fw-bold">Site Instructions</div>
+            <div class="small text-muted">{{ order.special_instructions }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Right: Order Summary (Figma Node 172:9861) -->
+      <div class="col-lg-6">
+        <div class="p-4 rounded h-100 border bg-white" style="border-color: #DDE5EC !important;">
+          <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom" style="border-color: #DDE5EC !important;">
+            <i class="bi bi-box-seam text-navy fs-5"></i>
+            <h5 class="fw-bold mb-0 text-navy">Order Summary</h5>
+          </div>
+
+          {% for item in items %}
+          <div class="d-flex justify-content-between align-items-start py-2 border-bottom" style="border-color: #F1F5F9 !important;">
+            <div>
+              <div class="fw-semibold text-navy small">{{ item.quantity }} {{ item.unit }} {{ item.name }}</div>
+              <div class="smaller text-muted">&#8369;{{ "{:,.2f}".format(item.unit_price) }} / {{ item.unit }}</div>
+            </div>
+            <div class="fw-bold text-navy small">&#8369;{{ "{:,.2f}".format(item.subtotal) }}</div>
+          </div>
+          {% endfor %}
+
+          <div class="mt-3">
+            <div class="d-flex justify-content-between smaller text-muted mb-1">
+              <span>Subtotal</span>
+              <span>&#8369;{{ "{:,.2f}".format(order.subtotal) }}</span>
+            </div>
+            <div class="d-flex justify-content-between smaller text-muted mb-2">
+              <span>Delivery &amp; Tax (12% VAT)</span>
+              <span>&#8369;{{ "{:,.2f}".format(order.delivery_fee + order.vat_amount) }}</span>
+            </div>
+            <div class="d-flex justify-content-between fw-bold fs-5 pt-2 border-top" style="border-color: #DDE5EC !important;">
+              <span class="text-navy">Total Amount</span>
+              <span class="text-rml">&#8369;{{ "{:,.2f}".format(order.total_amount) }}</span>
+            </div>
+            <div class="smaller text-muted italic mt-2">
+              <i class="bi bi-wallet2 me-1"></i> Payment Method: 
+              <strong>
+                {% if order.payment_method == 'cash' %}Cash on Delivery (COD)
+                {% elif order.payment_method == 'qr' %}Online QR Payment
+                {% elif payment %}{{ payment.method|title }}
+                {% else %}Pending Settlement{% endif %}
+              </strong>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Real-Time GPS Tracking Map (Active when dispatched or delivered) -->
-<div class="card border-0 shadow-sm p-4 mb-4">
-  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<!-- Real-Time GPS Tracking Map (Figma Node 172:9907) -->
+<div class="customer-portal-card p-4 mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 pb-2 border-bottom">
     <div>
-      <h5 class="fw-bold mb-0"><i class="bi bi-geo-alt-fill text-rml me-2"></i>Real-Time GPS Tracking</h5>
-      <div class="small text-muted">Tracking Lipa City delivery fleet live location</div>
+      <h5 class="fw-bold mb-0 text-navy"><i class="bi bi-geo-alt-fill text-rml me-2"></i>Real-Time Fleet GPS Tracking</h5>
+      <div class="smaller text-muted">Live dispatch transit map &middot; Lipa City to Site Destination</div>
     </div>
     {% if order.order_status in ('out_for_delivery', 'in_transit') %}
-      <span class="badge bg-primary text-white">Live &middot; Auto-refreshing every 5s</span>
+      <span class="customer-status-pill primary"><i class="bi bi-broadcast"></i> Live in Transit &middot; Updating every 5s</span>
     {% else %}
-      <span class="badge text-bg-light border">Fleet GPS Standby</span>
+      <span class="customer-status-pill secondary"><i class="bi bi-shield-check"></i> Fleet GPS Standby</span>
     {% endif %}
   </div>
 
-  <div id="trackingMap" class="gps-map"></div>
+  <div id="trackingMap" class="gps-map" style="height: 380px; border-radius: 8px; border: 1px solid #DDE5EC;"></div>
 
   <div class="d-flex justify-content-between mt-3 flex-wrap gap-2">
-    <a href="{{ url_for('main.customer_orders') }}" class="btn btn-outline-secondary btn-sm">
-      &larr; Back to My Orders
+    <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-outline-dark btn-sm fw-semibold">
+      <i class="bi bi-arrow-left me-1"></i> Back to Catalog
     </a>
-    <button type="button" class="btn btn-rml btn-sm" onclick="location.reload();">
-      <i class="bi bi-arrow-clockwise me-1"></i> Refresh Location
+    <button type="button" class="btn btn-rml btn-sm fw-semibold shadow-sm" onclick="location.reload();">
+      <i class="bi bi-arrow-clockwise me-1"></i> Refresh Live GPS
     </button>
   </div>
 </div>
@@ -454,28 +408,28 @@
 {% if order.order_status in ('pending', 'pending_scheduling', 'for_scheduling', 'awaiting_confirmation') %}
   <div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
+      <div class="modal-content border-0 shadow">
         <form method="POST" action="{{ url_for('main.customer_cancel_order', order_id=order.id) }}">
-          <div class="modal-header">
+          <div class="modal-header border-bottom py-3">
             <h5 class="modal-title fw-bold text-danger" id="cancelModalLabel">
               <i class="bi bi-exclamation-triangle-fill me-1"></i> Cancel Order {{ order.order_code|order_code }}
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body">
-            <p class="mb-3">
+          <div class="modal-body p-4">
+            <p class="mb-3 text-dark">
               Are you sure you want to cancel this order?
               {% if order.order_status == 'awaiting_confirmation' %}
                 If the proposed delivery schedule on <strong>{{ order.assigned_date }} ({{ order.assigned_time_slot }})</strong> is not convenient, you may cancel it now.
               {% endif %}
               Any reserved trucks, drivers, and delivery slots will be released immediately.
             </p>
-            <div class="mb-3">
-              <label class="form-label small fw-semibold">Cancellation Reason</label>
-              <textarea name="cancellation_reason" class="form-control form-control-sm" rows="2" placeholder="e.g. Schedule is not convenient, found alternative, or site unavailable..."></textarea>
+            <div class="mb-2">
+              <label class="form-label small fw-semibold text-dark">Cancellation Reason</label>
+              <textarea name="cancellation_reason" class="form-control form-control-sm" rows="3" placeholder="e.g. Schedule is not convenient, found alternative, or site unavailable..."></textarea>
             </div>
           </div>
-          <div class="modal-footer">
+          <div class="modal-footer border-top py-3">
             <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Keep Order</button>
             <button type="submit" class="btn btn-danger btn-sm fw-semibold">Confirm Cancellation</button>
           </div>

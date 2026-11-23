@@ -1,112 +1,269 @@
 {% extends "base.html" %}
-{% block title %}Admin Overview · RML Construction Supply{% endblock %}
+{% block title %}Admin Operations Dashboard · RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-  <div class="text-muted small">Ops Console &middot; Dashboard</div>
-  <h2 class="fw-bold mb-1">Admin overview</h2>
-  <p class="text-muted small">Oversee customer activity, inventory levels, orders, and driver deliveries from one central workspace.</p>
+<div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <div class="text-muted smaller text-uppercase fw-bold">Ops Console &middot; Overview</div>
+    <h2 class="fw-bold mb-0 text-navy" style="font-size: 1.5rem;">Executive Operations Dashboard</h2>
+    <p class="text-muted small mb-0">Oversee customer accounts, yard inventory, scheduling queues, and fleet dispatches.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{{ url_for('main.admin_orders', tab='pending') }}" class="btn btn-rml btn-sm shadow-sm">
+      <i class="bi bi-clock-history me-1"></i> Orders Queue ({{ pending_orders }})
+    </a>
+    <a href="{{ url_for('main.admin_inventory') }}" class="btn btn-outline-dark btn-sm">
+      <i class="bi bi-box-seam me-1"></i> Yard Inventory
+    </a>
+    <a href="{{ url_for('main.admin_deliveries') }}" class="btn btn-outline-dark btn-sm">
+      <i class="bi bi-truck me-1"></i> Fleet &amp; GPS
+    </a>
+  </div>
 </div>
 
-<!-- Quick Actions -->
-<div class="d-flex flex-wrap gap-2 mb-4">
-  <a href="{{ url_for('main.admin_inventory') }}" class="btn btn-outline-dark btn-sm">
-    <i class="bi bi-box-arrow-in-down me-1"></i> Log Stock Movement
-  </a>
-  <a href="{{ url_for('main.admin_orders') }}" class="btn btn-rml btn-sm">
-    <i class="bi bi-receipt me-1"></i> Go to Orders
-  </a>
-  <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-shop me-1"></i> Customer Workspace
-  </a>
-  <a href="{{ url_for('main.driver_schedule') }}" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-truck me-1"></i> Driver Workspace
-  </a>
-</div>
-
-<!-- 6 KPI Cards -->
+<!-- Primary 4-Column KPI Metric Cards (Figma Reference Layout) -->
 <div class="row g-3 mb-4">
-  <div class="col-sm-6 col-md-4">
+  <div class="col-sm-6 col-xl-3">
     <div class="card border-0 shadow-sm p-3 h-100">
-      <div class="text-muted small">Orders Pending Approval</div>
-      <div class="fs-2 fw-bold text-dark my-1">{{ pending_orders }}</div>
-      <div class="small text-muted">Awaiting stock verification</div>
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted smaller fw-bold text-uppercase">Total Catalog Items</span>
+        <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle text-primary rounded-2" style="width: 32px; height: 32px;">
+          <i class="bi bi-box-seam fs-6"></i>
+        </div>
+      </div>
+      <div class="fs-3 fw-bold text-navy my-1">{{ total_products }}</div>
+      <div class="smaller text-muted d-flex justify-content-between align-items-center">
+        <span>Active yard catalog materials</span>
+        <a href="{{ url_for('main.admin_inventory') }}" class="text-rml fw-semibold text-decoration-none">Manage &rarr;</a>
+      </div>
     </div>
   </div>
-  <div class="col-sm-6 col-md-4">
+
+  <div class="col-sm-6 col-xl-3">
     <div class="card border-0 shadow-sm p-3 h-100">
-      <div class="text-muted small">Low-Stock Items</div>
-      <div class="fs-2 fw-bold text-warning my-1">{{ low_stock }}</div>
-      <div class="small text-muted">Under reorder threshold</div>
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted smaller fw-bold text-uppercase">Verified Customers</span>
+        <div class="d-inline-flex align-items-center justify-content-center bg-success-subtle text-success rounded-2" style="width: 32px; height: 32px;">
+          <i class="bi bi-people fs-6"></i>
+        </div>
+      </div>
+      <div class="fs-3 fw-bold text-navy my-1">{{ total_customers }}</div>
+      <div class="smaller text-muted d-flex justify-content-between align-items-center">
+        <span>Contractors &amp; site owners</span>
+        <a href="{{ url_for('main.admin_customers') }}" class="text-rml fw-semibold text-decoration-none">View All &rarr;</a>
+      </div>
     </div>
   </div>
-  <div class="col-sm-6 col-md-4">
+
+  <div class="col-sm-6 col-xl-3">
     <div class="card border-0 shadow-sm p-3 h-100">
-      <div class="text-muted small">Deliveries In Progress</div>
-      <div class="fs-2 fw-bold text-primary my-1">{{ in_progress_deliveries }}</div>
-      <div class="small text-muted">Trucks active or loading</div>
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted smaller fw-bold text-uppercase">Pending Orders</span>
+        <div class="d-inline-flex align-items-center justify-content-center {% if pending_orders > 0 %}bg-warning-subtle text-warning-emphasis{% else %}bg-light text-muted{% endif %} rounded-2" style="width: 32px; height: 32px;">
+          <i class="bi bi-receipt fs-6"></i>
+        </div>
+      </div>
+      <div class="fs-3 fw-bold {% if pending_orders > 0 %}text-danger{% else %}text-navy{% endif %} my-1">{{ pending_orders }}</div>
+      <div class="smaller text-muted d-flex justify-content-between align-items-center">
+        <span>Awaiting scheduling / review</span>
+        <a href="{{ url_for('main.admin_orders', tab='pending') }}" class="text-rml fw-semibold text-decoration-none">Review &rarr;</a>
+      </div>
     </div>
   </div>
-  <div class="col-sm-6 col-md-4">
+
+  <div class="col-sm-6 col-xl-3">
     <div class="card border-0 shadow-sm p-3 h-100">
-      <div class="text-muted small">Total Stock-In Logged</div>
-      <div class="fs-2 fw-bold text-success my-1">{{ stock_in }}</div>
-      <div class="small text-muted">Units restocked</div>
-    </div>
-  </div>
-  <div class="col-sm-6 col-md-4">
-    <div class="card border-0 shadow-sm p-3 h-100">
-      <div class="text-muted small">Total Stock-Out Logged</div>
-      <div class="fs-2 fw-bold text-secondary my-1">{{ stock_out }}</div>
-      <div class="small text-muted">Units fulfilled or adjusted</div>
-    </div>
-  </div>
-  <div class="col-sm-6 col-md-4">
-    <div class="card border-0 shadow-sm p-3 h-100">
-      <div class="text-muted small">Payments Recorded</div>
-      <div class="fs-2 fw-bold text-dark my-1">{{ payments_count }}</div>
-      <div class="small text-muted">Cash &amp; QR transactions</div>
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted smaller fw-bold text-uppercase">Active Deliveries</span>
+        <div class="d-inline-flex align-items-center justify-content-center bg-info-subtle text-info-emphasis rounded-2" style="width: 32px; height: 32px;">
+          <i class="bi bi-truck fs-6"></i>
+        </div>
+      </div>
+      <div class="fs-3 fw-bold text-navy my-1">{{ in_progress_deliveries }}</div>
+      <div class="smaller text-muted d-flex justify-content-between align-items-center">
+        <span>Assigned &amp; en route trucks</span>
+        <a href="{{ url_for('main.admin_deliveries') }}" class="text-rml fw-semibold text-decoration-none">Track &rarr;</a>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Oversight Cards -->
-<h5 class="fw-bold mb-3">Customer &amp; driver oversight</h5>
-<div class="row g-3">
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm p-3 h-100">
-      <h6 class="fw-bold mb-1">Customer orders &amp; approvals</h6>
-      <p class="text-muted small mb-3">Review incoming customer orders and verify stock availability before approving.</p>
-      <a href="{{ url_for('main.admin_orders', tab='pending') }}" class="text-rml text-decoration-none small fw-semibold mt-auto">
-        {{ pending_orders }} pending review &rarr;
-      </a>
+<!-- Secondary Metrics Strip -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-lg-3">
+    <div class="card border p-3 bg-white">
+      <div class="smaller text-muted">Confirmed Revenue</div>
+      <div class="fs-4 fw-bold text-rml my-1">&#8369;{{ "{:,.2f}".format(total_revenue) }}</div>
+      <div class="smaller text-muted">From verified &amp; delivered dispatches</div>
     </div>
   </div>
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm p-3 h-100">
-      <h6 class="fw-bold mb-1">Low-Stock Alerts</h6>
-      <p class="text-muted small mb-3">Review replenishment and log restock for low-inventory materials.</p>
-      <a href="{{ url_for('main.admin_inventory') }}" class="text-rml text-decoration-none small fw-semibold mt-auto">
-        Items: {{ low_stock }} under threshold &rarr;
-      </a>
+
+  <div class="col-sm-6 col-lg-3">
+    <div class="card border p-3 bg-white">
+      <div class="smaller text-muted">Low-Stock Warnings</div>
+      <div class="fs-4 fw-bold {% if low_stock > 0 %}text-warning{% else %}text-dark{% endif %} my-1">{{ low_stock }} items</div>
+      <div class="smaller text-muted">Materials below reorder point</div>
     </div>
   </div>
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm p-3 h-100">
-      <h6 class="fw-bold mb-1">Driver activity &amp; dispatch</h6>
-      <p class="text-muted small mb-3">Assign delivery trucks and monitor real-time GPS locations across Lipa.</p>
-      <a href="{{ url_for('main.admin_deliveries') }}" class="text-rml text-decoration-none small fw-semibold mt-auto">
-        {{ ready_dispatch }} orders ready to dispatch &rarr;
-      </a>
+
+  <div class="col-sm-6 col-lg-3">
+    <div class="card border p-3 bg-white">
+      <div class="smaller text-muted">Total Stock Restocked</div>
+      <div class="fs-4 fw-bold text-success my-1">{{ "{:,}".format(stock_in) }} units</div>
+      <div class="smaller text-muted">Inbound warehouse logs</div>
     </div>
   </div>
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm p-3 h-100">
-      <h6 class="fw-bold mb-1">Cash &amp; QR verification</h6>
-      <p class="text-muted small mb-3">Review cash collections and verify electronic bank/e-wallet transfer references.</p>
-      <a href="{{ url_for('main.admin_payments') }}" class="text-rml text-decoration-none small fw-semibold mt-auto">
-        Awaiting {{ pending_receipts }} receipts &rarr;
-      </a>
+
+  <div class="col-sm-6 col-lg-3">
+    <div class="card border p-3 bg-white">
+      <div class="smaller text-muted">Pending QR Verifications</div>
+      <div class="fs-4 fw-bold {% if pending_receipts > 0 %}text-danger{% else %}text-dark{% endif %} my-1">{{ pending_receipts }} payments</div>
+      <div class="smaller text-muted">
+        <a href="{{ url_for('main.admin_payments', tab='awaiting') }}" class="text-rml text-decoration-none">Verify receipts &rarr;</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main 2-Column Content Area (Data Tables & Fleet Oversight) -->
+<div class="row g-4 mb-4">
+  <!-- Left Column: Recent Orders Table -->
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm overflow-hidden h-100">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-receipt text-rml fs-5"></i>
+          <h5 class="fw-bold mb-0 text-navy">Recent Customer Orders</h5>
+        </div>
+        <a href="{{ url_for('main.admin_orders') }}" class="smaller text-rml fw-semibold text-decoration-none">
+          View All Orders &rarr;
+        </a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Order</th>
+              <th>Customer</th>
+              <th>Delivery Slot</th>
+              <th>Total</th>
+              <th>Payment</th>
+              <th>Status</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for o in recent_orders %}
+            <tr>
+              <td class="fw-bold">{{ o.order_code|order_code }}</td>
+              <td>
+                <div class="fw-semibold text-dark">{{ o.customer_name }}</div>
+                <div class="smaller text-muted text-truncate" style="max-width: 140px;">{{ o.delivery_address }}</div>
+              </td>
+              <td>
+                {% if o.assigned_date %}
+                  <div class="fw-semibold small text-dark">{{ o.assigned_date }}</div>
+                  <div class="smaller text-muted">{{ o.assigned_time_slot }}</div>
+                {% else %}
+                  <span class="badge text-bg-light border text-muted smaller">Not Assigned</span>
+                {% endif %}
+              </td>
+              <td class="fw-semibold">&#8369;{{ "{:,.2f}".format(o.total_amount) }}</td>
+              <td>
+                {% if o.payment_method %}
+                  <span class="badge {% if o.payment_status in ('verified', 'paid') %}badge-instock{% elif o.payment_status == 'payment_due' %}bg-info text-dark{% else %}badge-check{% endif %} smaller">
+                    {{ 'COD' if o.payment_method == 'cash' else 'QR' }} &middot; {{ o.payment_status|title }}
+                  </span>
+                {% else %}
+                  <span class="badge text-bg-light border text-muted smaller">Unpaid</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if o.order_status in ('pending', 'pending_scheduling') %}
+                  <span class="badge badge-check smaller">Pending Scheduling</span>
+                {% elif o.order_status == 'for_scheduling' %}
+                  <span class="badge bg-info text-dark smaller">For Scheduling</span>
+                {% elif o.order_status == 'awaiting_confirmation' %}
+                  <span class="badge bg-warning text-dark smaller">Awaiting Customer</span>
+                {% elif o.order_status in ('scheduled', 'schedule_confirmed') %}
+                  <span class="badge bg-secondary text-white smaller">Schedule Confirmed</span>
+                {% elif o.order_status == 'payment_verified' %}
+                  <span class="badge bg-primary text-white smaller">Ready to Authorize</span>
+                {% elif o.order_status == 'ready_for_dispatch' %}
+                  <span class="badge bg-success text-white smaller">Authorized &middot; Ready</span>
+                {% elif o.order_status in ('out_for_delivery', 'in_transit') %}
+                  <span class="badge badge-transit smaller">Out for Delivery</span>
+                {% elif o.order_status == 'delivered' %}
+                  <span class="badge badge-instock smaller">Delivered</span>
+                {% else %}
+                  <span class="badge bg-secondary smaller text-uppercase">{{ o.order_status }}</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <a href="{{ url_for('main.admin_orders') }}" class="btn btn-sm btn-outline-dark py-1 px-2 smaller">
+                  Review &rarr;
+                </a>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="7" class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-2 d-block mb-1"></i>
+                No order activity recorded.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Active Fleet & Dispatch Activity -->
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+        <h5 class="fw-bold mb-0 text-navy"><i class="bi bi-truck text-rml me-2"></i>Fleet Oversight</h5>
+        <a href="{{ url_for('main.admin_deliveries') }}" class="smaller text-rml fw-semibold text-decoration-none">
+          Live Map &rarr;
+        </a>
+      </div>
+
+      <div class="d-flex flex-column gap-3">
+        {% for d in recent_deliveries %}
+        <div class="p-3 bg-light rounded border">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <strong class="text-dark small">{{ d.order_code|order_code }}</strong>
+            <span class="badge {% if d.delivery_status == 'delivered' %}badge-instock{% elif d.delivery_status in ('en_route', 'out_for_delivery') %}badge-transit{% else %}badge-check{% endif %} smaller">
+              {{ d.delivery_status|replace('_', ' ')|title }}
+            </span>
+          </div>
+          <div class="smaller text-muted mb-2">
+            <i class="bi bi-truck text-rml me-1"></i> {{ d.truck_code or 'Truck Unassigned' }} &middot; Driver: {{ d.driver_name or 'Pending' }}
+          </div>
+          <div class="smaller text-secondary text-truncate">
+            <i class="bi bi-geo-alt me-1"></i> {{ d.delivery_address }}
+          </div>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted small">
+          <i class="bi bi-calendar2-check fs-2 d-block mb-1"></i>
+          No active fleet dispatches right now.
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="d-flex flex-column gap-2 mt-4 pt-3 border-top">
+        <a href="{{ url_for('main.admin_delivery_availability') }}" class="btn btn-outline-dark btn-sm text-start py-2">
+          <i class="bi bi-calendar2-range me-2 text-rml"></i> Manage Delivery Availability Rules
+        </a>
+        <a href="{{ url_for('main.admin_payments') }}" class="btn btn-outline-dark btn-sm text-start py-2">
+          <i class="bi bi-credit-card me-2 text-rml"></i> Payment Verification Queue ({{ pending_receipts }})
+        </a>
+        <a href="{{ url_for('main.admin_reports') }}" class="btn btn-outline-dark btn-sm text-start py-2">
+          <i class="bi bi-bar-chart-line me-2 text-rml"></i> View Reports &amp; Analytics
+        </a>
+      </div>
     </div>
   </div>
 </div>

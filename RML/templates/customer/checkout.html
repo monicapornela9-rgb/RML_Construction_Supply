@@ -2,109 +2,136 @@
 {% block title %}Checkout - RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-  <div class="text-muted small">Customer Portal &middot; Checkout</div>
-  <h2 class="fw-bold mb-1">Checkout</h2>
-  <p class="text-muted small">Review your order details and delivery information.</p>
+<div class="customer-portal-header">
+  <div class="text-muted smaller mb-1">
+    <a href="{{ url_for('main.customer_dashboard') }}" class="text-decoration-none text-muted">Customer Portal</a>
+    <span class="mx-1">&middot;</span>
+    <a href="{{ url_for('main.customer_cart') }}" class="text-decoration-none text-muted">Shopping Cart</a>
+    <span class="mx-1">&middot;</span>
+    <span class="text-dark fw-semibold">Checkout</span>
+  </div>
+  <h1 class="customer-portal-title">Checkout</h1>
+  <p class="customer-portal-subtitle">Review your order details and confirm delivery schedule.</p>
 </div>
 
 <div class="row g-4">
-  <!-- Shipping Details Form -->
+  <!-- Left Column: Shipping & Delivery Details (Figma Node 172:7167) -->
   <div class="col-lg-7">
-    <div class="card border-0 shadow-sm p-4">
-      <h5 class="fw-bold mb-3"><i class="bi bi-truck me-2 text-rml"></i>Shipping Details</h5>
+    <div class="customer-portal-card">
+      <div class="customer-portal-card-header">
+        <h2 class="customer-portal-card-title">
+          <i class="bi bi-geo-alt text-rml"></i> Delivery &amp; Site Details
+        </h2>
+        <span class="smaller text-muted">Direct Jobsite Dispatch</span>
+      </div>
+
       <form method="POST" action="{{ url_for('main.customer_checkout') }}" id="checkoutForm">
         <div class="row g-3">
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Recipient / Company Name *</label>
-            <input type="text" name="recipient_name" value="{{ user.name if user else '' }}" class="form-control" required placeholder="Full Name or Company">
+            <label class="figma-auth-label" for="recipientName">Recipient Name <span class="text-danger">*</span></label>
+            <input type="text" name="recipient_name" id="recipientName" value="{{ user.name if user else '' }}"
+                   class="figma-auth-input" required placeholder="Project Engineer / Contractor Name">
           </div>
+
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Phone Number *</label>
-            <input type="tel" name="phone" value="{{ user.phone if user else '' }}" class="form-control" required placeholder="0917 123 4567">
+            <label class="figma-auth-label" for="recipientPhone">Phone Number <span class="text-danger">*</span></label>
+            <input type="tel" name="phone" id="recipientPhone" value="{{ user.phone if user else '' }}"
+                   class="figma-auth-input" required placeholder="0917 123 4567">
           </div>
+
           <div class="col-12">
-            <label class="form-label small fw-semibold">Delivery Address *</label>
-            <input type="text" name="delivery_address" value="{{ user.address if user else '' }}" class="form-control" required placeholder="Street Name, Building, Barangay, Lipa City, Batangas">
+            <label class="figma-auth-label" for="deliveryAddress">Delivery Address <span class="text-danger">*</span></label>
+            <input type="text" name="delivery_address" id="deliveryAddress" value="{{ user.address if user else '' }}"
+                   class="figma-auth-input" required placeholder="Street Name, Barangay, City, Batangas Province">
           </div>
+
           <div class="col-12">
-            <label class="form-label small fw-semibold">Special Site Instructions (Optional)</label>
-            <textarea name="special_instructions" class="form-control" rows="2" placeholder="Landmark, gate access, unloading spot, or site safety contact..."></textarea>
-          </div>
-          <div class="col-12">
-            <div class="p-3 bg-light rounded border d-flex align-items-start gap-2">
-              <i class="bi bi-calendar2-check text-rml fs-5 mt-1"></i>
-              <div class="small">
-                <strong class="text-dark">Admin-Assigned Delivery Schedule</strong>
-                <p class="text-muted mb-0">To ensure prompt dispatch and avoid booking conflicts, RML dispatch will review your order and assign an available delivery date, time slot, and truck. You will receive a notification to review and confirm the proposed schedule in <strong>My Orders</strong>.</p>
-              </div>
-            </div>
+            <label class="figma-auth-label" for="siteInstructions">Special Site Instructions (Optional)</label>
+            <textarea name="special_instructions" id="siteInstructions" class="form-control" rows="2"
+                      placeholder="Specific drop-off zone, landmark, contact person at gate, truck access notes..."></textarea>
           </div>
         </div>
       </form>
+    </div>
 
-      <div class="mt-4 p-3 bg-light rounded small text-muted border">
-        <strong class="text-dark"><i class="bi bi-clock-history me-1 text-rml"></i>Next Step: Admin Review &amp; Delivery Scheduling</strong><br>
-        After you submit your order, our administrator will review your site details and assign an available delivery schedule. Once you approve the proposed schedule in <strong>My Orders</strong>, you will proceed to payment.
-      </div>
+    <!-- Next Step Advisory Card (Figma Node 172:7247) -->
+    <div class="customer-portal-card bg-light border-0">
+      <h3 class="fw-bold text-navy fs-6 mb-2">
+        <i class="bi bi-info-circle text-primary me-1"></i> Next: choose your payment method
+      </h3>
+      <p class="small text-muted mb-0">
+        Cash on Delivery or online QR payment is available on the separate Payments page. Your delivery schedule and dispatch slot are verified immediately upon submission.
+      </p>
     </div>
   </div>
 
-  <!-- Order Summary Card -->
+  <!-- Right Column: Order Summary (Figma Node 172:7251) -->
   <div class="col-lg-5">
-    <div class="card border-0 shadow-sm p-4">
-      <h5 class="fw-bold mb-3">Order Summary</h5>
-      {% if cart_items %}
-        <div class="mb-3">
-          {% for item in cart_items %}
-          <div class="d-flex justify-content-between align-items-start py-2 border-bottom">
+    <div class="customer-summary-box">
+      <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+        <h2 class="customer-summary-title mb-0 border-0 p-0">Order Summary &middot; Order Review</h2>
+        <a href="{{ url_for('main.customer_cart') }}" class="smaller text-rml text-decoration-none fw-semibold">
+          Edit Cart
+        </a>
+      </div>
+
+      <!-- Itemized lines -->
+      <div class="mb-3 max-vh-40 overflow-auto pe-1" style="max-height: 260px;">
+        {% for item in cart_items %}
+        <div class="py-2.5 border-bottom d-flex justify-content-between align-items-center gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <img src="{{ item.image_url }}" alt="{{ item.display_name }}"
+                 class="rounded border object-fit-cover flex-shrink-0"
+                 style="width: 44px; height: 44px; background: #f8fafc;"
+                 onerror="this.src='https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500'">
             <div>
-              <div class="fw-semibold">{{ item.quantity }} {{ item.product.unit }} {{ item.product.name }}</div>
-              <div class="text-muted small">&#8369;{{ "{:,.2f}".format(item.product.price) }} / {{ item.product.unit }}</div>
-            </div>
-            <div class="text-end">
-              <div class="fw-semibold">&#8369;{{ "{:,.2f}".format(item.line_total) }}</div>
-              <form method="POST" action="{{ url_for('main.cart_update') }}" class="d-inline">
-                <input type="hidden" name="product_id" value="{{ item.product.id }}">
-                <input type="hidden" name="quantity" value="0">
-                <button type="submit" class="btn btn-link btn-sm text-danger text-decoration-none p-0" title="Remove item">
-                  <i class="bi bi-trash"></i> Remove
-                </button>
-              </form>
+              <div class="fw-semibold text-navy line-clamp-1 small" title="{{ item.display_name }}">
+                {{ item.product_name }}
+              </div>
+              {% if item.variation_name %}
+                <span class="badge text-bg-light border text-navy smaller">{{ item.variation_name }}</span>
+              {% endif %}
+              <div class="text-muted smaller">
+                Qty: <span class="fw-bold text-dark">{{ item.quantity }}</span> &times; &#8369;{{ "{:,.2f}".format(item.price) }}
+              </div>
             </div>
           </div>
-          {% endfor %}
+          <div class="fw-bold text-navy text-end flex-shrink-0 small">
+            &#8369;{{ "{:,.2f}".format(item.line_total) }}
+          </div>
         </div>
+        {% endfor %}
+      </div>
 
-        <div class="d-flex justify-content-between small text-muted mb-2">
-          <span>Subtotal</span>
-          <span class="fw-semibold text-dark">&#8369;{{ "{:,.2f}".format(subtotal) }}</span>
-        </div>
-        <div class="d-flex justify-content-between small text-muted mb-2">
-          <span>Delivery Fee</span>
-          <span class="fw-semibold text-dark">&#8369;{{ "{:,.2f}".format(delivery_fee) }}</span>
-        </div>
-        <div class="d-flex justify-content-between small text-muted mb-3">
-          <span>Estimated Tax (12% VAT)</span>
-          <span class="fw-semibold text-dark">&#8369;{{ "{:,.2f}".format(vat_amount) }}</span>
-        </div>
-        <hr>
-        <div class="d-flex justify-content-between align-items-center fw-bold fs-4 mb-4">
-          <span>Total</span>
-          <span class="text-rml">&#8369;{{ "{:,.2f}".format(total_amount) }}</span>
-        </div>
+      <div class="customer-summary-row">
+        <span>Materials Subtotal</span>
+        <span class="fw-bold text-dark">&#8369;{{ "{:,.2f}".format(subtotal) }}</span>
+      </div>
 
-        <button type="submit" form="checkoutForm" class="btn btn-rml w-100 py-2 fs-6 fw-semibold">
-          <i class="bi bi-send-check me-1"></i> Submit Order for Scheduling
-        </button>
-        <p class="text-muted small text-center mt-2 mb-0">Submit your order for administrator review and schedule assignment.</p>
-      {% else %}
-        <div class="text-center py-4 text-muted">
-          <i class="bi bi-cart-x fs-1 d-block mb-2"></i>
-          <p>Your cart is currently empty.</p>
-          <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-outline-secondary btn-sm">Browse Materials</a>
-        </div>
-      {% endif %}
+      <div class="customer-summary-row">
+        <span>Standard Delivery Fee</span>
+        <span class="fw-bold text-dark">&#8369;{{ "{:,.2f}".format(delivery_fee) }}</span>
+      </div>
+
+      <div class="customer-summary-row">
+        <span>Estimated Tax (12% VAT)</span>
+        <span class="fw-bold text-dark">&#8369;{{ "{:,.2f}".format(vat_amount) }}</span>
+      </div>
+
+      <div class="customer-summary-row total">
+        <span>Total Amount</span>
+        <span class="text-rml">&#8369;{{ "{:,.2f}".format(total_amount) }}</span>
+      </div>
+
+      <button type="submit" form="checkoutForm" class="figma-landing-btn-primary w-100 mt-4 mb-2">
+        Submit Order for Scheduling &rarr;
+      </button>
+
+      <div class="text-center mt-3">
+        <a href="{{ url_for('main.customer_cart') }}" class="smaller text-muted text-decoration-none">
+          &larr; Back to shopping cart
+        </a>
+      </div>
     </div>
   </div>
 </div>

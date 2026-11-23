@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Delivery Tracking - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="customer-portal-header">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <div class="customer-breadcrumb">Customer Portal &middot; Logistics</div>
+      <h1 class="customer-portal-title">Delivery Tracking &amp; Fleet Logistics</h1>
+      <p class="customer-portal-subtitle">Monitor your delivery schedules, assigned trucks and drivers, and live GPS transit status across Batangas.</p>
+    </div>
+    <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-rml btn-sm fw-semibold px-3 py-2 shadow-sm">
+      <i class="bi bi-box-seam me-1"></i> Order Materials
+    </a>
+  </div>
+</div>
+
+<!-- Overview Stats Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="customer-portal-card p-3 h-100" style="border-left: 4px solid #142235 !important;">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted smaller fw-bold text-uppercase">Total Dispatches</span>
+        <span class="badge bg-light text-navy border"><i class="bi bi-truck"></i></span>
+      </div>
+      <div class="fs-3 fw-bold text-navy">{{ deliveries|length }}</div>
+      <div class="smaller text-muted">All scheduled &amp; completed orders</div>
+    </div>
+  </div>
+
+  <div class="col-sm-4">
+    <div class="customer-portal-card p-3 h-100" style="border-left: 4px solid #C83227 !important;">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted smaller fw-bold text-uppercase">Active Dispatches</span>
+        <span class="customer-status-pill danger"><i class="bi bi-geo-alt"></i> Active</span>
+      </div>
+      <div class="fs-3 fw-bold text-rml">{{ active_deliveries|length }}</div>
+      <div class="smaller text-muted">Currently scheduled or en route</div>
+    </div>
+  </div>
+
+  <div class="col-sm-4">
+    <div class="customer-portal-card p-3 h-100" style="border-left: 4px solid #10b981 !important;">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted smaller fw-bold text-uppercase">Completed Deliveries</span>
+        <span class="customer-status-pill success"><i class="bi bi-check2-circle"></i> Done</span>
+      </div>
+      <div class="fs-3 fw-bold text-navy" style="color: #059669 !important;">{{ completed_deliveries|length }}</div>
+      <div class="smaller text-muted">Successfully delivered to site</div>
+    </div>
+  </div>
+</div>
+
+<!-- Active Deliveries Highlight -->
+{% if active_deliveries %}
+<div class="mb-4">
+  <h5 class="fw-bold text-navy mb-3"><i class="bi bi-truck text-rml me-2"></i>Active &amp; Scheduled Dispatches</h5>
+  <div class="row g-3">
+    {% for d in active_deliveries %}
+    <div class="col-12">
+      <div class="customer-portal-card p-4" style="border-left: 4px solid {% if d.delivery_status in ('en_route', 'loading') %}#C83227{% else %}#142235{% endif %} !important;">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 pb-2 border-bottom">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="fw-bold fs-5 text-navy">Order {{ d.order_code|order_code }}</span>
+            {% if d.delivery_code %}
+              <span class="badge bg-light border text-muted">{{ d.delivery_code }}</span>
+            {% endif %}
+            {% if d.delivery_status in ('en_route', 'loading') %}
+              <span class="customer-status-pill primary"><i class="bi bi-broadcast"></i> Live in Transit</span>
+            {% elif d.delivery_status == 'authorized' %}
+              <span class="customer-status-pill primary">Authorized for Dispatch</span>
+            {% elif d.order_status == 'schedule_confirmed' %}
+              <span class="customer-status-pill success">Schedule Confirmed</span>
+            {% else %}
+              <span class="customer-status-pill secondary">{{ (d.delivery_status or d.order_status)|title }}</span>
+            {% endif %}
+          </div>
+          <a href="{{ url_for('main.customer_order_tracking', order_id=d.order_id) }}" class="btn btn-rml btn-sm fw-semibold shadow-sm px-3">
+            <i class="bi bi-geo-alt-fill me-1"></i> Live GPS Tracking Map &rarr;
+          </a>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-3">
+            <div class="smaller text-muted text-uppercase fw-semibold">Delivery Schedule</div>
+            <div class="fw-bold text-dark">{{ d.assigned_date or 'To be confirmed' }}</div>
+            <div class="small text-muted">{{ d.assigned_time_slot or 'Standard Slot' }}</div>
+          </div>
+          <div class="col-md-3">
+            <div class="smaller text-muted text-uppercase fw-semibold">Assigned Fleet</div>
+            <div class="fw-bold text-dark">{{ d.truck_code or 'RML Fleet Truck' }}</div>
+            <div class="small text-muted">{{ d.plate_number or 'Batangas Depot' }}</div>
+          </div>
+          <div class="col-md-3">
+            <div class="smaller text-muted text-uppercase fw-semibold">Assigned Driver</div>
+            <div class="fw-bold text-dark">{{ d.driver_name or 'Depot Logistics Staff' }}</div>
+            <div class="small text-muted">{{ d.driver_phone or '0917 555 0100' }}</div>
+          </div>
+          <div class="col-md-3">
+            <div class="smaller text-muted text-uppercase fw-semibold">Site Delivery Destination</div>
+            <div class="small text-dark fw-semibold line-clamp-2">{{ d.delivery_address }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Complete Delivery History Table -->
+<div class="customer-portal-card p-0 overflow-hidden">
+  <div class="p-3 border-bottom d-flex justify-content-between align-items-center" style="background: #F8FAFC;">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-clock-history text-navy fs-5"></i>
+      <h5 class="fw-bold mb-0 text-navy">All Delivery Records</h5>
+    </div>
+    <span class="badge bg-white border text-muted">{{ deliveries|length }} Dispatches</span>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead style="background: #F8FAFC;">
+        <tr>
+          <th class="ps-4 py-3 text-uppercase text-muted smaller fw-bold">Order Code</th>
+          <th class="py-3 text-uppercase text-muted smaller fw-bold">Delivery Schedule</th>
+          <th class="py-3 text-uppercase text-muted smaller fw-bold">Assigned Logistics</th>
+          <th class="py-3 text-uppercase text-muted smaller fw-bold">Destination</th>
+          <th class="py-3 text-uppercase text-muted smaller fw-bold">Total</th>
+          <th class="py-3 text-uppercase text-muted smaller fw-bold">Status</th>
+          <th class="pe-4 py-3 text-end text-uppercase text-muted smaller fw-bold">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in deliveries %}
+        <tr style="border-bottom: 1px solid #F1F5F9;">
+          <td class="ps-4 py-3">
+            <div class="fw-bold text-navy">{{ d.order_code|order_code }}</div>
+            <div class="smaller text-muted">{{ d.delivery_code or (d.order_date[:10] if d.order_date else '') }}</div>
+          </td>
+          <td class="small py-3">
+            {% if d.assigned_date %}
+              <div class="fw-semibold text-dark">{{ d.assigned_date }}</div>
+              <div class="text-muted smaller">{{ d.assigned_time_slot }}</div>
+            {% else %}
+              <span class="customer-status-pill secondary">Pending Schedule</span>
+            {% endif %}
+          </td>
+          <td class="small py-3">
+            {% if d.truck_code or d.driver_name %}
+              <div class="fw-semibold text-dark">{{ d.truck_code or 'RML Truck' }} {% if d.plate_number %}({{ d.plate_number }}){% endif %}</div>
+              <div class="text-muted smaller">Driver: {{ d.driver_name or 'Assigned Driver' }}</div>
+            {% else %}
+              <span class="text-muted smaller">Awaiting assignment</span>
+            {% endif %}
+          </td>
+          <td class="small text-muted py-3" style="max-width: 200px;">
+            <div class="text-truncate" title="{{ d.delivery_address }}">{{ d.delivery_address }}</div>
+          </td>
+          <td class="fw-semibold small text-navy py-3">&#8369;{{ "{:,.2f}".format(d.total_amount) }}</td>
+          <td class="py-3">
+            {% if d.delivery_status == 'delivered' or d.order_status == 'delivered' %}
+              <span class="customer-status-pill success"><i class="bi bi-check-circle"></i> Delivered</span>
+            {% elif d.delivery_status in ('en_route', 'loading') or d.order_status in ('out_for_delivery', 'in_transit') %}
+              <span class="customer-status-pill primary"><i class="bi bi-truck"></i> Out for Delivery</span>
+            {% elif d.delivery_status == 'authorized' or d.order_status == 'ready_for_dispatch' %}
+              <span class="customer-status-pill primary">Ready for Dispatch</span>
+            {% elif d.order_status in ('scheduled', 'schedule_confirmed') %}
+              <span class="customer-status-pill success">Schedule Confirmed</span>
+            {% elif d.order_status == 'awaiting_confirmation' %}
+              <span class="customer-status-pill warning">Awaiting Acceptance</span>
+            {% elif d.order_status == 'cancelled' %}
+              <span class="customer-status-pill danger">Cancelled</span>
+            {% else %}
+              <span class="customer-status-pill secondary">{{ (d.delivery_status or d.order_status)|title }}</span>
+            {% endif %}
+          </td>
+          <td class="pe-4 py-3 text-end">
+            <a href="{{ url_for('main.customer_order_tracking', order_id=d.order_id) }}" class="btn btn-sm btn-outline-dark fw-semibold" title="View live tracking and status details">
+              Track &rarr;
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center py-5 text-muted">
+            <div class="d-inline-flex align-items-center justify-content-center bg-light text-secondary rounded-circle mb-3" style="width: 64px; height: 64px;">
+              <i class="bi bi-truck fs-2"></i>
+            </div>
+            <h5 class="fw-bold text-dark">No Deliveries Scheduled Yet</h5>
+            <p class="small text-muted mb-3">Once your material orders are confirmed and scheduled, live fleet tracking and driver assignments will appear here.</p>
+            <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-rml btn-sm fw-semibold px-4 py-2">
+              <i class="bi bi-box-seam me-1"></i> Order Materials Now
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

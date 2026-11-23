@@ -1,61 +1,285 @@
+/* ==========================================================================
+   RML CONSTRUCTION SUPPLY - PROFESSIONAL INDUSTRIAL B2B E-COMMERCE STYLESHEET
+   Clean, Compact, Space-Efficient, Modern Design
+   Palette:
+     Deep Navy:  #142235
+     RML Red:    #C83227
+     Slate Gray: #26364A
+     Light Gray: #F3F5F8
+     White:      #FFFFFF
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap');
+
 :root {
-  --rml-red: #C83126;
-  --rml-red-hover: #A9261E;
-  --rml-navy: #121C2B;
-  --rml-navy-hover: #1A283C;
-  --rml-blue: #1F5776;
-  --rml-light: #F4F6F8;
-  --rml-border: #E2E8F0;
-  --rml-text-dark: #1E293B;
+  /* Core Brand Colors (Prompt 11 Palette) */
+  --rml-navy: #142235;
+  --rml-navy-hover: #1c2e44;
+  --rml-navy-surface: #1C3048;
+  --rml-red: #C83227;
+  --rml-red-hover: #a8241b;
+  --rml-red-subtle: #fde8e7;
+  --rml-slate: #26364A;
+  --rml-light: #F1F3F6;
+  --rml-white: #FFFFFF;
+  --rml-border: #DCE2E9;
+  --rml-border-dark: #CBD5E1;
+  --rml-text-dark: #172334;
   --rml-text-muted: #64748B;
+
+  /* Compact Proportions */
+  --rml-container-max: 1320px;
+  --rml-radius-sm: 6px;
+  --rml-radius: 8px;
+  --rml-radius-lg: 12px;
+
+  /* Clean Subtle Shadows */
+  --rml-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --rml-shadow: 0 2px 8px rgba(20, 34, 53, 0.06);
+  --rml-shadow-md: 0 6px 16px rgba(20, 34, 53, 0.08);
+
+  /* Bootstrap Variable Mappings */
   --bs-primary: var(--rml-red);
-  --bs-primary-rgb: 200, 49, 38;
-  --bs-secondary: var(--rml-blue);
+  --bs-primary-rgb: 200, 50, 39;
+  --bs-secondary: var(--rml-slate);
   --bs-body-bg: var(--rml-light);
   --bs-body-color: var(--rml-text-dark);
 }
 
+/* -------------------------------------------------------------------------
+   Global Base & Typography
+   ------------------------------------------------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body {
-  background-color: var(--rml-light);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14.5px;
+  line-height: 1.5;
   color: var(--rml-text-dark);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--rml-light);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Navbar */
-.navbar {
-  background-color: #ffffff !important;
-  border-bottom: 1px solid var(--rml-border) !important;
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+  font-family: 'Poppins', 'Inter', sans-serif;
+  color: var(--rml-navy);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin-top: 0;
 }
 
+/* Efficient Screen Space Utilization - Maximize Width without Bloat */
+.container,
+.container-lg,
+.container-xl,
+.container-xxl {
+  max-width: var(--rml-container-max);
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+/* -------------------------------------------------------------------------
+   Brand Logo & Badges
+   ------------------------------------------------------------------------- */
 .rml-logo-box {
   background-color: var(--rml-red);
-  color: #ffffff;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  color: #FFFFFF;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--rml-radius-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-family: 'Poppins', sans-serif;
   font-weight: 800;
   font-size: 1.15rem;
   letter-spacing: -0.5px;
+  flex-shrink: 0;
 }
 
-/* Sidebar */
+.text-rml {
+  color: var(--rml-red) !important;
+}
+
+.text-navy {
+  color: var(--rml-navy) !important;
+}
+
+.bg-navy {
+  background-color: var(--rml-navy) !important;
+}
+
+.bg-rml {
+  background-color: var(--rml-red) !important;
+}
+
+/* -------------------------------------------------------------------------
+   Buttons (Compact & Standardized)
+   ------------------------------------------------------------------------- */
+.btn {
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: var(--rml-radius-sm);
+  transition: all 0.15s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+}
+
+.btn-sm {
+  font-size: 0.82rem;
+  padding: 5px 12px;
+  height: 32px;
+  border-radius: var(--rml-radius-sm);
+}
+
+.btn-lg {
+  font-size: 0.95rem;
+  padding: 10px 22px;
+  height: 44px;
+}
+
+.btn-rml {
+  background-color: var(--rml-red);
+  border: 1px solid var(--rml-red);
+  color: #FFFFFF !important;
+}
+
+.btn-rml:hover, .btn-rml:focus {
+  background-color: var(--rml-red-hover);
+  border-color: var(--rml-red-hover);
+  color: #FFFFFF !important;
+}
+
+.btn-outline-rml {
+  color: var(--rml-red);
+  border: 1.5px solid var(--rml-red);
+  background-color: transparent;
+}
+
+.btn-outline-rml:hover {
+  background-color: var(--rml-red);
+  color: #FFFFFF;
+}
+
+.btn-navy {
+  background-color: var(--rml-navy);
+  border: 1px solid var(--rml-navy);
+  color: #FFFFFF !important;
+}
+
+.btn-navy:hover {
+  background-color: var(--rml-navy-hover);
+  border-color: var(--rml-navy-hover);
+  color: #FFFFFF !important;
+}
+
+/* -------------------------------------------------------------------------
+   Form Controls (Standardized & Compact)
+   ------------------------------------------------------------------------- */
+.form-control, .form-select {
+  border: 1.5px solid var(--rml-border);
+  border-radius: var(--rml-radius-sm);
+  padding: 7px 12px;
+  font-size: 0.9rem;
+  color: var(--rml-text-dark);
+  background-color: #FFFFFF;
+  height: 40px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control-sm, .form-select-sm {
+  height: 32px;
+  font-size: 0.82rem;
+  padding: 4px 8px;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: var(--rml-red);
+  box-shadow: 0 0 0 2px rgba(200, 50, 39, 0.15);
+  outline: none;
+}
+
+.form-label {
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: var(--rml-slate);
+  font-size: 0.84rem;
+}
+
+/* -------------------------------------------------------------------------
+   Cards & Content Containers
+   ------------------------------------------------------------------------- */
+.card {
+  border-radius: var(--rml-radius);
+  border: 1px solid var(--rml-border) !important;
+  background-color: var(--rml-white);
+  box-shadow: var(--rml-shadow-sm);
+}
+
+/* -------------------------------------------------------------------------
+   Top Navbar (Compact & Professional)
+   ------------------------------------------------------------------------- */
+.navbar {
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid var(--rml-border) !important;
+  padding: 8px 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  min-height: 56px;
+}
+
+.navbar-brand {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--rml-navy);
+  padding: 0;
+  margin-right: 24px;
+}
+
+.navbar-nav .nav-link {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--rml-slate);
+  padding: 6px 14px !important;
+  border-radius: var(--rml-radius-sm);
+  transition: color 0.15s ease;
+}
+
+.navbar-nav .nav-link:hover {
+  color: var(--rml-red);
+}
+
+.navbar-nav .nav-link.active {
+  color: var(--rml-red);
+  background-color: var(--rml-red-subtle);
+}
+
+/* -------------------------------------------------------------------------
+   Sidebar for Portals
+   ------------------------------------------------------------------------- */
 .rml-sidebar {
   background-color: var(--rml-navy);
-  min-height: calc(100vh - 58px);
-  width: 250px;
+  min-height: calc(100vh - 56px);
+  width: 240px;
   flex-shrink: 0;
+  padding: 16px 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .rml-sidebar .nav-link {
   color: #94A3B8;
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-bottom: 4px;
+  border-radius: var(--rml-radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 3px;
   font-weight: 500;
+  font-size: 0.88rem;
   display: flex;
   align-items: center;
   transition: all 0.15s ease-in-out;
@@ -73,159 +297,2353 @@ body {
   border-left: 3px solid var(--rml-red);
 }
 
-/* Buttons */
-.btn-rml {
-  background-color: var(--rml-red);
-  border-color: var(--rml-red);
-  color: #ffffff !important;
-  font-weight: 600;
-  border-radius: 8px;
-  transition: all 0.15s ease-in-out;
+/* -------------------------------------------------------------------------
+   Compact Landing Page Architecture
+   ------------------------------------------------------------------------- */
+.landing-hero-compact {
+  background: linear-gradient(135deg, #142235 0%, #1a2c44 60%, #101c2c 100%);
+  color: #FFFFFF;
+  padding: 42px 0 38px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.btn-rml:hover, .btn-rml:focus {
-  background-color: var(--rml-red-hover);
-  border-color: var(--rml-red-hover);
-  color: #ffffff !important;
-}
-
-.btn-outline-rml {
-  color: var(--rml-red);
-  border-color: var(--rml-red);
-  border-radius: 8px;
-  font-weight: 600;
-}
-
-.btn-outline-rml:hover {
-  background-color: var(--rml-red);
-  color: #ffffff;
-}
-
-.text-rml {
-  color: var(--rml-red) !important;
-}
-
-/* Cards */
-.card {
-  border-radius: 12px;
-  border: 1px solid var(--rml-border) !important;
-  background-color: #ffffff;
-}
-
-.product-img {
-  height: 160px;
-  object-fit: cover;
-  border-top-left-radius: 12px;
-  border-top-right-radius: 12px;
-}
-
-/* Badges */
-.badge-available, .badge-instock, .badge-delivered, .badge-verified, .badge-paid {
-  background-color: #DEF7EC;
-  color: #03543F;
-  font-weight: 600;
-}
-
-.badge-check, .badge-lowstock, .badge-pending, .badge-enroute, .badge-transit {
-  background-color: #FEF08A;
-  color: #713F12;
-  font-weight: 600;
-}
-
-.badge-rejected, .badge-danger {
-  background-color: #FDE8E8;
-  color: #9B1C1C;
-  font-weight: 600;
-}
-
-/* Stepper Component */
-.stepper-box {
-  display: flex;
-  justify-content: space-between;
-  position: relative;
-  margin-bottom: 24px;
-}
-
-.step-item {
-  flex: 1;
-  text-align: center;
-  position: relative;
-}
-
-.step-item:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  top: 18px;
-  left: 50%;
-  width: 100%;
-  height: 2px;
-  background-color: #E2E8F0;
-  z-index: 1;
-}
-
-.step-item.completed:not(:last-child)::after {
-  background-color: #10B981;
-}
-
-.step-circle {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background-color: #E2E8F0;
-  color: #64748B;
+.hero-pill-tag {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  position: relative;
-  z-index: 2;
-  margin-bottom: 6px;
+  gap: 6px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
+  padding: 3px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #E2E8F0;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.step-item.completed .step-circle {
-  background-color: #10B981;
-  color: #ffffff;
+.hero-title-compact {
+  font-size: 2.35rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  color: #FFFFFF;
+  margin-bottom: 12px;
 }
 
-.step-item.active .step-circle {
-  background-color: var(--rml-red);
-  color: #ffffff;
+.hero-desc-compact {
+  font-size: 1.02rem;
+  line-height: 1.55;
+  color: #CBD5E1;
+  max-width: 580px;
+  margin-bottom: 22px;
 }
 
-/* Maps */
-.gps-map, .rml-map {
-  height: 320px;
+.hero-image-box {
+  border-radius: var(--rml-radius-lg);
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  height: 250px;
+}
+
+.hero-image-box img {
   width: 100%;
-  border-radius: 10px;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Compact Search & Category Section */
+.search-category-bar {
+  background-color: #FFFFFF;
+  border-bottom: 1px solid var(--rml-border);
+  padding: 16px 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.compact-search-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compact-search-form .form-control {
+  height: 42px;
+  font-size: 0.92rem;
+}
+
+.compact-category-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0;
+  scrollbar-width: thin;
+}
+
+.compact-category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--rml-light);
   border: 1px solid var(--rml-border);
+  border-radius: var(--rml-radius-sm);
+  padding: 6px 14px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--rml-slate);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.15s ease;
 }
 
-/* Login panel */
-.rml-login-panel {
+.compact-category-pill:hover,
+.compact-category-pill.active {
   background-color: var(--rml-navy);
+  color: #FFFFFF;
+  border-color: var(--rml-navy);
 }
 
-/* Invoice printable styling */
-@media print {
-  body {
-    background-color: #ffffff;
-  }
-  .rml-sidebar, .navbar, footer, .no-print {
-    display: none !important;
-  }
-  main {
-    width: 100% !important;
-    padding: 0 !important;
-  }
-  .card {
-    border: none !important;
-    box-shadow: none !important;
+.compact-category-pill i {
+  color: var(--rml-red);
+}
+
+.compact-category-pill:hover i,
+.compact-category-pill.active i {
+  color: #FFFFFF;
+}
+
+/* -------------------------------------------------------------------------
+   Product Cards & Grid (Compact B2B E-Commerce Layout)
+   ------------------------------------------------------------------------- */
+.product-grid-compact {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .product-grid-compact {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
 @media (max-width: 768px) {
-  .rml-sidebar {
-    width: 100%;
-    min-height: auto;
+  .product-grid-compact {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .b2b-product-img {
+    height: 135px;
+  }
+  .b2b-product-body {
+    padding: 10px;
   }
 }
+
+@media (max-width: 360px) {
+  .product-grid-compact {
+    grid-template-columns: 1fr;
+  }
+}
+
+.b2b-product-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: var(--rml-radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.b2b-product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--rml-shadow-md);
+  border-color: #CBD5E1;
+}
+
+.b2b-product-img {
+  width: 100%;
+  height: 165px;
+  object-fit: cover;
+  background-color: #F8FAFC;
+  border-bottom: 1px solid var(--rml-border);
+}
+
+.b2b-product-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.b2b-product-category {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--rml-text-muted);
+  margin-bottom: 2px;
+}
+
+.b2b-product-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--rml-navy);
+  margin-bottom: 4px;
+  line-height: 1.35;
+  height: 38px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.b2b-product-price {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--rml-text-dark);
+}
+
+.b2b-product-unit {
+  font-size: 0.8rem;
+  color: var(--rml-text-muted);
+  font-weight: 500;
+}
+
+.landing-featured-section {
+  padding: 32px 0;
+  background-color: #F7F8FA;
+}
+
+.landing-featured-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
+.landing-featured-heading .section-title {
+  font-size: 1.5rem;
+}
+
+.landing-featured-heading p {
+  max-width: 620px;
+  font-size: 0.9rem;
+}
+
+.landing-featured-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.landing-featured-grid .b2b-product-img {
+  height: 150px;
+}
+
+@media (max-width: 768px) {
+  .landing-featured-section {
+    padding: 26px 0;
+  }
+
+  .landing-featured-heading {
+    align-items: flex-start;
+  }
+
+  .landing-featured-heading p {
+    max-width: 480px;
+  }
+
+  .landing-featured-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-width: 520px) {
+  .landing-featured-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .landing-featured-heading .btn {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 360px) {
+  .landing-featured-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Horizontal Compact Features & How-It-Works
+   ------------------------------------------------------------------------- */
+.horizontal-features-strip {
+  background-color: #FFFFFF;
+  border-top: 1px solid var(--rml-border);
+  border-bottom: 1px solid var(--rml-border);
+  padding: 24px 0;
+}
+
+.horizontal-feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.feature-icon-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--rml-radius-sm);
+  background-color: var(--rml-red-subtle);
+  color: var(--rml-red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.horizontal-feature-item h6 {
+  margin-bottom: 2px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--rml-navy);
+}
+
+.horizontal-feature-item p {
+  margin-bottom: 0;
+  font-size: 0.8rem;
+  color: var(--rml-text-muted);
+  line-height: 1.4;
+}
+
+/* Connected Horizontal Steps */
+.process-steps-row {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.process-step-box {
+  flex: 1;
+  background-color: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: var(--rml-radius);
+  padding: 20px 18px;
+  position: relative;
+}
+
+.process-step-num {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: var(--rml-red);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.process-step-box h6 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.process-step-box p {
+  font-size: 0.82rem;
+  color: var(--rml-text-muted);
+  margin-bottom: 0;
+  line-height: 1.45;
+}
+
+@media (max-width: 768px) {
+  .process-steps-row {
+    flex-direction: column;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Section Labels & Titles (Compact Spacing)
+   ------------------------------------------------------------------------- */
+.section-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--rml-red);
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+  display: inline-block;
+}
+
+.section-title {
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--rml-navy);
+  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+
+.section-desc {
+  font-size: 0.88rem;
+  color: var(--rml-text-muted);
+  margin-bottom: 0;
+}
+
+/* -------------------------------------------------------------------------
+   Catalog Store Page Layout (Left Filter + Right Grid)
+   ------------------------------------------------------------------------- */
+.catalog-store-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.catalog-filter-sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  background-color: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: var(--rml-radius);
+  padding: 16px;
+}
+
+.catalog-filter-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--rml-navy);
+  letter-spacing: 0.5px;
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid var(--rml-border);
+  margin-bottom: 12px;
+}
+
+.filter-category-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: var(--rml-radius-sm);
+  color: var(--rml-slate);
+  font-size: 0.84rem;
+  font-weight: 500;
+  text-decoration: none;
+  margin-bottom: 2px;
+  transition: all 0.15s ease;
+}
+
+.filter-category-link:hover,
+.filter-category-link.active {
+  background-color: var(--rml-navy);
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.filter-category-link .badge {
+  font-size: 0.72rem;
+}
+
+.catalog-main-content {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+@media (max-width: 992px) {
+  .catalog-store-layout {
+    flex-direction: column;
+  }
+  .catalog-filter-sidebar {
+    width: 100%;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Centered Customer Login & Registration Card Layouts
+   ------------------------------------------------------------------------- */
+.compact-login-card {
+  max-width: 420px;
+  width: 100%;
+  margin: 0 auto;
+  background-color: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: var(--rml-radius-lg);
+  box-shadow: var(--rml-shadow);
+  padding: 28px;
+}
+
+.customer-login-page {
+  min-height: calc(100vh - 68px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background-color: var(--rml-light);
+}
+
+@media (max-width: 576px) {
+  .compact-login-card {
+    padding: 22px 18px;
+  }
+}
+
+.compact-register-card {
+  max-width: 600px;
+  width: 100%;
+  margin: 12px auto;
+  background-color: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: var(--rml-radius-lg);
+  box-shadow: var(--rml-shadow);
+  padding: 28px;
+}
+
+@media (max-width: 576px) {
+  .compact-register-card {
+    padding: 22px 18px;
+  }
+}
+
+.compact-portal-login {
+  max-width: 420px;
+  width: 100%;
+  margin: 0 auto;
+  background-color: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: var(--rml-radius-lg);
+  box-shadow: var(--rml-shadow);
+  padding: 28px;
+}
+
+.portal-login-page {
+  min-height: calc(100vh - 68px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background-color: var(--rml-light);
+}
+
+@media (max-width: 576px) {
+  .compact-portal-login {
+    padding: 22px 18px;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Status Badges
+   ------------------------------------------------------------------------- */
+.badge-instock, .badge-available, .badge-verified, .badge-paid {
+  background-color: #DEF7EC;
+  color: #03543F;
+  font-weight: 600;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+}
+
+.badge-check, .badge-pending, .badge-lowstock, .badge-transit {
+  background-color: #FEF08A;
+  color: #713F12;
+  font-weight: 600;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+}
+
+.badge-danger, .badge-rejected {
+  background-color: #FDE8E8;
+  color: #9B1C1C;
+  font-weight: 600;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+}
+
+/* -------------------------------------------------------------------------
+   Compact Footer
+   ------------------------------------------------------------------------- */
+footer.compact-footer {
+  background-color: var(--rml-navy);
+  color: #94A3B8;
+  padding: 36px 0 20px 0;
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+footer.compact-footer h6 {
+  color: #FFFFFF;
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+footer.compact-footer a {
+  color: #94A3B8;
+  font-size: 0.82rem;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+footer.compact-footer a:hover {
+  color: #FFFFFF;
+}
+
+.compact-footer-bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 24px;
+  padding-top: 16px;
+  font-size: 0.78rem;
+}
+
+/* -------------------------------------------------------------------------
+   Helper & Form Utility Classes
+   ------------------------------------------------------------------------- */
+.smaller {
+  font-size: 0.8125rem;
+}
+
+#passwordHelper {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+#passwordHelper.is-valid-msg {
+  color: #03543F;
+}
+
+/* -------------------------------------------------------------------------
+   Figma Reference: High-Fidelity Split-Screen Authentication (Node 172:1136)
+   Clean, Professional, Industrial B2B & B2C Layout with RML Brand Colors
+   ------------------------------------------------------------------------- */
+.figma-auth-screen-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--rml-light);
+  width: 100%;
+}
+
+/* 1. Header (80px height per Figma specification) */
+.figma-auth-header {
+  height: 80px;
+  background-color: var(--rml-white);
+  border-bottom: 1px solid var(--rml-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 48px;
+  width: 100%;
+  position: relative;
+  z-index: 20;
+  box-shadow: 0 1px 3px rgba(20, 34, 53, 0.04);
+}
+
+.figma-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.figma-auth-brand-logo {
+  background-color: var(--rml-red);
+  color: var(--rml-white);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--rml-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-size: 1.25rem;
+  box-shadow: 0 2px 6px rgba(200, 50, 39, 0.25);
+}
+
+.figma-auth-brand-name {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.35rem;
+  color: var(--rml-navy);
+  letter-spacing: -0.02em;
+}
+
+.figma-auth-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.figma-auth-nav-link {
+  color: var(--rml-navy);
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.figma-auth-nav-link:hover {
+  color: var(--rml-red);
+}
+
+.figma-auth-search-box {
+  width: 220px;
+  height: 38px;
+  border: 1px solid var(--rml-border);
+  border-radius: var(--rml-radius);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background-color: var(--rml-white);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.figma-auth-search-box:focus-within {
+  border-color: var(--rml-navy);
+  box-shadow: 0 0 0 3px rgba(20, 34, 53, 0.08);
+}
+
+.figma-auth-search-input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  font-size: 0.88rem;
+  color: var(--rml-text-dark);
+  outline: none;
+}
+
+.figma-auth-search-input::placeholder {
+  color: var(--rml-text-muted);
+  opacity: 0.7;
+}
+
+/* 2. Main 50/50 Split Section (900px desktop height) */
+.figma-auth-main {
+  display: flex;
+  flex: 1 0 auto;
+  min-height: 840px;
+  width: 100%;
+}
+
+/* Left Hero Pane (50% split) */
+.figma-auth-hero-pane {
+  flex: 1 1 50%;
+  width: 50%;
+  position: relative;
+  background-color: #122536;
+  background-image: linear-gradient(to top, rgba(14, 24, 38, 0.95) 0%, rgba(20, 34, 53, 0.55) 50%, rgba(20, 34, 53, 0.3) 100%),
+                    url('/static/images/figma_auth_hero.png');
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 80px 72px;
+  color: #FFFFFF;
+}
+
+.figma-auth-hero-content {
+  max-width: 540px;
+  position: relative;
+  z-index: 2;
+}
+
+.figma-auth-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(200, 50, 39, 0.85);
+  backdrop-filter: blur(4px);
+  color: #FFFFFF;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 20px;
+}
+
+.figma-auth-hero-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 2.85rem;
+  font-weight: 700;
+  line-height: 1.18;
+  color: #FFFFFF;
+  margin-bottom: 18px;
+  letter-spacing: -0.02em;
+}
+
+.figma-auth-hero-desc {
+  font-family: 'Inter', sans-serif;
+  font-size: 1.15rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.92);
+  margin-bottom: 28px;
+}
+
+.figma-auth-hero-features {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding-top: 24px;
+}
+
+.figma-auth-hero-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.figma-auth-hero-feature-item i {
+  color: #F87171;
+  font-size: 1.1rem;
+}
+
+/* Right Form Pane (50% split) */
+.figma-auth-form-pane {
+  flex: 1 1 50%;
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--rml-light);
+  padding: 56px 40px;
+  overflow-y: auto;
+}
+
+.figma-auth-form-card {
+  width: 100%;
+  max-width: 440px;
+}
+
+.figma-auth-form-card-wide {
+  max-width: 520px;
+}
+
+.figma-auth-card-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 2.15rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--rml-navy);
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+
+.figma-auth-card-subtitle {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  color: var(--rml-text-muted);
+  margin-bottom: 28px;
+}
+
+/* Input Fields & Labels */
+.figma-auth-field-group {
+  margin-bottom: 20px;
+}
+
+.figma-auth-label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--rml-navy);
+  margin-bottom: 8px;
+}
+
+.figma-auth-input {
+  height: 50px;
+  border: 1px solid var(--rml-border);
+  background-color: var(--rml-white);
+  border-radius: var(--rml-radius);
+  padding: 0 16px;
+  font-size: 0.95rem;
+  color: var(--rml-text-dark);
+  width: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.figma-auth-input:focus {
+  border-color: var(--rml-navy);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(20, 34, 53, 0.08);
+}
+
+.figma-auth-input::placeholder {
+  color: var(--rml-text-muted);
+  opacity: 0.6;
+}
+
+/* Primary Button (Preserving RML Red #C83227) */
+.figma-auth-btn-primary {
+  height: 54px;
+  background-color: var(--rml-red);
+  color: var(--rml-white);
+  border: none;
+  border-radius: var(--rml-radius);
+  font-size: 1rem;
+  font-weight: 600;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  box-shadow: 0 2px 6px rgba(200, 50, 39, 0.2);
+}
+
+.figma-auth-btn-primary:hover {
+  background-color: var(--rml-red-hover);
+  color: var(--rml-white);
+  box-shadow: 0 4px 12px rgba(200, 50, 39, 0.3);
+}
+
+.figma-auth-btn-primary:active {
+  transform: translateY(1px);
+}
+
+/* Divider */
+.figma-auth-divider {
+  position: relative;
+  text-align: center;
+  margin: 28px 0;
+}
+
+.figma-auth-divider::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: var(--rml-border);
+}
+
+.figma-auth-divider span {
+  position: relative;
+  background-color: var(--rml-light);
+  padding: 0 16px;
+  font-size: 0.85rem;
+  color: var(--rml-text-muted);
+}
+
+/* SSO Buttons */
+.figma-auth-sso-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.figma-auth-sso-btn {
+  height: 50px;
+  background-color: var(--rml-white);
+  border: 1px solid var(--rml-border);
+  border-radius: var(--rml-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--rml-text-dark);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  width: 100%;
+}
+
+.figma-auth-sso-btn:hover {
+  background-color: #FAFCFE;
+  border-color: #CBD5E1;
+  color: var(--rml-text-dark);
+}
+
+.figma-auth-sso-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* 3. Footer (Figma specification) */
+.figma-auth-footer {
+  background-color: var(--rml-light);
+  border-top: 1px solid var(--rml-border);
+  padding: 36px 48px;
+  width: 100%;
+}
+
+.figma-auth-footer-inner {
+  max-width: 1220px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  font-size: 0.9rem;
+  color: var(--rml-text-muted);
+}
+
+.figma-auth-footer-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.figma-auth-footer-link {
+  color: var(--rml-text-muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.figma-auth-footer-link:hover {
+  color: var(--rml-navy);
+}
+
+/* Responsive Rules for Tablet and Mobile */
+@media (max-width: 991.98px) {
+  .figma-auth-header {
+    padding: 0 24px;
+    height: 72px;
+  }
+  .figma-auth-search-box {
+    display: none;
+  }
+  .figma-auth-nav-group {
+    gap: 18px;
+  }
+  .figma-auth-main {
+    flex-direction: column;
+    min-height: auto;
+  }
+  .figma-auth-hero-pane {
+    width: 100%;
+    max-width: 100%;
+    padding: 48px 24px;
+    min-height: 260px;
+  }
+  .figma-auth-hero-title {
+    font-size: 2.1rem;
+    line-height: 1.25;
+  }
+  .figma-auth-hero-desc {
+    font-size: 1rem;
+    margin-bottom: 0;
+  }
+  .figma-auth-hero-features {
+    display: none;
+  }
+  .figma-auth-form-pane {
+    width: 100%;
+    max-width: 100%;
+    padding: 40px 20px;
+  }
+  .figma-auth-footer {
+    padding: 24px;
+  }
+  .figma-auth-footer-inner {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .figma-auth-header {
+    padding: 0 16px;
+  }
+  .figma-auth-brand-name {
+    font-size: 1.1rem;
+  }
+  .figma-auth-nav-link {
+    font-size: 0.85rem;
+  }
+  .figma-auth-hero-pane {
+    padding: 36px 16px;
+  }
+  .figma-auth-hero-title {
+    font-size: 1.8rem;
+  }
+  .figma-auth-form-pane {
+    padding: 32px 16px;
+  }
+  .figma-auth-card-title {
+    font-size: 1.75rem;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Product Categories Uniform Grid (Prompt 10 - Section 3.C)
+   ------------------------------------------------------------------------- */
+.category-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 991.98px) {
+  .category-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 575.98px) {
+  .category-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.category-card-uniform {
+  background-color: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: var(--rml-radius);
+  overflow: hidden;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  height: 100%;
+}
+
+.category-card-uniform:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--rml-shadow-md);
+  border-color: var(--rml-navy);
+}
+
+.category-card-img-wrapper {
+  height: 160px;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  background-color: #E2E8F0;
+}
+
+.category-card-img-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.category-card-uniform:hover .category-card-img-wrapper img {
+  transform: scale(1.04);
+}
+
+.category-card-body {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.category-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--rml-navy);
+  margin-bottom: 6px;
+}
+
+.category-card-desc {
+  font-size: 0.825rem;
+  color: var(--rml-text-muted);
+  line-height: 1.45;
+  margin-bottom: 12px;
+  flex-grow: 1;
+}
+
+.category-card-action {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--rml-red);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* -------------------------------------------------------------------------
+   Delivery & GPS Tracking Preview (Prompt 10 - Section 3.G)
+   ------------------------------------------------------------------------- */
+.gps-preview-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: var(--rml-radius-lg);
+  box-shadow: var(--rml-shadow);
+  overflow: hidden;
+}
+
+.gps-map-mockup {
+  position: relative;
+  height: 280px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  overflow: hidden;
+  border-radius: var(--rml-radius) var(--rml-radius) 0 0;
+}
+
+.gps-map-grid-lines {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.gps-map-route-line {
+  position: absolute;
+  top: 45%;
+  left: 18%;
+  width: 64%;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, #D93025, #D93025 8px, transparent 8px, transparent 14px);
+  transform: rotate(-10deg);
+}
+
+.gps-map-depot-pin {
+  position: absolute;
+  top: 48%;
+  left: 16%;
+  transform: translate(-50%, -50%);
+  background: #142235;
+  color: #FFFFFF;
+  border: 2px solid #FFFFFF;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
+}
+
+.gps-map-truck-marker {
+  position: absolute;
+  top: 36%;
+  left: 55%;
+  transform: translate(-50%, -50%);
+  background: #D93025;
+  color: #FFFFFF;
+  border: 2px solid #FFFFFF;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  box-shadow: 0 0 16px rgba(217, 48, 37, 0.6);
+  animation: pulse-ring 2s infinite ease-out;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(217, 48, 37, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(217, 48, 37, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 48, 37, 0);
+  }
+}
+
+.gps-map-site-pin {
+  position: absolute;
+  top: 28%;
+  left: 82%;
+  transform: translate(-50%, -50%);
+  background: #059669;
+  color: #FFFFFF;
+  border: 2px solid #FFFFFF;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
+}
+
+.gps-overlay-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  background: rgba(20, 34, 53, 0.92);
+  backdrop-filter: blur(4px);
+  color: #FFFFFF;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* -------------------------------------------------------------------------
+   Figma High-Fidelity Landing Page (Node 172:12907 - Landing Page RML 1)
+   Pixel-Perfect Layout, Dimensions, Hierarchy, and RML Color Identity
+   ------------------------------------------------------------------------- */
+.figma-landing-wrapper {
+  background-color: #FFFFFF;
+  color: var(--rml-navy);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* 1. Navigation */
+.figma-landing-nav {
+  background-color: #FFFFFF;
+  border-bottom: 1px solid var(--rml-border);
+  padding: 18px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  box-shadow: 0 1px 3px rgba(20, 34, 53, 0.04);
+}
+
+.figma-landing-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.figma-landing-logo-badge {
+  background-color: var(--rml-red);
+  color: #FFFFFF;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(200, 50, 39, 0.25);
+  flex-shrink: 0;
+}
+
+.figma-landing-brand-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.45rem;
+  color: var(--rml-navy);
+  letter-spacing: -0.02em;
+}
+
+.figma-landing-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.figma-landing-link {
+  color: var(--rml-navy);
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.figma-landing-link:hover {
+  color: var(--rml-red);
+}
+
+.figma-landing-btn-login {
+  background-color: var(--rml-red);
+  color: #FFFFFF;
+  border-radius: 6px;
+  padding: 12px 24px;
+  font-weight: 700;
+  font-size: 1rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  box-shadow: 0 2px 6px rgba(200, 50, 39, 0.2);
+  border: none;
+}
+
+.figma-landing-btn-login:hover {
+  background-color: var(--rml-red-hover);
+  color: #FFFFFF;
+  box-shadow: 0 4px 10px rgba(200, 50, 39, 0.3);
+}
+
+/* 2. Hero Section */
+.figma-landing-hero {
+  background-color: #132936;
+  padding: 72px 140px;
+  display: flex;
+  align-items: center;
+  gap: 48px;
+  color: #FFFFFF;
+}
+
+.figma-landing-hero-content {
+  flex: 1 1 55%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.figma-landing-hero-tagline {
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #FFFFFF;
+  opacity: 0.9;
+}
+
+.figma-landing-hero-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-size: 3.25rem;
+  line-height: 1.15;
+  color: #FFFFFF;
+  letter-spacing: -0.02em;
+}
+
+.figma-landing-hero-desc {
+  font-size: 1.25rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.92);
+  max-width: 600px;
+}
+
+.figma-landing-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.figma-landing-btn-primary {
+  background-color: var(--rml-red);
+  color: #FFFFFF;
+  border-radius: 6px;
+  padding: 14px 28px;
+  font-weight: 700;
+  font-size: 1rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(200, 50, 39, 0.25);
+}
+
+.figma-landing-btn-primary:hover {
+  background-color: var(--rml-red-hover);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(200, 50, 39, 0.35);
+}
+
+.figma-landing-btn-secondary {
+  background-color: #FFFFFF;
+  color: var(--rml-navy);
+  border: 1px solid #DFE6EC;
+  border-radius: 6px;
+  padding: 14px 28px;
+  font-weight: 700;
+  font-size: 1rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.figma-landing-btn-secondary:hover {
+  background-color: #F8FAFC;
+  color: var(--rml-navy);
+  border-color: #CBD5E1;
+}
+
+.figma-landing-hero-notice {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.figma-landing-hero-visual {
+  flex: 1 1 45%;
+  max-width: 500px;
+  height: 420px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.figma-landing-hero-visual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 3. Section Commons */
+.figma-landing-section {
+  padding: 64px 140px;
+  width: 100%;
+}
+
+.figma-landing-section-bg-light {
+  background-color: #F3F6F9;
+}
+
+.figma-landing-section-bg-navy {
+  background-color: #132936;
+  color: #FFFFFF;
+}
+
+.figma-landing-section-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 2.25rem;
+  line-height: 1.25;
+  margin-bottom: 8px;
+  color: var(--rml-navy);
+}
+
+.figma-landing-section-bg-navy .figma-landing-section-title {
+  color: #FFFFFF;
+}
+
+.figma-landing-section-subtitle {
+  font-size: 1.125rem;
+  color: #52677E;
+  margin-bottom: 32px;
+}
+
+.figma-landing-section-bg-navy .figma-landing-section-subtitle {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* 4. Shop by Category Grid */
+.figma-landing-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.figma-landing-cat-card {
+  background-color: #F3F6F9;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.figma-landing-cat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(20, 34, 53, 0.08);
+  color: inherit;
+}
+
+.figma-landing-cat-img-wrap {
+  height: 170px;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.figma-landing-cat-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.figma-landing-cat-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.3rem;
+  color: var(--rml-navy);
+  margin-bottom: 2px;
+}
+
+.figma-landing-cat-desc {
+  font-size: 0.9rem;
+  color: #52677E;
+  margin-bottom: 4px;
+}
+
+.figma-landing-cat-btn {
+  background-color: #FFFFFF;
+  border: 1px solid #DFE6EC;
+  border-radius: 6px;
+  padding: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--rml-navy);
+  text-align: center;
+  width: 100%;
+  margin-top: auto;
+  transition: all 0.15s ease;
+}
+
+.figma-landing-cat-card:hover .figma-landing-cat-btn {
+  background-color: var(--rml-navy);
+  color: #FFFFFF;
+  border-color: var(--rml-navy);
+}
+
+/* 5. About RML Section */
+.figma-landing-about-flex {
+  display: flex;
+  align-items: center;
+  gap: 64px;
+}
+
+.figma-landing-about-img {
+  width: 440px;
+  height: 300px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(20, 34, 53, 0.08);
+}
+
+.figma-landing-about-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.figma-landing-about-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.figma-landing-about-heading {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.45rem;
+  color: var(--rml-navy);
+  line-height: 1.35;
+}
+
+.figma-landing-about-text {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: #52677E;
+}
+
+.figma-landing-about-brandtag {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--rml-navy);
+}
+
+/* 6. How Ordering Works (3 Steps) */
+.figma-landing-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.figma-landing-step-card {
+  background-color: #F3F6F9;
+  border-radius: 8px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.figma-landing-step-num {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.85rem;
+  color: var(--rml-red);
+}
+
+.figma-landing-step-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.45rem;
+  color: var(--rml-navy);
+}
+
+.figma-landing-step-desc {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #52677E;
+}
+
+/* 7. Service Areas Section */
+.figma-landing-coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.figma-landing-coverage-card {
+  background-color: #FFFFFF;
+  border-radius: 8px;
+  padding: 28px;
+  color: var(--rml-navy);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.figma-landing-coverage-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.45rem;
+  color: var(--rml-navy);
+}
+
+.figma-landing-coverage-text {
+  font-size: 1.05rem;
+  color: #52677E;
+  line-height: 1.4;
+}
+
+.figma-landing-coverage-notice {
+  font-size: 1.05rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 20px;
+}
+
+.figma-landing-btn-quote-full {
+  background-color: var(--rml-red);
+  color: #FFFFFF;
+  border-radius: 6px;
+  padding: 16px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  text-align: center;
+  text-decoration: none;
+  width: 100%;
+  display: block;
+  border: none;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(200, 50, 39, 0.25);
+}
+
+.figma-landing-btn-quote-full:hover {
+  background-color: var(--rml-red-hover);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(200, 50, 39, 0.35);
+}
+
+/* 8. Customer Access (Login-First) */
+.figma-landing-access-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.figma-landing-access-card {
+  background-color: #F3F6F9;
+  border-radius: 8px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.figma-landing-access-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.55rem;
+  color: var(--rml-navy);
+}
+
+.figma-landing-access-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 1.05rem;
+  color: #52677E;
+}
+
+.figma-landing-access-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.figma-landing-access-list-item i {
+  color: var(--rml-red);
+  font-size: 1.15rem;
+}
+
+.figma-landing-btn-access {
+  background-color: var(--rml-red);
+  color: #FFFFFF;
+  border-radius: 6px;
+  padding: 14px;
+  font-weight: 700;
+  font-size: 1rem;
+  text-align: center;
+  text-decoration: none;
+  width: 100%;
+  display: block;
+  border: none;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(200, 50, 39, 0.25);
+}
+
+.figma-landing-btn-access:hover {
+  background-color: var(--rml-red-hover);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(200, 50, 39, 0.35);
+}
+
+/* 9. Customer Feedback */
+.figma-landing-feedback-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.figma-landing-feedback-card {
+  background-color: #FFFFFF;
+  border-radius: 8px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 2px 8px rgba(20, 34, 53, 0.04);
+}
+
+.figma-landing-feedback-quote {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--rml-navy);
+  font-style: italic;
+}
+
+.figma-landing-feedback-author {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--rml-navy);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 10. Footer */
+.figma-landing-footer {
+  background-color: #132936;
+  color: #FFFFFF;
+  padding: 64px 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.figma-landing-footer-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.55rem;
+  color: #FFFFFF;
+}
+
+.figma-landing-footer-text {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.figma-landing-footer-bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* Responsive Media Queries */
+@media (max-width: 1199.98px) {
+  .figma-landing-hero,
+  .figma-landing-section,
+  .figma-landing-footer {
+    padding-left: 64px;
+    padding-right: 64px;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .figma-landing-nav {
+    padding: 16px 24px;
+  }
+  .figma-landing-hero {
+    flex-direction: column;
+    padding: 48px 24px;
+    gap: 36px;
+  }
+  .figma-landing-hero-title {
+    font-size: 2.5rem;
+  }
+  .figma-landing-hero-visual {
+    width: 100%;
+    max-width: 100%;
+    height: 320px;
+  }
+  .figma-landing-section,
+  .figma-landing-footer {
+    padding: 48px 24px;
+  }
+  .figma-landing-cat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .figma-landing-about-flex {
+    flex-direction: column;
+    gap: 32px;
+  }
+  .figma-landing-about-img {
+    width: 100%;
+    height: 260px;
+  }
+  .figma-landing-steps-grid,
+  .figma-landing-feedback-grid {
+    grid-template-columns: 1fr;
+  }
+  .figma-landing-coverage-grid,
+  .figma-landing-access-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .figma-landing-hero-title {
+    font-size: 2rem;
+  }
+  .figma-landing-hero-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .figma-landing-btn-primary,
+  .figma-landing-btn-secondary {
+    width: 100%;
+    text-align: center;
+  }
+  .figma-landing-cat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Figma High-Fidelity Customer Portal Design System
+   Matches Figma frames: 172:1444, 172:6533, 172:7167, 172:8354, 172:9726, 172:9943
+   ------------------------------------------------------------------------- */
+.customer-portal-header {
+  background: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: 10px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(20, 34, 53, 0.04);
+}
+
+.customer-portal-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.65rem;
+  color: var(--rml-navy);
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+
+.customer-portal-subtitle {
+  font-size: 0.95rem;
+  color: var(--rml-text-muted);
+  margin-bottom: 0;
+}
+
+.customer-portal-card {
+  background: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(20, 34, 53, 0.04);
+  margin-bottom: 24px;
+}
+
+.customer-portal-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--rml-border);
+}
+
+.customer-portal-card-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--rml-navy);
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Cart Item High-Fidelity Card (Figma Node 172:6533) */
+.customer-cart-card {
+  background: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  gap: 20px;
+  margin-bottom: 16px;
+  align-items: center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.customer-cart-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 2px 8px rgba(20, 34, 53, 0.06);
+}
+
+.customer-cart-img {
+  width: 110px;
+  height: 105px;
+  border-radius: 8px;
+  object-fit: cover;
+  background-color: #F8FAFC;
+  flex-shrink: 0;
+  border: 1px solid var(--rml-border);
+}
+
+.customer-cart-info {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.customer-cart-item-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--rml-navy);
+  margin-bottom: 4px;
+}
+
+.customer-cart-item-spec {
+  font-size: 0.88rem;
+  color: var(--rml-text-muted);
+  margin-bottom: 6px;
+}
+
+.customer-cart-item-price {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--rml-text-dark);
+}
+
+.customer-stepper {
+  display: inline-flex;
+  align-items: center;
+  background-color: #F3F6F9;
+  border: 1px solid var(--rml-border);
+  border-radius: 8px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.customer-stepper-btn {
+  width: 32px;
+  height: 32px;
+  background: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--rml-navy);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.customer-stepper-btn:hover {
+  background-color: var(--rml-navy);
+  color: #FFFFFF;
+  border-color: var(--rml-navy);
+}
+
+.customer-stepper-input {
+  width: 48px;
+  height: 32px;
+  text-align: center;
+  border: none;
+  background: transparent;
+  font-weight: 700;
+  color: var(--rml-navy);
+  font-size: 1rem;
+}
+
+.customer-stepper-input:focus {
+  outline: none;
+}
+
+/* Order Summary Box (Figma Node 172:6533 & 172:7167) */
+.customer-summary-box {
+  background: #FFFFFF;
+  border: 1px solid var(--rml-border);
+  border-radius: 10px;
+  padding: 24px;
+  position: sticky;
+  top: 90px;
+  box-shadow: 0 1px 3px rgba(20, 34, 53, 0.04);
+}
+
+.customer-summary-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--rml-navy);
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rml-border);
+}
+
+.customer-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+  color: var(--rml-text-muted);
+}
+
+.customer-summary-row.total {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--rml-navy);
+  padding-top: 14px;
+  border-top: 1px solid var(--rml-border);
+  margin-top: 14px;
+}
+
+/* Payment Method Selection Cards (Figma Node 172:8354) */
+.customer-payment-option {
+  border: 2px solid var(--rml-border);
+  border-radius: 10px;
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: #FFFFFF;
+  margin-bottom: 16px;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.customer-payment-option:hover {
+  border-color: #CBD5E1;
+  background-color: #F8FAFC;
+  color: inherit;
+}
+
+.customer-payment-option.active {
+  border-color: var(--rml-red);
+  background-color: #FFFDFD;
+  box-shadow: 0 0 0 3px rgba(200, 50, 39, 0.08);
+}
+
+.customer-payment-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rml-red);
+  margin-bottom: 6px;
+}
+
+.customer-payment-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--rml-navy);
+  margin-bottom: 6px;
+}
+
+.customer-payment-desc {
+  font-size: 0.92rem;
+  color: var(--rml-text-muted);
+  line-height: 1.5;
+  margin-bottom: 0;
+}
+
+/* High-Fidelity 4-Step Tracking Timeline (Figma Node 172:9726) */
+.customer-tracking-timeline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  margin: 36px 0 28px 0;
+  padding: 0 20px;
+}
+
+.customer-tracking-timeline::before {
+  content: "";
+  position: absolute;
+  top: 20px;
+  left: 40px;
+  right: 40px;
+  height: 4px;
+  background: #E2E8F0;
+  z-index: 1;
+}
+
+.customer-tracking-step {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.customer-tracking-dot {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 3px solid #CBD5E1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: #64748B;
+  transition: all 0.2s ease;
+}
+
+.customer-tracking-step.completed .customer-tracking-dot {
+  background: #059669;
+  border-color: #059669;
+  color: #FFFFFF;
+}
+
+.customer-tracking-step.active .customer-tracking-dot {
+  background: #2563EB;
+  border-color: #2563EB;
+  color: #FFFFFF;
+  box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.2);
+}
+
+.customer-tracking-step-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--rml-navy);
+}
+
+.customer-tracking-step-time {
+  font-size: 0.75rem;
+  color: var(--rml-text-muted);
+}
+
+/* Status Pills (Uniform across all customer pages) */
+.customer-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.customer-status-pill.success {
+  background-color: #ECFDF5;
+  color: #065F46;
+  border-color: #A7F3D0;
+}
+
+.customer-status-pill.primary {
+  background-color: #EFF6FF;
+  color: #1E40AF;
+  border-color: #BFDBFE;
+}
+
+.customer-status-pill.warning {
+  background-color: #FFFBEB;
+  color: #92400E;
+  border-color: #FDE68A;
+}
+
+.customer-status-pill.danger {
+  background-color: #FEF2F2;
+  color: #991B1B;
+  border-color: #FECACA;
+}
+
+.customer-status-pill.secondary {
+  background-color: #F1F5F9;
+  color: #475569;
+  border-color: #CBD5E1;
+}
+
+@media (max-width: 768px) {
+  .customer-cart-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .customer-cart-img {
+    width: 100%;
+    height: 140px;
+  }
+  .customer-tracking-timeline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .customer-tracking-timeline::before {
+    display: none;
+  }
+  .customer-tracking-step {
+    flex-direction: row;
+    gap: 16px;
+  }
+}
+
+
+
+

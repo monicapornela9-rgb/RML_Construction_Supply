@@ -2,10 +2,17 @@
 {% block title %}Delivery Tracking · RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-  <div class="text-muted small">Ops Console &middot; Deliveries</div>
-  <h2 class="fw-bold mb-1">Delivery Tracking &amp; Fleet Dispatch</h2>
-  <p class="text-muted small">Assign conflict-free truck and driver delivery schedules, track customer confirmations, and monitor live GPS movement across Batangas.</p>
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <div class="text-muted small">Ops Console &middot; Deliveries</div>
+    <h2 class="fw-bold mb-1">Delivery Tracking &amp; Fleet Dispatch</h2>
+    <p class="text-muted small mb-0">Assign conflict-free truck and driver delivery schedules, track customer confirmations, and monitor live GPS movement across Batangas.</p>
+  </div>
+  <div>
+    <a href="{{ url_for('main.admin_delivery_availability') }}" class="btn btn-outline-dark">
+      <i class="bi bi-calendar2-range me-1"></i> Availability &amp; Capacity Rules
+    </a>
+  </div>
 </div>
 
 <!-- Status Counters (Matching Admin deliveries.png & New Workflow) -->
@@ -140,7 +147,7 @@
           <th>Destination &amp; Contact</th>
           <th>Assigned Schedule</th>
           <th>Driver &amp; Truck</th>
-          <th>Status</th>
+          <th>Status &amp; Authorization</th>
           <th class="text-end">Actions</th>
         </tr>
       </thead>
@@ -148,7 +155,12 @@
         {% for d in deliveries %}
           <tr>
             <td class="fw-bold">{{ d.delivery_code }}</td>
-            <td class="fw-semibold">{{ d.order_code|order_code }}</td>
+            <td class="fw-semibold">
+              <div>{{ d.order_code|order_code }}</div>
+              <span class="badge {% if d.order_status in ('ready_for_dispatch', 'out_for_delivery', 'delivered') %}badge-instock{% elif d.order_status == 'payment_verified' %}bg-primary text-white{% else %}badge-check{% endif %} smaller">
+                {{ d.order_status|replace('_', ' ') }}
+              </span>
+            </td>
             <td class="small">
               <strong>{{ d.recipient_name }}</strong><br>
               <span class="text-muted">{{ d.delivery_address|truncate(35) }}</span>
@@ -162,14 +174,38 @@
               <span class="text-muted">{{ d.truck_code }} ({{ d.plate_number }})</span>
             </td>
             <td>
-              <span class="badge {% if d.delivery_status == 'delivered' %}badge-instock{% elif d.delivery_status == 'en_route' %}badge-check{% else %}badge-transit{% endif %} text-uppercase">
-                {{ d.delivery_status|replace('_', ' ') }}
-              </span>
+              <div>
+                <span class="badge {% if d.delivery_status == 'delivered' %}badge-instock{% elif d.delivery_status == 'en_route' %}badge-check{% elif d.delivery_status == 'authorized' %}bg-success text-white{% else %}badge-transit{% endif %} text-uppercase mb-1">
+                  {{ d.delivery_status|replace('_', ' ') }}
+                </span>
+              </div>
+              {% if d.order_status in ('ready_for_dispatch', 'out_for_delivery', 'delivered') or d.delivery_status in ('authorized', 'loading', 'en_route', 'delivered') %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle smaller">
+                  <i class="bi bi-shield-check"></i> Authorized
+                </span>
+              {% elif d.order_status == 'payment_verified' %}
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle smaller">
+                  <i class="bi bi-clock"></i> Ready for Release
+                </span>
+              {% else %}
+                <span class="badge text-bg-light border text-muted smaller">
+                  <i class="bi bi-lock"></i> Pre-Approval
+                </span>
+              {% endif %}
             </td>
             <td class="text-end">
-              <a href="{{ url_for('main.driver_delivery_task', delivery_id=d.id) }}" class="btn btn-outline-dark btn-sm">
-                View Task
-              </a>
+              <div class="d-flex justify-content-end align-items-center gap-1">
+                {% if d.order_status == 'payment_verified' and d.delivery_status != 'authorized' %}
+                  <form method="POST" action="{{ url_for('main.admin_order_authorize_delivery', order_id=d.order_id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-success fw-semibold" title="Authorize Delivery">
+                      <i class="bi bi-send-check me-1"></i> Authorize
+                    </button>
+                  </form>
+                {% endif %}
+                <a href="{{ url_for('main.driver_delivery_task', delivery_id=d.id) }}" class="btn btn-outline-dark btn-sm">
+                  View Task
+                </a>
+              </div>
             </td>
           </tr>
         {% else %}

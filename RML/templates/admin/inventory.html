@@ -5,7 +5,7 @@
 <div class="mb-4">
   <div class="text-muted small">Ops Console &middot; Inventory</div>
   <h2 class="fw-bold mb-1">Inventory Management</h2>
-  <p class="text-muted small">Maintain products, categories, units, and prices. Review stock-in and stock-out from one place.</p>
+  <p class="text-muted small">Maintain official catalog products, exact sizes, variations, prices, and warehouse yard stock.</p>
 </div>
 
 <div class="d-flex gap-2 mb-3">
@@ -32,11 +32,11 @@
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
-          <th>Product</th>
+          <th>Product &amp; Available Variations</th>
           <th>Category</th>
-          <th>Unit</th>
-          <th>Price</th>
-          <th>Stock Quantity</th>
+          <th>Base Unit</th>
+          <th>Catalog Price</th>
+          <th>Total Stock</th>
           <th>Status</th>
           <th class="text-end">Actions</th>
         </tr>
@@ -44,18 +44,41 @@
       <tbody>
         {% for p in products %}
           <tr>
-            <td class="fw-semibold">
-              <div class="d-flex align-items-center gap-2">
-                <img src="{{ p.image_url }}" alt="{{ p.name }}" class="rounded" style="width: 36px; height: 36px; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=100';">
-                <div>
-                  {{ p.name }}
-                  <div class="small text-muted text-truncate" style="max-width: 250px;">{{ p.description }}</div>
+            <td class="fw-semibold" style="min-width: 260px;">
+              <div class="d-flex align-items-start gap-2">
+                <img src="{{ p.image_url }}" alt="{{ p.name }}" class="rounded mt-1" style="width: 40px; height: 40px; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=100';">
+                <div class="w-100">
+                  <div class="d-flex align-items-center gap-2">
+                    <span>{{ p.name }}</span>
+                    {% if p.variations and p.variations|length > 0 %}
+                      <span class="badge bg-primary-subtle text-primary border border-primary-subtle smaller">
+                        {{ p.variations|length }} variations
+                      </span>
+                    {% endif %}
+                  </div>
+                  <div class="small text-muted text-truncate" style="max-width: 320px;">{{ p.description }}</div>
+
+                  <!-- Variations Pills Preview -->
+                  {% if p.variations and p.variations|length > 0 %}
+                    <div class="mt-2 d-flex flex-wrap gap-1">
+                      {% for v in p.variations %}
+                        <span class="badge text-bg-light border text-dark smaller">
+                          {{ v.variation_name }}: &#8369;{{ "{:,.2f}".format(v.price) }} ({{ v.stock_quantity }} {{ v.unit or p.unit }})
+                        </span>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
                 </div>
               </div>
             </td>
             <td class="small text-muted">{{ p.category_name }}</td>
             <td>{{ p.unit }}</td>
-            <td class="fw-semibold">&#8369;{{ "{:,.2f}".format(p.price) }}</td>
+            <td class="fw-semibold">
+              {% if p.variations and p.variations|length > 0 %}
+                <small class="text-muted d-block smaller">from</small>
+              {% endif %}
+              &#8369;{{ "{:,.2f}".format(p.price) }}
+            </td>
             <td class="fw-bold fs-6">{{ p.stock_quantity }}</td>
             <td>
               {% if p.stock_quantity == 0 %}
@@ -67,19 +90,24 @@
               {% endif %}
             </td>
             <td class="text-end">
-              <button class="btn btn-sm btn-outline-secondary edit-prod-btn"
-                data-id="{{ p.id }}"
-                data-name="{{ p.name }}"
-                data-category="{{ p.category_id }}"
-                data-desc="{{ p.description }}"
-                data-unit="{{ p.unit }}"
-                data-price="{{ p.price }}"
-                data-stock="{{ p.stock_quantity }}"
-                data-threshold="{{ p.low_stock_threshold }}"
-                data-image="{{ p.image_url }}"
-                onclick="openEditProductModalFromBtn(this)">
-                <i class="bi bi-pencil"></i> Edit
-              </button>
+              <div class="d-flex justify-content-end align-items-center gap-1">
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#varModal{{ p.id }}" title="Manage Variations">
+                  <i class="bi bi-sliders"></i> Variations ({{ p.variations|length }})
+                </button>
+                <button class="btn btn-sm btn-outline-secondary edit-prod-btn"
+                  data-id="{{ p.id }}"
+                  data-name="{{ p.name }}"
+                  data-category="{{ p.category_id }}"
+                  data-desc="{{ p.description }}"
+                  data-unit="{{ p.unit }}"
+                  data-price="{{ p.price }}"
+                  data-stock="{{ p.stock_quantity }}"
+                  data-threshold="{{ p.low_stock_threshold }}"
+                  data-image="{{ p.image_url }}"
+                  onclick="openEditProductModalFromBtn(this)">
+                  <i class="bi bi-pencil"></i> Edit
+                </button>
+              </div>
             </td>
           </tr>
         {% endfor %}
@@ -87,6 +115,124 @@
     </table>
   </div>
 </div>
+
+<!-- Manage Variations Modals (Placed safely outside the table DOM) -->
+{% for p in products %}
+<div class="modal fade" id="varModal{{ p.id }}" tabindex="-1" aria-labelledby="varModalLabel{{ p.id }}" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title fw-bold" id="varModalLabel{{ p.id }}">
+            <i class="bi bi-sliders text-rml me-1"></i> Manage Variations: {{ p.name }}
+          </h5>
+          <div class="small text-muted">Category: {{ p.category_name }} &middot; Base Unit: {{ p.unit }}</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <!-- Existing Variations List -->
+        <h6 class="fw-bold mb-2">Active Variations &amp; Exact Prices</h6>
+        {% if p.variations and p.variations|length > 0 %}
+          <div class="table-responsive mb-4">
+            <table class="table table-sm table-bordered align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Variation Name / Size</th>
+                  <th style="width: 140px;">Exact Price (&#8369;)</th>
+                  <th style="width: 100px;">Unit</th>
+                  <th style="width: 110px;">Stock</th>
+                  <th style="width: 140px;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for v in p.variations %}
+                  <tr>
+                    <form method="POST" action="{{ url_for('main.admin_inventory') }}">
+                      <input type="hidden" name="action" value="update_variation">
+                      <input type="hidden" name="variation_id" value="{{ v.id }}">
+                      <td>
+                        <input type="text" name="variation_name" value="{{ v.variation_name }}" class="form-control form-control-sm" required>
+                      </td>
+                      <td>
+                        <div class="input-group input-group-sm">
+                          <span class="input-group-text">&#8369;</span>
+                          <input type="number" step="0.01" name="price" value="{{ v.price }}" class="form-control form-control-sm" required>
+                        </div>
+                      </td>
+                      <td>
+                        <input type="text" name="unit" value="{{ v.unit or p.unit }}" class="form-control form-control-sm" required>
+                      </td>
+                      <td>
+                        <input type="number" name="stock_quantity" value="{{ v.stock_quantity }}" class="form-control form-control-sm" required>
+                      </td>
+                      <td>
+                        <div class="d-flex gap-1">
+                          <button type="submit" class="btn btn-sm btn-outline-success py-1" title="Save changes">
+                            <i class="bi bi-check-lg"></i> Save
+                          </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('main.admin_inventory') }}" class="d-inline" onsubmit="return confirm('Deactivate this variation?');">
+                      <input type="hidden" name="action" value="delete_variation">
+                      <input type="hidden" name="variation_id" value="{{ v.id }}">
+                      <button type="submit" class="btn btn-sm btn-outline-danger py-1" title="Deactivate">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                        </div>
+                      </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="alert alert-light border small text-muted mb-4">
+            <i class="bi bi-info-circle me-1"></i> No individual variations registered for this product yet. It is currently sold as a standalone item at &#8369;{{ "{:,.2f}".format(p.price) }} / {{ p.unit }}.
+          </div>
+        {% endif %}
+
+        <!-- Add New Variation Form -->
+        <div class="card border border-primary-subtle bg-light p-3">
+          <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-plus-circle me-1 text-primary"></i> Add New Variation / Size</h6>
+          <form method="POST" action="{{ url_for('main.admin_inventory') }}">
+            <input type="hidden" name="action" value="add_variation">
+            <input type="hidden" name="product_id" value="{{ p.id }}">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label smaller fw-semibold mb-1">Variation / Size Name *</label>
+                <input type="text" name="variation_name" class="form-control form-control-sm" placeholder="e.g. 12mm or 15w" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label smaller fw-semibold mb-1">Exact Price (&#8369;) *</label>
+                <input type="number" step="0.01" name="price" class="form-control form-control-sm" placeholder="245.00" required>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label smaller fw-semibold mb-1">Unit *</label>
+                <input type="text" name="unit" class="form-control form-control-sm" value="{{ p.unit }}" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label smaller fw-semibold mb-1">Yard Stock</label>
+                <div class="d-flex gap-1">
+                  <input type="number" name="stock_quantity" class="form-control form-control-sm" value="50" required>
+                  <button type="submit" class="btn btn-sm btn-rml fw-semibold text-nowrap">
+                    <i class="bi bi-plus-lg"></i> Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
 
 <!-- Recent Stock Movements Audit Log -->
 <h5 class="fw-bold mb-2">Recent Stock Movements</h5>
@@ -127,7 +273,7 @@
   </div>
 </div>
 
-<!-- Modal: Log Stock Movement (Matching Admin stock movement.png) -->
+<!-- Modal: Log Stock Movement -->
 <div class="modal fade" id="stockModal" tabindex="-1">
   <div class="modal-dialog">
     <form method="POST" action="{{ url_for('main.admin_inventory') }}" class="modal-content">
@@ -201,7 +347,7 @@
   </div>
 </div>
 
-<!-- Modal: Add / Update Product (Matching Admin product details.png) -->
+<!-- Modal: Add / Update Product -->
 <div class="modal fade" id="productModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <form method="POST" action="{{ url_for('main.admin_inventory') }}" class="modal-content" id="productForm">

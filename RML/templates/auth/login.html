@@ -1,80 +1,186 @@
 {% extends "base.html" %}
-{% block title %}Sign In - RML Construction Supply{% endblock %}
+{% block title %}Customer Sign-in - RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-lg-10">
-      <div class="card border-0 shadow-sm overflow-hidden">
-        <div class="row g-0">
-          <div class="col-md-5 rml-login-panel text-white p-4 d-flex flex-column justify-content-between">
-            <div>
-              <div class="d-flex align-items-center gap-2 mb-3">
-                <span class="rml-logo-box">R</span>
-                <span class="fw-bold fs-5">RML Construction Supply</span>
-              </div>
-              <h3 class="fw-bold mb-3">Keep every operation moving.</h3>
-              <p class="text-secondary small">Browse construction materials, place orders, manage inventory, and track live deliveries across Lipa City, Batangas.</p>
-              <hr class="border-secondary border-opacity-50">
-              <div class="small mb-2"><strong>01</strong> &middot; Browse materials &amp; check live stock</div>
-              <div class="small mb-2"><strong>02</strong> &middot; Coordinate inventory &amp; truck dispatch</div>
-              <div class="small"><strong>03</strong> &middot; Real-time GPS tracking &amp; site confirmation</div>
-            </div>
-            <div class="small text-secondary mt-4">
-              Serving construction sites across Lipa City &amp; Batangas Province.
-            </div>
+<div class="figma-auth-screen-layout">
+  <!-- 1. Header (80px Figma Specification) -->
+  <header class="figma-auth-header">
+    <a href="{{ url_for('main.home') }}" class="figma-auth-brand">
+      <span class="figma-auth-brand-logo">R</span>
+      <span class="figma-auth-brand-name">RML Construction Supply</span>
+    </a>
+
+    <div class="figma-auth-nav-group">
+      <a href="{{ url_for('main.customer_catalog') }}" class="figma-auth-nav-link">Materials</a>
+      <a href="{{ url_for('main.home') }}#fleet" class="figma-auth-nav-link d-none d-md-inline">Delivery</a>
+      <a href="{{ url_for('main.home') }}#about" class="figma-auth-nav-link d-none d-sm-inline">Help</a>
+      
+      <div class="figma-auth-search-box">
+        <i class="bi bi-search text-muted me-2" style="font-size: 0.85rem;"></i>
+        <input type="text" class="figma-auth-search-input" placeholder="Search site..." aria-label="Search site">
+      </div>
+    </div>
+  </header>
+
+  <!-- 2. Main 50/50 Split Section -->
+  <main class="figma-auth-main">
+    <!-- Left Hero Pane -->
+    <div class="figma-auth-hero-pane">
+      <div class="figma-auth-hero-content">
+        <div class="figma-auth-hero-badge">
+          <i class="bi bi-shield-check"></i> Customer Portal Access
+        </div>
+        <h1 class="figma-auth-hero-title">RML Construction Supply</h1>
+        <p class="figma-auth-hero-desc">
+          Manage your supply chain, track site deliveries, and review project documentation all in one portal.
+        </p>
+        <div class="figma-auth-hero-features">
+          <div class="figma-auth-hero-feature-item">
+            <i class="bi bi-check-circle-fill"></i>
+            <span>Certified rebar, structural steel &amp; Portland cement</span>
           </div>
-
-          <div class="col-md-7 bg-white p-4 p-md-5">
-            <ul class="nav nav-pills mb-4">
-              <li class="nav-item">
-                <a class="nav-link {% if selected_role == 'customer' %}btn-rml active{% else %}text-dark{% endif %}" href="{{ url_for('main.login', role='customer') }}">Customer</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link {% if selected_role in ('admin', 'staff') %}btn-rml active{% else %}text-dark{% endif %}" href="{{ url_for('main.login', role='admin') }}">Admin / Staff</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link {% if selected_role == 'driver' %}btn-rml active{% else %}text-dark{% endif %}" href="{{ url_for('main.login', role='driver') }}">Driver</a>
-              </li>
-            </ul>
-
-            <h3 class="fw-bold mb-1">
-              {% if selected_role in ('admin', 'staff') %}Admin sign-in{% elif selected_role == 'driver' %}Driver sign-in{% else %}Customer Portal{% endif %}
-            </h3>
-            <p class="text-muted small mb-4">Sign in with your assigned email or Staff ID.</p>
-
-            <form method="POST" action="{{ url_for('main.login') }}">
-              <input type="hidden" name="portal_role" value="{{ selected_role }}">
-              <div class="mb-3">
-                <label class="form-label small fw-semibold">
-                  {% if selected_role == 'customer' %}Email address{% else %}Staff ID or Email{% endif %}
-                </label>
-                <input type="text" name="identifier" class="form-control" required
-                  placeholder="{% if selected_role in ('admin', 'staff') %}RML-ADM-001 or admin@rml.com{% elif selected_role == 'driver' %}RML-DRV-014 or driver@rml.com{% else %}customer@rml.com{% endif %}">
-              </div>
-              <div class="mb-3">
-                <label class="form-label small fw-semibold">Password</label>
-                <input type="password" name="password" class="form-control" required placeholder="Enter your password">
-              </div>
-              <button type="submit" class="btn btn-rml w-100 py-2 fw-semibold">Sign in</button>
-            </form>
-
-            {% if selected_role == 'customer' %}
-            <div class="text-center mt-3 small">
-              Need a customer account? <a href="{{ url_for('main.register') }}" class="text-rml fw-semibold text-decoration-none">Register here</a>
-            </div>
-            {% endif %}
-
-            <div class="mt-4 p-3 bg-light rounded small text-muted border">
-              <div class="fw-semibold text-dark mb-1">Demo Access Credentials:</div>
-              <div>Customer: <code>customer@rml.com</code> / <code>customer123</code></div>
-              <div>Admin: <code>RML-ADM-001</code> / <code>admin123</code></div>
-              <div>Driver: <code>RML-DRV-014</code> / <code>driver123</code></div>
-            </div>
+          <div class="figma-auth-hero-feature-item">
+            <i class="bi bi-truck-flatbed"></i>
+            <span>Guaranteed morning &amp; afternoon dispatch time slots</span>
+          </div>
+          <div class="figma-auth-hero-feature-item">
+            <i class="bi bi-geo-alt-fill"></i>
+            <span>Live GPS fleet route tracking directly to your job site</span>
           </div>
         </div>
       </div>
     </div>
-  </div>
+
+    <!-- Right Form Pane -->
+    <div class="figma-auth-form-pane">
+      <div class="figma-auth-form-card">
+        <h2 class="figma-auth-card-title">Customer Portal</h2>
+        <p class="figma-auth-card-subtitle">Sign in to manage your construction orders, delivery schedules, and jobsite receipts.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show py-2 px-3 small mb-3" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('main.login', next=request.args.get('next')) if request.args.get('next') else url_for('main.login') }}" id="customerLoginForm">
+          <input type="hidden" name="next" value="{{ request.args.get('next', '') or request.form.get('next', '') }}">
+
+          <!-- Work Email -->
+          <div class="figma-auth-field-group">
+            <label class="figma-auth-label" for="loginEmail">Work Email</label>
+            <input type="email" name="identifier" id="loginEmail" class="figma-auth-input" required
+                   placeholder="name@company.com" value="{{ identifier_value or '' }}" autocomplete="email" autofocus>
+          </div>
+
+          <!-- Password -->
+          <div class="figma-auth-field-group">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="figma-auth-label mb-0" for="loginPassword">Password</label>
+              <a href="{{ url_for('main.forgot_password') }}" class="smaller text-decoration-none fw-semibold" style="color: var(--rml-red);">
+                Forgot password?
+              </a>
+            </div>
+            <div class="position-relative">
+              <input type="password" name="password" id="loginPassword" class="figma-auth-input pe-5" required
+                     placeholder="Enter your password" autocomplete="current-password">
+              <button type="button" class="btn btn-link position-absolute end-0 top-50 translate-middle-y text-muted text-decoration-none pe-3 border-0"
+                      onclick="togglePassword('loginPassword', this)" title="Show/Hide Password" tabindex="-1">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Keep me signed in -->
+          <div class="d-flex align-items-center justify-content-between mb-4">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="rememberMe" name="remember_me">
+              <label class="form-check-label small text-muted" for="rememberMe">Keep me signed in on this device</label>
+            </div>
+          </div>
+
+          <!-- Primary Submit CTA -->
+          <button type="submit" class="figma-auth-btn-primary">
+            Sign In
+          </button>
+        </form>
+
+        <!-- Divider -->
+        <div class="figma-auth-divider">
+          <span>Other sign-in options</span>
+        </div>
+
+        <!-- SSO Federation Options -->
+        <div class="figma-auth-sso-group">
+          <button type="button" class="figma-auth-sso-btn" onclick="showSsoNotice('Google Workspace')">
+            <img src="{{ url_for('static', filename='images/google_icon.svg') }}" class="figma-auth-sso-icon" alt="Google">
+            <span>Continue with Google</span>
+          </button>
+          <button type="button" class="figma-auth-sso-btn" onclick="showSsoNotice('Microsoft 365')">
+            <img src="{{ url_for('static', filename='images/microsoft_icon.svg') }}" class="figma-auth-sso-icon" alt="Microsoft">
+            <span>Continue with Microsoft</span>
+          </button>
+        </div>
+
+        <!-- Registration Link -->
+        <div class="text-center pt-2 small text-muted">
+          Need an account for your project?
+          <a href="{{ url_for('main.register') }}" class="fw-bold text-decoration-none ms-1" style="color: var(--rml-red);">
+            Register Now &rarr;
+          </a>
+        </div>
+
+        <!-- Portal Switcher Links -->
+        <div class="text-center mt-3 pt-3 border-top smaller text-muted">
+          <span>Authorized staff:</span>
+          <a href="{{ url_for('main.admin_login') }}" class="text-secondary text-decoration-none ms-2">Admin Portal</a>
+          <span class="mx-1">&middot;</span>
+          <a href="{{ url_for('main.driver_login') }}" class="text-secondary text-decoration-none">Driver Portal</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 3. Footer (217px Figma Specification) -->
+  <footer class="figma-auth-footer">
+    <div class="figma-auth-footer-inner">
+      <div>
+        <strong class="text-navy">RML Construction Supply</strong> &middot; Lipa City, Batangas
+        <div class="smaller text-muted mt-1">&copy; 2026 RML Construction Supply. All rights reserved.</div>
+      </div>
+      <div class="figma-auth-footer-links">
+        <a href="{{ url_for('main.customer_catalog') }}" class="figma-auth-footer-link">Materials</a>
+        <a href="{{ url_for('main.home') }}#fleet" class="figma-auth-footer-link">Delivery Fleet</a>
+        <a href="{{ url_for('main.home') }}#about" class="figma-auth-footer-link">About Us</a>
+        <span class="text-muted d-none d-md-inline">&middot;</span>
+        <span class="smaller text-muted d-none d-md-inline">Support: logistics@rml.com</span>
+      </div>
+    </div>
+  </footer>
 </div>
+
+<script>
+function togglePassword(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const icon = btn.querySelector('i');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.classList.remove('bi-eye');
+    icon.classList.add('bi-eye-slash');
+  } else {
+    input.type = 'password';
+    icon.classList.remove('bi-eye-slash');
+    icon.classList.add('bi-eye');
+  }
+}
+
+function showSsoNotice(provider) {
+  alert('Enterprise Single Sign-On via ' + provider + ' is configured for approved corporate contractor accounts. Please sign in with your email and password, or contact logistics@rml.com for corporate SSO federation.');
+}
+</script>
 {% endblock %}

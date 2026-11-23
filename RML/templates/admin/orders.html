@@ -5,10 +5,10 @@
 <div class="mb-4">
   <div class="text-muted small">Ops Console &middot; Orders</div>
   <h2 class="fw-bold mb-1">Order Processing &amp; Dispatch Scheduling</h2>
-  <p class="text-muted small">Review incoming orders, verify stock availability, and assign conflict-free truck and driver delivery schedules.</p>
+  <p class="text-muted small">Review incoming orders, verify stock availability, assign delivery schedules, and authorize dispatches.</p>
 </div>
 
-<!-- Tabs for All 5 Workflow States -->
+<!-- Workflow Tabs -->
 <ul class="nav nav-pills mb-3 flex-wrap gap-1">
   <li class="nav-item">
     <a class="nav-link {% if tab in ('pending', 'pending_scheduling') %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_orders', tab='pending') }}">
@@ -26,8 +26,18 @@
     </a>
   </li>
   <li class="nav-item">
-    <a class="nav-link {% if tab in ('scheduled', 'ready', 'schedule_confirmed') %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_orders', tab='scheduled') }}">
-      Schedule Confirmed ({{ counts.scheduled }})
+    <a class="nav-link {% if tab == 'payment_verification' %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_orders', tab='payment_verification') }}">
+      Payment Verification ({{ counts.payment_verification }})
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if tab == 'ready_authorization' %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_orders', tab='ready_authorization') }}">
+      Ready for Authorization ({{ counts.ready_authorization }})
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if tab in ('scheduled', 'ready', 'ready_for_dispatch') %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_orders', tab='scheduled') }}">
+      Dispatched / In Transit ({{ counts.scheduled }})
     </a>
   </li>
   <li class="nav-item">
@@ -46,8 +56,8 @@
           <th>Customer</th>
           <th>Assigned Delivery Schedule</th>
           <th>Total</th>
-          <th>Stock Check</th>
-          <th>Status</th>
+          <th>Payment</th>
+          <th>Order Status</th>
           <th class="text-end">Action</th>
         </tr>
       </thead>
@@ -75,10 +85,21 @@
             </td>
             <td class="fw-semibold">&#8369;{{ "{:,.2f}".format(o.total_amount) }}</td>
             <td>
-              {% if o.all_in_stock %}
-                <span class="badge badge-instock">Available</span>
+              {% if o.payment_method %}
+                <div class="small fw-semibold text-capitalize">{{ 'COD' if o.payment_method == 'cash' else 'Online QR' }}</div>
+                {% if o.payment_status in ('verified', 'paid') %}
+                  <span class="badge badge-instock smaller"><i class="bi bi-check-circle"></i> Paid / Verified</span>
+                {% elif o.payment_status == 'payment_due' %}
+                  <span class="badge bg-info text-dark smaller"><i class="bi bi-cash"></i> COD Approved</span>
+                {% elif o.payment_status in ('pending', 'pending_verification') %}
+                  <span class="badge badge-check smaller"><i class="bi bi-clock-history"></i> Verification Pending</span>
+                {% elif o.payment_status == 'rejected' %}
+                  <span class="badge badge-danger smaller">Payment Rejected</span>
+                {% else %}
+                  <span class="badge text-bg-light border smaller text-muted">{{ o.payment_status|title }}</span>
+                {% endif %}
               {% else %}
-                <span class="badge badge-check">Check required</span>
+                <span class="badge text-bg-light border text-muted smaller">Unpaid</span>
               {% endif %}
             </td>
             <td>
@@ -87,13 +108,21 @@
               {% elif o.order_status == 'for_scheduling' %}
                 <span class="badge bg-info text-dark">For Scheduling</span>
               {% elif o.order_status == 'awaiting_confirmation' %}
-                <span class="badge bg-warning text-dark">Awaiting Confirm</span>
-              {% elif o.order_status in ('scheduled', 'schedule_confirmed', 'approved') %}
-                <span class="badge badge-instock">Schedule Confirmed</span>
+                <span class="badge bg-warning text-dark">Awaiting Customer</span>
+              {% elif o.order_status in ('scheduled', 'schedule_confirmed') %}
+                <span class="badge bg-secondary text-white">Schedule Confirmed</span>
+              {% elif o.order_status in ('pending_payment', 'pending_payment_verification') %}
+                <span class="badge bg-warning text-dark">Payment Verification</span>
+              {% elif o.order_status == 'payment_verified' %}
+                <span class="badge bg-primary text-white">Ready for Authorization</span>
+              {% elif o.order_status == 'ready_for_dispatch' %}
+                <span class="badge bg-success text-white">Authorized &middot; Ready</span>
               {% elif o.order_status in ('out_for_delivery', 'in_transit') %}
                 <span class="badge badge-transit">Out for Delivery</span>
               {% elif o.order_status == 'delivered' %}
                 <span class="badge badge-instock">Delivered</span>
+              {% elif o.order_status == 'payment_rejected' %}
+                <span class="badge bg-danger text-white">Payment Rejected</span>
               {% elif o.order_status in ('cancelled', 'rejected') %}
                 <span class="badge badge-danger">Cancelled</span>
               {% else %}
@@ -101,16 +130,40 @@
               {% endif %}
             </td>
             <td class="text-end">
-              <button class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#orderModal{{ o.id }}">
-                Review &amp; Schedule &rarr;
-              </button>
+              <div class="d-flex justify-content-end align-items-center gap-1">
+                {% if o.order_status == 'payment_verified' %}
+                  <form method="POST" action="{{ url_for('main.admin_order_authorize_delivery', order_id=o.id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-success fw-semibold" title="Authorize for Dispatch">
+                      <i class="bi bi-send-check me-1"></i> Authorize
+                    </button>
+                  </form>
+                {% endif %}
+
+                {% if o.order_status in ('pending', 'pending_scheduling', 'for_scheduling') %}
+                  <button class="btn btn-sm btn-rml" data-bs-toggle="modal" data-bs-target="#orderModal{{ o.id }}">
+                    Assign Schedule &rarr;
+                  </button>
+                {% elif o.order_status == 'awaiting_confirmation' %}
+                  <button class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#orderModal{{ o.id }}">
+                    Review / Reschedule
+                  </button>
+                {% elif o.order_status in ('pending_payment', 'pending_payment_verification') %}
+                  <a href="{{ url_for('main.admin_payments', tab='awaiting') }}" class="btn btn-sm btn-outline-primary">
+                    Verify Payment &rarr;
+                  </a>
+                {% else %}
+                  <button class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#orderModal{{ o.id }}">
+                    Details &rarr;
+                  </button>
+                {% endif %}
+              </div>
             </td>
           </tr>
         {% else %}
           <tr>
             <td colspan="7" class="text-center py-5 text-muted">
               <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-              No orders found in this tab.
+              No orders found in this section.
             </td>
           </tr>
         {% endfor %}
@@ -120,9 +173,14 @@
 </div>
 
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-  <a href="{{ url_for('main.admin_deliveries') }}" class="btn btn-rml">
-    <i class="bi bi-truck me-1"></i> Manage Deliveries &amp; Fleet &rarr;
-  </a>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('main.admin_deliveries') }}" class="btn btn-rml">
+      <i class="bi bi-truck me-1"></i> Manage Deliveries &amp; Fleet &rarr;
+    </a>
+    <a href="{{ url_for('main.admin_delivery_availability') }}" class="btn btn-outline-dark">
+      <i class="bi bi-calendar2-range me-1"></i> Delivery Availability Rules
+    </a>
+  </div>
   <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#scheduleOverview">
     <i class="bi bi-calendar3 me-1"></i> View Existing Fleet Schedules ({{ existing_schedules|length }})
   </button>
@@ -175,7 +233,7 @@
             <h5 class="modal-title fw-bold" id="orderModalLabel{{ o.id }}">
               Order {{ o.order_code|order_code }} &middot; {{ o.customer_name }}
             </h5>
-            <div class="small text-muted">Review materials availability, assign delivery slot, and manage dispatch.</div>
+            <div class="small text-muted">Review materials availability, assign delivery slot, verify payment, and manage dispatch.</div>
           </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
@@ -190,13 +248,14 @@
                 <strong>Delivery Address:</strong> {{ o.delivery_address }}
               </div>
               <div class="col-sm-6">
-                <strong>Current Status:</strong>
-                <span class="badge {% if o.order_status in ('scheduled', 'delivered') %}badge-instock{% elif o.order_status in ('cancelled', 'rejected') %}badge-danger{% else %}badge-check{% endif %} text-uppercase">
-                  {{ o.order_status|replace('_', ' ') }}
-                </span><br>
                 <strong>Order Total:</strong> &#8369;{{ "{:,.2f}".format(o.total_amount) }}<br>
+                <strong>Payment Method:</strong> {{ 'Cash on Delivery (COD)' if o.payment_method == 'cash' else ('Online QR Payment' if o.payment_method == 'qr' else 'Unselected') }}<br>
+                <strong>Payment Status:</strong>
+                <span class="badge {% if o.payment_status in ('verified', 'paid') %}badge-instock{% elif o.payment_status == 'payment_due' %}bg-info text-dark{% elif o.payment_status in ('pending', 'pending_verification') %}badge-check{% else %}bg-secondary{% endif %}">
+                  {{ o.payment_status or 'Unpaid' }}
+                </span>
                 {% if o.special_instructions %}
-                  <strong>Special Site Notes:</strong> <span class="text-danger">{{ o.special_instructions }}</span>
+                  <br><strong>Site Notes:</strong> <span class="text-danger">{{ o.special_instructions }}</span>
                 {% endif %}
               </div>
             </div>
@@ -218,7 +277,12 @@
               <tbody>
                 {% for item in items_by_order.get(o.id, []) %}
                   <tr>
-                    <td class="fw-semibold">{{ item.name }}</td>
+                    <td class="fw-semibold">
+                      {{ item.name }}
+                      {% if item.variation_name %}
+                        <span class="badge text-bg-light border text-dark ms-1">{{ item.variation_name }}</span>
+                      {% endif %}
+                    </td>
                     <td>{{ item.quantity }} {{ item.unit }}</td>
                     <td>{{ item.stock_quantity }} {{ item.unit }}</td>
                     <td>
@@ -235,8 +299,51 @@
             </table>
           </div>
 
-          <!-- Admin Delivery Scheduling Section (Core Requirements 2 & 5) -->
-          {% if o.order_status in ('pending', 'pending_scheduling', 'for_scheduling', 'awaiting_confirmation', 'scheduled', 'schedule_confirmed', 'approved') %}
+          <!-- READY FOR DISPATCH AUTHORIZATION PANEL (Core Requirement) -->
+          {% if o.order_status == 'payment_verified' %}
+            <div class="card border-success bg-success bg-opacity-10 p-3 mb-4">
+              <div class="d-flex align-items-center gap-3 mb-3">
+                <i class="bi bi-shield-check text-success fs-1"></i>
+                <div>
+                  <h6 class="fw-bold text-success mb-1">Payment Verified &middot; Ready for Delivery Authorization</h6>
+                  <p class="small text-dark mb-0">
+                    Payment has been officially confirmed and the delivery schedule is locked. Authorize this order to release the dispatch task to the assigned driver.
+                  </p>
+                </div>
+              </div>
+
+              {% set d = deliveries_by_order.get(o.id) %}
+              <div class="row g-2 small bg-white p-3 rounded border mb-3">
+                <div class="col-sm-6">
+                  <strong>Delivery Date &amp; Slot:</strong> {{ o.assigned_date }} ({{ o.assigned_time_slot }})<br>
+                  <strong>Destination:</strong> {{ o.delivery_address }}
+                </div>
+                <div class="col-sm-6">
+                  <strong>Assigned Vehicle:</strong> {{ d.truck_code if d else 'None' }} ({{ d.plate_number if d else 'N/A' }})<br>
+                  <strong>Assigned Driver:</strong> {{ d.driver_name if d else 'Unassigned' }}
+                </div>
+              </div>
+
+              <form method="POST" action="{{ url_for('main.admin_order_authorize_delivery', order_id=o.id) }}">
+                <button type="submit" class="btn btn-success fw-bold w-100 py-2">
+                  <i class="bi bi-send-check me-1"></i> Authorize Delivery &amp; Release for Dispatch
+                </button>
+              </form>
+            </div>
+          {% elif o.order_status == 'ready_for_dispatch' %}
+            <div class="alert alert-success d-flex align-items-center gap-2 mb-3">
+              <i class="bi bi-check-circle-fill fs-4 text-success"></i>
+              <div>
+                <strong>Delivery Authorized!</strong><br>
+                <small class="text-muted">
+                  Released by {{ o.authorized_by_name or 'Administrator' }} at {{ o.authorized_at or 'Recently' }}. Driver may load materials and begin route.
+                </small>
+              </div>
+            </div>
+          {% endif %}
+
+          <!-- Admin Delivery Scheduling Section -->
+          {% if o.order_status in ('pending', 'pending_scheduling', 'for_scheduling', 'awaiting_confirmation', 'scheduled', 'schedule_confirmed') %}
             <div class="card border border-primary-subtle bg-light p-3 mb-3">
               <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="fw-bold mb-0 text-dark">

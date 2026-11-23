@@ -1,7 +1,9 @@
 from functools import wraps
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import random
 import os
+import re
+import secrets
 from flask import (
     Blueprint,
     render_template,
@@ -15,33 +17,162 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
-from db import get_db
+from db import get_db, create_notification, sync_customer_notifications
 
 main_bp = Blueprint("main", __name__)
 
 
 def login_required(role=None):
-    """Ensure user is logged in, and optionally verify role."""
+    """Ensure user is logged in, verify role, and prevent cross-portal access."""
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
             if "user_id" not in session:
                 flash("Please sign in to continue.", "warning")
-                return redirect(url_for("main.login"))
+                if role in ("admin", "staff"):
+                    return redirect(url_for("main.admin_login"))
+                elif role == "driver":
+                    return redirect(url_for("main.driver_login"))
+                else:
+                    next_target = request.full_path if (request.query_string and request.query_string.strip()) else request.path
+                    if next_target.endswith("?"):
+                        next_target = next_target[:-1]
+                    return redirect(url_for("main.login", next=next_target))
+
             user_role = session.get("role")
             if role:
-                # admin has master access to all portals
-                if user_role == "admin":
-                    return f(*args, **kwargs)
-                # staff has access to admin workspace
-                if role == "admin" and user_role == "staff":
-                    return f(*args, **kwargs)
-                if user_role != role:
-                    flash("You do not have permission to access that page.", "danger")
-                    return redirect(url_for("main.home"))
+                if role in ("admin", "staff"):
+                    if user_role not in ("admin", "staff"):
+                        flash("Access denied. Restricted to authorized administrators.", "danger")
+                        if user_role == "customer":
+                            return redirect(url_for("main.customer_dashboard"))
+                        elif user_role == "driver":
+                            return redirect(url_for("main.driver_dashboard"))
+                        return redirect(url_for("main.admin_login"))
+                elif role == "driver":
+                    if user_role != "driver":
+                        flash("Access denied. Restricted to delivery drivers.", "danger")
+                        if user_role == "customer":
+                            return redirect(url_for("main.customer_dashboard"))
+                        elif user_role in ("admin", "staff"):
+                            return redirect(url_for("main.admin_dashboard"))
+                        return redirect(url_for("main.driver_login"))
+                elif role == "customer":
+                    if user_role != "customer":
+                        flash("Please access customer features from an authorized customer session.", "warning")
+                        if user_role in ("admin", "staff"):
+                            return redirect(url_for("main.admin_dashboard"))
+                        elif user_role == "driver":
+                            return redirect(url_for("main.driver_dashboard"))
+                        return redirect(url_for("main.login"))
             return f(*args, **kwargs)
         return wrapped
     return decorator
+
+
+def validate_password_strength(password):
+    """
+    Validates password against strict security policy:
+    1. Minimum 8 characters.
+    2. At least one uppercase letter (A-Z).
+    3. At least one lowercase letter (a-z).
+    4. At least one number (0-9).
+    5. At least one special character (@, $, !, %, *, ?, &, #, etc.).
+    6. No spaces allowed.
+    7. Reject common/weak passwords.
+    """
+    if not password or len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if " " in password:
+        return False, "Password must not contain spaces."
+    if not re.search(r"[A-Z]", password):
+        return False, "Password must contain at least one uppercase letter (A-Z)."
+    if not re.search(r"[a-z]", password):
+        return False, "Password must contain at least one lowercase letter (a-z)."
+    if not re.search(r"[0-9]", password):
+        return False, "Password must contain at least one number (0-9)."
+    if not re.search(r"[@$!%*?&#^()_\-+=\[\]{}|\\:;\"'<>,.~`]", password):
+        return False, "Password must contain at least one special character (@, $, !, %, *, ?, &, #, etc.)."
+
+    common_passwords = {
+        "password", "password123", "12345678", "123456789", "qwerty123",
+        "admin123", "welcome123", "letmein123", "rml12345", "construction123",
+        "rmlconstruction", "adminadmin", "password1"
+    }
+    if password.lower() in common_passwords:
+        return False, "This password is too common or easily guessed. Please choose a stronger password."
+    return True, None
+
+
+def validate_ph_phone(phone):
+    """
+    Validates Philippine mobile numbers:
+    Accepts 09XXXXXXXXX (11 digits) or +639XXXXXXXXX (13 chars).
+    """
+    if not phone:
+        return False, None
+    clean = re.sub(r"[\s\-\(\)]", "", phone.strip())
+    if re.match(r"^09\d{9}$", clean):
+        return True, clean
+    if re.match(r"^\+639\d{9}$", clean):
+        return True, clean
+    return False, None
+
+
+def validate_email_format(email):
+    """Validates email format."""
+    if not email:
+        return False
+    return bool(re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email.strip()))
+
+
+def check_login_rate_limit(conn, user_row):
+    """Checks if account is temporarily locked (5 failed attempts -> 15 min lock)."""
+    if not user_row:
+        return False, 0
+    locked_until_str = user_row["locked_until"] if "locked_until" in user_row.keys() else None
+    if locked_until_str:
+        try:
+            locked_until = datetime.strptime(locked_until_str, "%Y-%m-%d %H:%M:%S")
+            now = datetime.now()
+            if now < locked_until:
+                diff_sec = (locked_until - now).total_seconds()
+                rem_min = max(1, int(diff_sec // 60) + 1)
+                return True, rem_min
+        except Exception:
+            pass
+    return False, 0
+
+
+def record_login_failure(conn, user_id):
+    """Increments failed_login_attempts. Locks for 15 minutes upon reaching 5 failures."""
+    if not user_id:
+        return
+    row = conn.execute("SELECT failed_login_attempts FROM users WHERE id = ?", (user_id,)).fetchone()
+    current_attempts = (row["failed_login_attempts"] or 0) + 1 if row else 1
+    if current_attempts >= 5:
+        locked_until = (datetime.now() + timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
+        conn.execute(
+            "UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE id = ?",
+            (current_attempts, locked_until, user_id),
+        )
+    else:
+        conn.execute(
+            "UPDATE users SET failed_login_attempts = ? WHERE id = ?",
+            (current_attempts, user_id),
+        )
+    conn.commit()
+
+
+def reset_login_failures(conn, user_id):
+    """Resets failed attempts and unlocks account after successful authentication."""
+    if not user_id:
+        return
+    conn.execute(
+        "UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?",
+        (user_id,),
+    )
+    conn.commit()
 
 
 def clean_order_code(code):
@@ -57,6 +188,192 @@ def order_code_filter(code):
     return clean_order_code(code)
 
 
+def get_delivery_setting(conn, key, default=""):
+    """Fetch setting value from delivery_settings table."""
+    row = conn.execute("SELECT setting_value FROM delivery_settings WHERE setting_key = ?", (key,)).fetchone()
+    return row["setting_value"] if row else default
+
+
+def expire_stale_reservations(conn):
+    """
+    Checks for proposed delivery reservations past their expiration timestamp (e.g. 24 hours).
+    Releases the reserved slot, truck, driver, and reverts order to pending_scheduling.
+    """
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    stale_orders = conn.execute(
+        """
+        SELECT o.id, o.order_code, o.assigned_date, o.assigned_time_slot
+        FROM orders o
+        WHERE o.order_status = 'awaiting_confirmation'
+          AND o.reservation_expires_at IS NOT NULL
+          AND o.reservation_expires_at <= ?
+        """,
+        (now_str,),
+    ).fetchall()
+
+    for o in stale_orders:
+        conn.execute(
+            """
+            UPDATE orders
+            SET order_status = 'pending_scheduling',
+                schedule_status = 'expired',
+                assigned_date = NULL,
+                assigned_time_slot = NULL,
+                reservation_expires_at = NULL,
+                approval_notes = 'Schedule reservation expired after 24 hours without customer confirmation.'
+            WHERE id = ?
+            """,
+            (o["id"],),
+        )
+        conn.execute(
+            """
+            UPDATE deliveries
+            SET delivery_status = 'cancelled',
+                driver_id = NULL,
+                truck_id = NULL
+            WHERE order_id = ?
+            """,
+            (o["id"],),
+        )
+    if stale_orders:
+        conn.commit()
+    return len(stale_orders)
+
+
+def find_and_reserve_delivery_slot(conn, order_id=None):
+    """
+    Automatic delivery schedule proposal engine:
+    1. Expires stale reservations first.
+    2. Reads admin availability settings (lead time, horizon, slot capacity, timeout).
+    3. Finds next available (date, time_slot) where:
+       - Date & slot is configured and is_available == 1
+       - Current active bookings < max_capacity
+       - An active truck and driver are available (not double-booked in that slot)
+    4. If found: returns dict with assigned_date, assigned_time_slot, truck_id, driver_id, expires_at.
+       Else: returns None.
+    """
+    expire_stale_reservations(conn)
+
+    try:
+        lead_time = int(get_delivery_setting(conn, "lead_time_days", 1))
+    except (ValueError, TypeError):
+        lead_time = 1
+    try:
+        horizon = int(get_delivery_setting(conn, "horizon_days", 14))
+    except (ValueError, TypeError):
+        horizon = 14
+    try:
+        timeout_hours = int(get_delivery_setting(conn, "reservation_timeout_hours", 24))
+    except (ValueError, TypeError):
+        timeout_hours = 24
+    try:
+        default_capacity = int(get_delivery_setting(conn, "default_slot_capacity", 3))
+    except (ValueError, TypeError):
+        default_capacity = 3
+
+    today = datetime.now().date()
+    slots = ["Morning (08:00 - 12:00)", "Afternoon (13:00 - 17:00)"]
+
+    active_trucks = conn.execute(
+        "SELECT id, truck_code, plate_number FROM trucks WHERE status != 'maintenance' ORDER BY id"
+    ).fetchall()
+    active_drivers = conn.execute(
+        "SELECT id, name FROM users WHERE role = 'driver' AND is_active = 1 ORDER BY id"
+    ).fetchall()
+
+    if not active_trucks or not active_drivers:
+        return None
+
+    # Search day by day starting from today + lead_time
+    for i in range(lead_time, lead_time + horizon):
+        day_date = today + timedelta(days=i)
+        day_str = day_date.strftime("%Y-%m-%d")
+
+        for slot in slots:
+            avail = conn.execute(
+                "SELECT max_capacity, is_available FROM delivery_availability WHERE delivery_date = ? AND time_slot = ?",
+                (day_str, slot),
+            ).fetchone()
+
+            if avail:
+                if not avail["is_available"]:
+                    continue
+                capacity = avail["max_capacity"]
+            else:
+                if day_date.weekday() == 6:  # Sunday closed by default if unconfigured
+                    continue
+                capacity = default_capacity
+
+            # Count current active bookings for this date and slot
+            exclude_clause = " AND o.id != ?" if order_id else ""
+            params = [day_str, slot]
+            if order_id:
+                params.append(order_id)
+
+            booked_count = conn.execute(
+                f"""
+                SELECT COUNT(*) FROM orders o
+                WHERE o.assigned_date = ? AND o.assigned_time_slot = ?
+                  AND o.order_status IN ('awaiting_confirmation', 'schedule_confirmed', 'pending_payment_verification', 'payment_verified', 'ready_for_dispatch', 'scheduled', 'out_for_delivery', 'in_transit')
+                  {exclude_clause}
+                """,
+                params,
+            ).fetchone()[0]
+
+            if booked_count >= capacity:
+                continue
+
+            deliv_params = [day_str, slot]
+            if order_id:
+                deliv_params.append(order_id)
+
+            booked_trucks = {
+                r[0] for r in conn.execute(
+                    f"""
+                    SELECT d.truck_id FROM deliveries d
+                    JOIN orders o ON d.order_id = o.id
+                    WHERE o.assigned_date = ? AND o.assigned_time_slot = ?
+                      AND o.order_status IN ('awaiting_confirmation', 'schedule_confirmed', 'pending_payment_verification', 'payment_verified', 'ready_for_dispatch', 'scheduled', 'out_for_delivery', 'in_transit')
+                      AND d.truck_id IS NOT NULL
+                      {exclude_clause}
+                    """,
+                    deliv_params,
+                ).fetchall()
+            }
+
+            booked_drivers = {
+                r[0] for r in conn.execute(
+                    f"""
+                    SELECT d.driver_id FROM deliveries d
+                    JOIN orders o ON d.order_id = o.id
+                    WHERE o.assigned_date = ? AND o.assigned_time_slot = ?
+                      AND o.order_status IN ('awaiting_confirmation', 'schedule_confirmed', 'pending_payment_verification', 'payment_verified', 'ready_for_dispatch', 'scheduled', 'out_for_delivery', 'in_transit')
+                      AND d.driver_id IS NOT NULL
+                      {exclude_clause}
+                    """,
+                    deliv_params,
+                ).fetchall()
+            }
+
+            available_truck = next((t for t in active_trucks if t["id"] not in booked_trucks), None)
+            available_driver = next((d for d in active_drivers if d["id"] not in booked_drivers), None)
+
+            if available_truck and available_driver:
+                expires_at = (datetime.now() + timedelta(hours=timeout_hours)).strftime("%Y-%m-%d %H:%M:%S")
+                return {
+                    "assigned_date": day_str,
+                    "assigned_time_slot": slot,
+                    "truck_id": available_truck["id"],
+                    "truck_code": available_truck["truck_code"],
+                    "driver_id": available_driver["id"],
+                    "driver_name": available_driver["name"],
+                    "expires_at": expires_at,
+                    "timeout_hours": timeout_hours,
+                }
+
+    return None
+
+
 # -------------------------------------------------------------------------
 # AUTHENTICATION & HOME
 # -------------------------------------------------------------------------
@@ -67,68 +384,157 @@ def home():
     if role in ("admin", "staff"):
         return redirect(url_for("main.admin_dashboard"))
     if role == "driver":
-        return redirect(url_for("main.driver_schedule"))
-    if role == "customer":
-        return redirect(url_for("main.customer_catalog"))
-    return redirect(url_for("main.login"))
+        return redirect(url_for("main.driver_dashboard"))
 
+    conn = get_db()
+    featured_products = conn.execute(
+        """
+        SELECT p.*, c.name AS category_name,
+               (SELECT COUNT(*) FROM product_variations pv WHERE pv.product_id = p.id AND pv.is_available = 1) AS var_count,
+               (SELECT MIN(pv.price) FROM product_variations pv WHERE pv.product_id = p.id AND pv.is_available = 1) AS min_var_price
+        FROM products p
+        JOIN categories c ON p.category_id = c.id
+        WHERE p.is_active = 1
+        ORDER BY CASE WHEN p.stock_quantity > 0 THEN 0 ELSE 1 END, p.id ASC
+        LIMIT 6
+        """
+    ).fetchall()
+
+    categories = conn.execute(
+        """
+        SELECT c.*,
+               (SELECT COUNT(*) FROM products p WHERE p.category_id = c.id AND p.is_active = 1) AS product_count
+        FROM categories c
+        WHERE (SELECT COUNT(*) FROM products p WHERE p.category_id = c.id AND p.is_active = 1) > 0
+        ORDER BY c.id ASC
+        """
+    ).fetchall()
+    conn.close()
+
+    return render_template("customer/landing.html", featured_products=featured_products, categories=categories)
+
+
+# -------------------------------------------------------------------------
+# 1. CUSTOMER PORTAL AUTHENTICATION
+# -------------------------------------------------------------------------
 
 @main_bp.route("/login", methods=["GET", "POST"])
 def login():
-    selected_role = request.args.get("role", "customer")
+    if session.get("role") == "customer":
+        next_url = request.args.get("next")
+        if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+            return redirect(next_url)
+        return redirect(url_for("main.customer_dashboard"))
+    elif session.get("role") in ("admin", "staff"):
+        return redirect(url_for("main.admin_dashboard"))
+    elif session.get("role") == "driver":
+        return redirect(url_for("main.driver_dashboard"))
+
     if request.method == "POST":
-        identifier = request.form.get("identifier", "").strip()
+        identifier = (request.form.get("identifier") or request.form.get("email") or "").strip().lower()
         password = request.form.get("password", "")
-        portal_role = request.form.get("portal_role", "customer")
 
         conn = get_db()
         user = conn.execute(
-            "SELECT * FROM users WHERE (email = ? OR staff_id = ?) AND is_active = 1",
-            (identifier, identifier),
+            "SELECT * FROM users WHERE LOWER(email) = ? AND is_active = 1",
+            (identifier,),
         ).fetchone()
-        conn.close()
 
-        if user and check_password_hash(user["password_hash"], password):
-            session["user_id"] = user["id"]
-            session["role"] = user["role"]
-            session["user_name"] = user["name"]
-            flash(f"Welcome back, {user['name']}!", "success")
-            return redirect(url_for("main.home"))
+        if user:
+            # Check if this account belongs to admin/staff or driver
+            if user["role"] in ("admin", "staff"):
+                conn.close()
+                flash("Admin/Staff accounts must sign in via the restricted Admin Portal.", "warning")
+                return redirect(url_for("main.admin_login"))
+            elif user["role"] == "driver":
+                conn.close()
+                flash("Driver accounts must sign in via the restricted Driver Portal.", "warning")
+                return redirect(url_for("main.driver_login"))
 
-        flash("Invalid credentials or inactive account.", "danger")
-        selected_role = portal_role
+            # Rate limiting check
+            is_locked, rem_min = check_login_rate_limit(conn, user)
+            if is_locked:
+                conn.close()
+                flash(f"Account temporarily locked due to too many failed attempts. Please try again in {rem_min} minute(s).", "danger")
+                return render_template("auth/login.html")
 
-    return render_template("auth/login.html", selected_role=selected_role)
+            if check_password_hash(user["password_hash"], password):
+                reset_login_failures(conn, user["id"])
+                session["user_id"] = user["id"]
+                session["role"] = user["role"]
+                session["user_name"] = user["name"]
+                conn.close()
+                flash(f"Welcome back, {user['name']}!", "success")
+                next_url = request.form.get("next") or request.args.get("next")
+                if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+                    return redirect(next_url)
+                return redirect(url_for("main.customer_dashboard"))
+            else:
+                record_login_failure(conn, user["id"])
+                conn.close()
+                flash("Invalid email or password.", "danger")
+                return render_template("auth/login.html")
+        else:
+            conn.close()
+            flash("Invalid email or password.", "danger")
+
+    return render_template("auth/login.html")
 
 
 @main_bp.route("/register", methods=["GET", "POST"])
 def register():
+    if session.get("role") == "customer":
+        return redirect(url_for("main.customer_dashboard"))
+
     if request.method == "POST":
         name = request.form.get("name", "").strip()
-        email = request.form.get("email", "").strip()
+        email = request.form.get("email", "").strip().lower()
         phone = request.form.get("phone", "").strip()
         address = request.form.get("address", "").strip()
         password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
 
-        if not name or not email or not password:
-            flash("Please fill in all required fields.", "warning")
+        if not name or not email or not phone or not address or not password:
+            flash("All fields are required. Please fill in all fields.", "warning")
+            return render_template("auth/register.html")
+
+        if not validate_email_format(email):
+            flash("Please enter a valid email address.", "warning")
+            return render_template("auth/register.html")
+
+        is_phone_valid, clean_phone = validate_ph_phone(phone)
+        if not is_phone_valid:
+            flash("Please enter a valid Philippine mobile number (e.g., 09171234567 or +639171234567).", "warning")
+            return render_template("auth/register.html")
+
+        if password != confirm_password:
+            flash("Passwords do not match. Please verify your password confirmation.", "danger")
+            return render_template("auth/register.html")
+
+        is_valid_pwd, pwd_err = validate_password_strength(password)
+        if not is_valid_pwd:
+            flash(pwd_err, "danger")
             return render_template("auth/register.html")
 
         conn = get_db()
-        existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        existing = conn.execute("SELECT id FROM users WHERE LOWER(email) = ?", (email,)).fetchone()
         if existing:
             conn.close()
-            flash("An account with that email already exists.", "danger")
-            return redirect(url_for("main.register"))
+            flash("An account with that email already exists. Please sign in.", "warning")
+            return redirect(url_for("main.login"))
 
         conn.execute(
-            "INSERT INTO users (name, email, phone, address, password_hash, role) VALUES (?, ?, ?, ?, ?, 'customer')",
-            (name, email, phone, address, generate_password_hash(password)),
+            """
+            INSERT INTO users (name, email, phone, address, password_hash, role, is_active, is_verified)
+            VALUES (?, ?, ?, ?, ?, 'customer', 1, 1)
+            """,
+            (name, email, clean_phone, address, generate_password_hash(password)),
         )
         conn.commit()
         conn.close()
-        flash("Account created! You can now sign in.", "success")
-        return redirect(url_for("main.login", role="customer"))
+
+        flash("Account created successfully! You can now sign in.", "success")
+        return redirect(url_for("main.login"))
 
     return render_template("auth/register.html")
 
@@ -136,8 +542,616 @@ def register():
 @main_bp.route("/logout")
 def logout():
     session.clear()
-    flash("You have been signed out.", "info")
+    flash("You have been signed out from the Customer Portal.", "info")
     return redirect(url_for("main.login"))
+
+
+@main_bp.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        if not email or not validate_email_format(email):
+            flash("Please enter a valid email address.", "warning")
+            return render_template("auth/forgot_password.html")
+
+        conn = get_db()
+        user = conn.execute("SELECT * FROM users WHERE LOWER(email) = ? AND role = 'customer'", (email,)).fetchone()
+        if user:
+            token = secrets.token_urlsafe(32)
+            expires_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+            conn.execute(
+                "UPDATE users SET reset_token = ?, reset_token_expires_at = ? WHERE id = ?",
+                (token, expires_at, user["id"]),
+            )
+            conn.commit()
+            conn.close()
+
+            reset_url = url_for("main.reset_password", token=token, _external=True)
+            flash(f"Password reset link generated for {email}! (Local link: {reset_url})", "info")
+            return redirect(url_for("main.login"))
+        else:
+            conn.close()
+            flash("If an account exists with that email address, password reset instructions have been generated.", "info")
+            return redirect(url_for("main.login"))
+
+    return render_template("auth/forgot_password.html")
+
+
+@main_bp.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    conn = get_db()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    user = conn.execute(
+        "SELECT * FROM users WHERE reset_token = ? AND reset_token_expires_at > ?",
+        (token, now_str),
+    ).fetchone()
+
+    if not user:
+        conn.close()
+        flash("Invalid or expired password reset link. Please submit a new request.", "danger")
+        return redirect(url_for("main.forgot_password"))
+
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if not password or password != confirm_password:
+            flash("Passwords do not match.", "danger")
+            email_val = user["email"]
+            conn.close()
+            return render_template("auth/reset_password.html", token=token, user_email=email_val)
+
+        is_valid_pwd, pwd_err = validate_password_strength(password)
+        if not is_valid_pwd:
+            flash(pwd_err, "danger")
+            email_val = user["email"]
+            conn.close()
+            return render_template("auth/reset_password.html", token=token, user_email=email_val)
+
+        conn.execute(
+            "UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires_at = NULL WHERE id = ?",
+            (generate_password_hash(password), user["id"]),
+        )
+        conn.commit()
+        conn.close()
+
+        flash("Your password has been reset successfully! You can now sign in with your new password.", "success")
+        return redirect(url_for("main.login"))
+
+    email_val = user["email"]
+    conn.close()
+    return render_template("auth/reset_password.html", token=token, user_email=email_val)
+
+
+# -------------------------------------------------------------------------
+# 2. ADMIN/STAFF PORTAL AUTHENTICATION
+# -------------------------------------------------------------------------
+
+@main_bp.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if session.get("role") in ("admin", "staff"):
+        return redirect(url_for("main.admin_dashboard"))
+
+    if request.method == "POST":
+        identifier = request.form.get("identifier", "").strip()
+        password = request.form.get("password", "")
+
+        conn = get_db()
+        user = conn.execute(
+            "SELECT * FROM users WHERE (LOWER(email) = ? OR staff_id = ?) AND is_active = 1",
+            (identifier.lower(), identifier),
+        ).fetchone()
+
+        if user:
+            if user["role"] not in ("admin", "staff"):
+                conn.close()
+                flash("Access denied. Authorized administrative personnel only.", "danger")
+                return render_template("auth/admin_login.html")
+
+            is_locked, rem_min = check_login_rate_limit(conn, user)
+            if is_locked:
+                conn.close()
+                flash(f"Account locked due to multiple failed login attempts. Try again in {rem_min} minute(s).", "danger")
+                return render_template("auth/admin_login.html")
+
+            if check_password_hash(user["password_hash"], password):
+                reset_login_failures(conn, user["id"])
+                session["user_id"] = user["id"]
+                session["role"] = user["role"]
+                session["user_name"] = user["name"]
+                conn.close()
+                flash(f"Welcome, {user['name']}! (Admin Console)", "success")
+                return redirect(url_for("main.admin_dashboard"))
+            else:
+                record_login_failure(conn, user["id"])
+                conn.close()
+                flash("Invalid administrator credentials.", "danger")
+                return render_template("auth/admin_login.html")
+        else:
+            conn.close()
+            flash("Invalid administrator credentials.", "danger")
+
+    return render_template("auth/admin_login.html")
+
+
+@main_bp.route("/admin/logout")
+def admin_logout():
+    session.clear()
+    flash("Administrator session closed.", "info")
+    return redirect(url_for("main.admin_login"))
+
+
+# -------------------------------------------------------------------------
+# 3. DRIVER PORTAL AUTHENTICATION
+# -------------------------------------------------------------------------
+
+@main_bp.route("/driver/login", methods=["GET", "POST"])
+def driver_login():
+    if session.get("role") == "driver":
+        return redirect(url_for("main.driver_dashboard"))
+
+    if request.method == "POST":
+        identifier = request.form.get("identifier", "").strip()
+        password = request.form.get("password", "")
+
+        conn = get_db()
+        user = conn.execute(
+            "SELECT * FROM users WHERE (LOWER(email) = ? OR staff_id = ?) AND is_active = 1",
+            (identifier.lower(), identifier),
+        ).fetchone()
+
+        if user:
+            if user["role"] != "driver":
+                conn.close()
+                flash("Access denied. Authorized delivery drivers only.", "danger")
+                return render_template("auth/driver_login.html")
+
+            is_locked, rem_min = check_login_rate_limit(conn, user)
+            if is_locked:
+                conn.close()
+                flash(f"Account locked due to multiple failed attempts. Try again in {rem_min} minute(s).", "danger")
+                return render_template("auth/driver_login.html")
+
+            if check_password_hash(user["password_hash"], password):
+                reset_login_failures(conn, user["id"])
+                session["user_id"] = user["id"]
+                session["role"] = user["role"]
+                session["user_name"] = user["name"]
+                conn.close()
+                flash(f"Signed in as Delivery Driver: {user['name']}", "success")
+                return redirect(url_for("main.driver_dashboard"))
+            else:
+                record_login_failure(conn, user["id"])
+                conn.close()
+                flash("Invalid driver credentials.", "danger")
+                return render_template("auth/driver_login.html")
+        else:
+            conn.close()
+            flash("Invalid driver credentials.", "danger")
+
+    return render_template("auth/driver_login.html")
+
+
+@main_bp.route("/driver/logout")
+def driver_logout():
+    session.clear()
+    flash("Driver session closed.", "info")
+    return redirect(url_for("main.driver_login"))
+
+
+# -------------------------------------------------------------------------
+# 4. CUSTOMER DASHBOARD & PROFILE
+# -------------------------------------------------------------------------
+
+@main_bp.route("/customer/dashboard")
+@login_required("customer")
+def customer_dashboard():
+    user_id = session.get("user_id")
+    conn = get_db()
+    expire_stale_reservations(conn)
+    sync_customer_notifications(conn, user_id)
+    customer = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+    orders = conn.execute(
+        """
+        SELECT o.*,
+               (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS item_count
+        FROM orders o
+        WHERE o.customer_id = ?
+        ORDER BY o.created_at DESC
+        """,
+        (user_id,),
+    ).fetchall()
+
+    total_orders_count = len(orders)
+    pending_orders_count = sum(1 for o in orders if o["order_status"] in ("pending", "pending_scheduling", "for_scheduling", "awaiting_confirmation"))
+    processing_orders_count = sum(1 for o in orders if o["order_status"] in ("scheduled", "schedule_confirmed", "pending_payment", "pending_payment_verification", "payment_verified", "approved", "preparing"))
+    active_deliveries_count = sum(1 for o in orders if o["order_status"] in ("ready_for_dispatch", "out_for_delivery", "in_transit") or (o["assigned_date"] and o["order_status"] not in ("delivered", "cancelled", "rejected")))
+    awaiting_orders = [o for o in orders if o["order_status"] == "awaiting_confirmation"]
+    awaiting_count = len(awaiting_orders)
+    completed_orders_count = sum(1 for o in orders if o["order_status"] == "delivered")
+    recent_orders = orders[:5]
+
+    recent_updates = conn.execute(
+        """
+        SELECT n.*, o.order_code
+        FROM notifications n
+        LEFT JOIN orders o ON o.id = n.order_id
+        WHERE n.user_id = ?
+        ORDER BY n.created_at DESC
+        LIMIT 6
+        """,
+        (user_id,),
+    ).fetchall()
+
+    unread_count = conn.execute(
+        "SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0",
+        (user_id,),
+    ).fetchone()[0]
+
+    conn.close()
+    return render_template(
+        "customer/dashboard.html",
+        customer=customer,
+        total_orders_count=total_orders_count,
+        pending_orders_count=pending_orders_count,
+        processing_orders_count=processing_orders_count,
+        active_deliveries_count=active_deliveries_count,
+        awaiting_count=awaiting_count,
+        awaiting_orders=awaiting_orders,
+        completed_orders_count=completed_orders_count,
+        recent_orders=recent_orders,
+        recent_updates=recent_updates,
+        unread_count=unread_count,
+    )
+
+
+@main_bp.route("/customer/settings", methods=["GET", "POST"], endpoint="customer_settings")
+@main_bp.route("/customer/profile", methods=["GET", "POST"], endpoint="customer_profile")
+@login_required("customer")
+def customer_settings():
+    user_id = session.get("user_id")
+    conn = get_db()
+    customer = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action in ("update_profile", "update_info", "update_settings"):
+            name = request.form.get("name", "").strip()
+            email = request.form.get("email", "").strip().lower()
+            phone = request.form.get("phone", "").strip()
+            address = request.form.get("address", "").strip()
+
+            if not name or not email or not phone or not address:
+                flash("Please fill in all personal and delivery address fields.", "warning")
+            elif not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+                flash("Please enter a valid email address.", "danger")
+            else:
+                is_phone_valid, clean_phone = validate_ph_phone(phone)
+                if not is_phone_valid:
+                    flash("Please enter a valid Philippine mobile number (e.g. 09171234567 or +639171234567).", "danger")
+                else:
+                    existing_email = conn.execute(
+                        "SELECT id FROM users WHERE LOWER(email) = ? AND id != ?",
+                        (email, user_id),
+                    ).fetchone()
+                    if existing_email:
+                        flash("This email address is already in use by another account.", "danger")
+                    else:
+                        conn.execute(
+                            "UPDATE users SET name = ?, email = ?, phone = ?, address = ? WHERE id = ?",
+                            (name, email, clean_phone, address, user_id),
+                        )
+                        conn.commit()
+                        session["user_name"] = name
+                        session["user_email"] = email
+                        flash("Account profile and settings updated successfully.", "success")
+                        conn.close()
+                        return redirect(url_for("main.customer_settings"))
+
+        elif action == "change_password":
+            current_pwd = request.form.get("current_password", "")
+            new_pwd = request.form.get("new_password", "")
+            confirm_pwd = request.form.get("confirm_password", "") or request.form.get("confirm_new_password", "")
+
+            if not current_pwd or not new_pwd:
+                flash("Please fill in current and new password fields.", "warning")
+            elif not check_password_hash(customer["password_hash"], current_pwd):
+                flash("Current password is incorrect.", "danger")
+            elif new_pwd != confirm_pwd:
+                flash("New passwords do not match.", "danger")
+            else:
+                is_valid_pwd, pwd_err = validate_password_strength(new_pwd)
+                if not is_valid_pwd:
+                    flash(pwd_err, "danger")
+                else:
+                    conn.execute(
+                        "UPDATE users SET password_hash = ? WHERE id = ?",
+                        (generate_password_hash(new_pwd), user_id),
+                    )
+                    conn.commit()
+                    flash("Password updated successfully! Please use your new password next time you sign in.", "success")
+                    conn.close()
+                    return redirect(url_for("main.customer_settings"))
+
+    orders_count = conn.execute("SELECT COUNT(*) FROM orders WHERE customer_id = ?", (user_id,)).fetchone()[0]
+    customer = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    return render_template("customer/profile.html", customer=customer, orders_count=orders_count)
+
+
+@main_bp.route("/customer/tracking")
+@login_required("customer")
+def customer_tracking():
+    user_id = session.get("user_id")
+    conn = get_db()
+    expire_stale_reservations(conn)
+
+    deliveries = conn.execute(
+        """
+        SELECT o.id AS order_id, o.order_code, o.order_status, o.total_amount,
+               o.delivery_address, o.assigned_date, o.assigned_time_slot,
+               o.created_at AS order_date,
+               d.id AS delivery_id, d.delivery_code, d.delivery_status,
+               d.current_lat, d.current_lng, d.last_gps_update, d.delivered_at,
+               d.recipient_received_by, d.quantity_received, d.completion_time,
+               t.truck_code, t.plate_number, t.capacity AS truck_capacity,
+               u_drv.name AS driver_name, u_drv.phone AS driver_phone
+        FROM orders o
+        LEFT JOIN deliveries d ON d.order_id = o.id
+        LEFT JOIN trucks t ON t.id = d.truck_id
+        LEFT JOIN users u_drv ON u_drv.id = d.driver_id
+        WHERE o.customer_id = ?
+        ORDER BY o.created_at DESC
+        """,
+        (user_id,),
+    ).fetchall()
+
+    conn.close()
+
+    active_deliveries = [
+        d for d in deliveries
+        if (d["delivery_status"] in ("en_route", "loading", "ready_for_dispatch", "authorized", "proposed", "assigned")
+            or d["order_status"] in ("ready_for_dispatch", "out_for_delivery", "in_transit", "scheduled", "schedule_confirmed"))
+    ]
+    completed_deliveries = [
+        d for d in deliveries
+        if (d["delivery_status"] == "delivered" or d["order_status"] == "delivered")
+    ]
+
+    return render_template(
+        "customer/delivery_tracking.html",
+        deliveries=deliveries,
+        active_deliveries=active_deliveries,
+        completed_deliveries=completed_deliveries,
+    )
+
+
+@main_bp.route("/customer/notifications")
+@login_required("customer")
+def customer_notifications():
+    user_id = session.get("user_id")
+    conn = get_db()
+    sync_customer_notifications(conn, user_id)
+
+    filter_type = request.args.get("type", "").strip().lower()
+
+    base_query = """
+        SELECT n.*, o.order_code
+        FROM notifications n
+        LEFT JOIN orders o ON o.id = n.order_id
+        WHERE n.user_id = ?
+    """
+    params = [user_id]
+
+    if filter_type in ("order", "schedule", "payment", "delivery"):
+        base_query += " AND n.notification_type = ?"
+        params.append(filter_type)
+    elif filter_type == "unread":
+        base_query += " AND n.is_read = 0"
+
+    base_query += " ORDER BY n.created_at DESC, n.id DESC"
+
+    notifications = conn.execute(base_query, tuple(params)).fetchall()
+
+    all_notifs = conn.execute(
+        "SELECT id, is_read, notification_type FROM notifications WHERE user_id = ?",
+        (user_id,),
+    ).fetchall()
+    unread_count = sum(1 for n in all_notifs if not n["is_read"])
+    total_count = len(all_notifs)
+
+    conn.close()
+    return render_template(
+        "customer/notifications.html",
+        notifications=notifications,
+        unread_count=unread_count,
+        total_count=total_count,
+        active_filter=filter_type,
+    )
+
+
+@main_bp.route("/customer/notifications/<int:notification_id>/read", methods=["POST"])
+@login_required("customer")
+def customer_notification_mark_read(notification_id):
+    user_id = session.get("user_id")
+    conn = get_db()
+    conn.execute(
+        "UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?",
+        (notification_id, user_id),
+    )
+    conn.commit()
+    conn.close()
+    flash("Notification marked as read.", "success")
+    return redirect(url_for("main.customer_notifications"))
+
+
+@main_bp.route("/customer/notifications/mark-all-read", methods=["POST"])
+@login_required("customer")
+def customer_notifications_mark_all_read():
+    user_id = session.get("user_id")
+    conn = get_db()
+    conn.execute(
+        "UPDATE notifications SET is_read = 1 WHERE user_id = ?",
+        (user_id,),
+    )
+    conn.commit()
+    conn.close()
+    flash("All notifications marked as read.", "success")
+    return redirect(url_for("main.customer_notifications"))
+
+
+def get_customer_cart_details(conn, user_id):
+    """
+    Retrieve customer's active cart items with real-time product prices and stocks from database.
+    Recalculates subtotals, VAT, delivery fee, and cart totals securely.
+    """
+    rows = conn.execute(
+        """
+        SELECT ci.id AS cart_item_id, ci.user_id, ci.product_id, ci.variation_id, ci.quantity,
+               p.name AS product_name, p.unit AS product_unit, p.price AS product_base_price,
+               p.stock_quantity AS product_stock, p.image_url, p.is_active,
+               pv.variation_name, pv.price AS variation_price, pv.unit AS variation_unit,
+               pv.stock_quantity AS variation_stock, pv.is_available AS variation_available
+        FROM cart_items ci
+        JOIN products p ON ci.product_id = p.id
+        LEFT JOIN product_variations pv ON ci.variation_id = pv.id
+        WHERE ci.user_id = ? AND p.is_active = 1
+        ORDER BY ci.id ASC
+        """,
+        (user_id,),
+    ).fetchall()
+
+    # Migration fallback: if database cart is empty, check legacy session['cart'] and migrate
+    legacy_cart = session.get("cart", {})
+    if not rows and legacy_cart:
+        for c_key, c_qty in legacy_cart.items():
+            try:
+                c_qty = int(c_qty)
+                if c_qty <= 0:
+                    continue
+                parts = str(c_key).split(":")
+                p_id = int(parts[0]) if parts[0].isdigit() else 0
+                v_id = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
+                if p_id > 0:
+                    conn.execute(
+                        "INSERT INTO cart_items (user_id, product_id, variation_id, quantity) VALUES (?, ?, ?, ?)",
+                        (user_id, p_id, v_id, c_qty)
+                    )
+            except Exception:
+                pass
+        conn.commit()
+        rows = conn.execute(
+            """
+            SELECT ci.id AS cart_item_id, ci.user_id, ci.product_id, ci.variation_id, ci.quantity,
+                   p.name AS product_name, p.unit AS product_unit, p.price AS product_base_price,
+                   p.stock_quantity AS product_stock, p.image_url, p.is_active,
+                   pv.variation_name, pv.price AS variation_price, pv.unit AS variation_unit,
+                   pv.stock_quantity AS variation_stock, pv.is_available AS variation_available
+            FROM cart_items ci
+            JOIN products p ON ci.product_id = p.id
+            LEFT JOIN product_variations pv ON ci.variation_id = pv.id
+            WHERE ci.user_id = ? AND p.is_active = 1
+            ORDER BY ci.id ASC
+            """,
+            (user_id,),
+        ).fetchall()
+
+    cart_items = []
+    subtotal = 0.0
+    total_qty = 0
+
+    for r in rows:
+        var_id = r["variation_id"]
+        # Determine actual price and unit from DB
+        if var_id and r["variation_price"] is not None:
+            unit_price = float(r["variation_price"])
+            unit_label = r["variation_unit"] or r["product_unit"]
+            display_name = f"{r['product_name']} ({r['variation_name']})"
+            available_stock = int(r["variation_stock"] or 0)
+        else:
+            unit_price = float(r["product_base_price"])
+            unit_label = r["product_unit"]
+            display_name = r["product_name"]
+            available_stock = int(r["product_stock"] or 0)
+
+        qty = int(r["quantity"])
+        if available_stock > 0 and qty > available_stock:
+            qty = available_stock
+            conn.execute(
+                "UPDATE cart_items SET quantity = ?, updated_at = datetime('now', 'localtime') WHERE id = ?",
+                (qty, r["cart_item_id"]),
+            )
+            conn.commit()
+
+        line_total = round(qty * unit_price, 2)
+        subtotal += line_total
+        total_qty += qty
+
+        cart_items.append({
+            "cart_item_id": r["cart_item_id"],
+            "product_id": r["product_id"],
+            "variation_id": var_id,
+            "product_name": r["product_name"],
+            "variation_name": r["variation_name"],
+            "display_name": display_name,
+            "unit": unit_label,
+            "price": unit_price,
+            "stock": available_stock,
+            "quantity": qty,
+            "line_total": line_total,
+            "image_url": r["image_url"] or "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+            "is_in_stock": available_stock > 0,
+            "product": {
+                "id": r["product_id"],
+                "name": r["product_name"],
+                "unit": r["product_unit"],
+                "price": r["product_base_price"],
+                "stock_quantity": r["product_stock"],
+                "image_url": r["image_url"],
+            },
+            "variation": {
+                "id": var_id,
+                "variation_name": r["variation_name"],
+                "price": r["variation_price"],
+                "unit": r["variation_unit"],
+                "stock_quantity": r["variation_stock"],
+            } if var_id else None,
+            "cart_key": f"{r['product_id']}:{var_id}" if var_id else str(r['product_id']),
+        })
+
+    subtotal = round(subtotal, 2)
+    delivery_fee = 1500.00 if cart_items else 0.00
+    vat_amount = round(subtotal * 0.12, 2)
+    total_amount = round(subtotal + delivery_fee + vat_amount, 2)
+
+    return {
+        "items": cart_items,
+        "subtotal": subtotal,
+        "delivery_fee": delivery_fee,
+        "vat_amount": vat_amount,
+        "total_amount": total_amount,
+        "total_items_count": total_qty,
+    }
+
+
+@main_bp.route("/customer/cart", methods=["GET"])
+@login_required("customer")
+def customer_cart():
+    """Shopping Cart view: Allows reviewing and managing customer-selected products."""
+    user_id = session.get("user_id")
+    conn = get_db()
+    cart_data = get_customer_cart_details(conn, user_id)
+    conn.close()
+    return render_template(
+        "customer/cart.html",
+        cart_items=cart_data["items"],
+        subtotal=cart_data["subtotal"],
+        delivery_fee=cart_data["delivery_fee"],
+        vat_amount=cart_data["vat_amount"],
+        total_amount=cart_data["total_amount"],
+        total_items_count=cart_data["total_items_count"],
+    )
 
 
 # -------------------------------------------------------------------------
@@ -145,19 +1159,41 @@ def logout():
 # -------------------------------------------------------------------------
 
 @main_bp.route("/customer/catalog")
-@login_required("customer")
 def customer_catalog():
+    if session.get("role") in ("admin", "staff"):
+        return redirect(url_for("main.admin_dashboard"))
+    elif session.get("role") == "driver":
+        return redirect(url_for("main.driver_dashboard"))
+
+    if not session.get("user_id") or session.get("role") != "customer":
+        flash("You need to sign in to access the complete product catalog.", "warning")
+        next_target = request.full_path if (request.query_string and request.query_string.strip()) else request.path
+        if next_target.endswith("?"):
+            next_target = next_target[:-1]
+        return redirect(url_for("main.login", next=next_target))
+
     search = request.args.get("q", "").strip() or request.args.get("search", "").strip()
     category_id = request.args.get("category", "").strip()
+    stock_filter = request.args.get("stock", "").strip()
+    sort_filter = request.args.get("sort", "").strip()
+    min_price = request.args.get("min_price", "").strip()
+    max_price = request.args.get("max_price", "").strip()
 
     conn = get_db()
-    categories = conn.execute("SELECT * FROM categories ORDER BY name").fetchall()
+    categories = conn.execute(
+        """
+        SELECT c.*, (SELECT COUNT(*) FROM products p WHERE p.category_id = c.id AND p.is_active = 1) AS product_count
+        FROM categories c
+        WHERE (SELECT COUNT(*) FROM products p WHERE p.category_id = c.id AND p.is_active = 1) > 0
+        ORDER BY c.name
+        """
+    ).fetchall()
 
     query = """
         SELECT p.*, c.name AS category_name
         FROM products p
         JOIN categories c ON p.category_id = c.id
-        WHERE 1=1
+        WHERE p.is_active = 1
     """
     params = []
     if search:
@@ -166,21 +1202,61 @@ def customer_catalog():
     if category_id:
         query += " AND p.category_id = ?"
         params.append(category_id)
+    if stock_filter == "instock":
+        query += " AND p.stock_quantity > 0"
+    if min_price:
+        try:
+            query += " AND p.price >= ?"
+            params.append(float(min_price))
+        except ValueError:
+            pass
+    if max_price:
+        try:
+            query += " AND p.price <= ?"
+            params.append(float(max_price))
+        except ValueError:
+            pass
 
-    query += " ORDER BY p.id"
-    products = conn.execute(query, params).fetchall()
+    if sort_filter == "price_asc":
+        query += " ORDER BY p.price ASC"
+    elif sort_filter == "price_desc":
+        query += " ORDER BY p.price DESC"
+    elif sort_filter == "name_asc":
+        query += " ORDER BY p.name ASC"
+    else:
+        query += " ORDER BY p.id"
 
-    # Calculate cart total and readiness summary
-    cart = session.get("cart", {})
+    products_raw = conn.execute(query, params).fetchall()
+
+    # Load all active product variations
+    all_vars = conn.execute(
+        "SELECT * FROM product_variations WHERE is_available = 1 ORDER BY price ASC"
+    ).fetchall()
+    vars_by_prod = {}
+    for v in all_vars:
+        vars_by_prod.setdefault(v["product_id"], []).append(dict(v))
+
+    products = []
+    for p in products_raw:
+        p_dict = dict(p)
+        p_dict["variations"] = vars_by_prod.get(p["id"], [])
+        products.append(p_dict)
+
+    # Calculate cart total from customer database cart
     cart_total = 0.0
-    if cart:
-        placeholders = ",".join("?" for _ in cart.keys())
-        cart_rows = conn.execute(
-            f"SELECT id, price FROM products WHERE id IN ({placeholders})",
-            list(cart.keys()),
+    if session.get("user_id"):
+        c_items = conn.execute(
+            """
+            SELECT ci.quantity, COALESCE(pv.price, p.price) AS price
+            FROM cart_items ci
+            JOIN products p ON ci.product_id = p.id
+            LEFT JOIN product_variations pv ON ci.variation_id = pv.id
+            WHERE ci.user_id = ? AND p.is_active = 1
+            """,
+            (session["user_id"],),
         ).fetchall()
-        for r in cart_rows:
-            cart_total += cart.get(str(r["id"]), 0) * r["price"]
+        for ci in c_items:
+            cart_total += float(ci["quantity"]) * float(ci["price"])
 
     all_in_stock = all(p["stock_quantity"] > 0 for p in products)
     conn.close()
@@ -192,7 +1268,11 @@ def customer_catalog():
         search=search,
         q=search,
         selected_category=category_id,
-        cart_total=cart_total,
+        stock_filter=stock_filter,
+        sort_filter=sort_filter,
+        min_price=min_price,
+        max_price=max_price,
+        cart_total=round(cart_total, 2),
         all_in_stock=all_in_stock,
     )
 
@@ -200,7 +1280,9 @@ def customer_catalog():
 @main_bp.route("/customer/cart/add", methods=["POST"])
 @login_required("customer")
 def cart_add():
-    product_id = str(request.form.get("product_id"))
+    user_id = session.get("user_id")
+    product_id = request.form.get("product_id")
+    variation_id = request.form.get("variation_id")
     try:
         qty = int(request.form.get("quantity", 1))
     except (ValueError, TypeError):
@@ -209,85 +1291,233 @@ def cart_add():
         qty = 1
 
     conn = get_db()
-    prod = conn.execute("SELECT stock_quantity, name FROM products WHERE id = ?", (product_id,)).fetchone()
-    conn.close()
-
+    prod = conn.execute(
+        "SELECT id, name, unit, price, stock_quantity FROM products WHERE id = ? AND is_active = 1",
+        (product_id,)
+    ).fetchone()
     if not prod:
-        flash("Product not found.", "danger")
+        conn.close()
+        flash("Product not found or currently unavailable.", "danger")
         return redirect(url_for("main.customer_catalog"))
 
-    cart = session.get("cart", {})
-    new_qty = cart.get(product_id, 0) + qty
-    if prod["stock_quantity"] > 0 and new_qty > prod["stock_quantity"]:
-        new_qty = prod["stock_quantity"]
-        flash(f"Adjusted {prod['name']} quantity to available stock ({prod['stock_quantity']}).", "warning")
-    else:
-        flash(f"Added {qty} item(s) to your cart.", "success")
+    display_name = prod["name"]
+    max_stock = prod["stock_quantity"]
+    var_id_int = None
 
-    cart[product_id] = new_qty
-    session["cart"] = cart
+    if variation_id and str(variation_id).strip():
+        try:
+            var_id_int = int(variation_id)
+        except (ValueError, TypeError):
+            var_id_int = None
+
+    if var_id_int:
+        var_row = conn.execute(
+            "SELECT id, variation_name, price, unit, stock_quantity FROM product_variations WHERE id = ? AND product_id = ? AND is_available = 1",
+            (var_id_int, product_id)
+        ).fetchone()
+        if var_row:
+            display_name = f"{prod['name']} ({var_row['variation_name']})"
+            max_stock = var_row["stock_quantity"]
+        else:
+            var_id_int = None
+
+    if max_stock <= 0:
+        conn.close()
+        flash(f"Sorry, {display_name} is currently out of stock.", "warning")
+        return redirect(request.referrer or url_for("main.customer_catalog"))
+
+    # Check if item is already in user's cart in database
+    if var_id_int:
+        existing = conn.execute(
+            "SELECT id, quantity FROM cart_items WHERE user_id = ? AND product_id = ? AND variation_id = ?",
+            (user_id, product_id, var_id_int)
+        ).fetchone()
+    else:
+        existing = conn.execute(
+            "SELECT id, quantity FROM cart_items WHERE user_id = ? AND product_id = ? AND variation_id IS NULL",
+            (user_id, product_id)
+        ).fetchone()
+
+    if existing:
+        new_qty = existing["quantity"] + qty
+        if max_stock > 0 and new_qty > max_stock:
+            new_qty = max_stock
+            flash(f"Updated {display_name} quantity in your cart to available stock ({max_stock}).", "warning")
+        else:
+            flash(f"Added {qty} item(s) to your cart: {display_name}.", "success")
+        conn.execute(
+            "UPDATE cart_items SET quantity = ?, updated_at = datetime('now', 'localtime') WHERE id = ?",
+            (new_qty, existing["id"])
+        )
+    else:
+        if max_stock > 0 and qty > max_stock:
+            qty = max_stock
+            flash(f"Added {qty} item(s) to your cart: {display_name} (adjusted to available stock).", "warning")
+        else:
+            flash(f"Added {qty} item(s) to your cart: {display_name}.", "success")
+        conn.execute(
+            "INSERT INTO cart_items (user_id, product_id, variation_id, quantity) VALUES (?, ?, ?, ?)",
+            (user_id, product_id, var_id_int, qty)
+        )
+
+    conn.commit()
+    conn.close()
+
+    # Clear legacy session cart so database cart is single source of truth
+    session.pop("cart", None)
+
     return redirect(request.referrer or url_for("main.customer_catalog"))
 
 
 @main_bp.route("/customer/cart/update", methods=["POST"])
 @login_required("customer")
 def cart_update():
-    product_id = str(request.form.get("product_id"))
+    user_id = session.get("user_id")
+    cart_item_id = request.form.get("cart_item_id")
     try:
         qty = int(request.form.get("quantity", 0))
     except (ValueError, TypeError):
         qty = 0
 
-    cart = session.get("cart", {})
+    conn = get_db()
+    item = None
+    if cart_item_id and str(cart_item_id).isdigit():
+        item = conn.execute(
+            """
+            SELECT ci.id, ci.user_id, ci.product_id, ci.variation_id, ci.quantity,
+                   p.name AS product_name, p.stock_quantity AS product_stock, p.is_active,
+                   pv.variation_name, pv.stock_quantity AS variation_stock
+            FROM cart_items ci
+            JOIN products p ON ci.product_id = p.id
+            LEFT JOIN product_variations pv ON ci.variation_id = pv.id
+            WHERE ci.id = ? AND ci.user_id = ?
+            """,
+            (int(cart_item_id), user_id)
+        ).fetchone()
+
+    # Fallback to cart_key (pid or pid:vid)
+    if not item and request.form.get("cart_key"):
+        cart_key = str(request.form.get("cart_key"))
+        parts = cart_key.split(":")
+        pid = int(parts[0]) if parts[0].isdigit() else 0
+        vid = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
+        if vid:
+            item = conn.execute(
+                """
+                SELECT ci.id, ci.user_id, ci.product_id, ci.variation_id, ci.quantity,
+                       p.name AS product_name, p.stock_quantity AS product_stock, p.is_active,
+                       pv.variation_name, pv.stock_quantity AS variation_stock
+                FROM cart_items ci
+                JOIN products p ON ci.product_id = p.id
+                LEFT JOIN product_variations pv ON ci.variation_id = pv.id
+                WHERE ci.user_id = ? AND ci.product_id = ? AND ci.variation_id = ?
+                """,
+                (user_id, pid, vid)
+            ).fetchone()
+        elif pid:
+            item = conn.execute(
+                """
+                SELECT ci.id, ci.user_id, ci.product_id, ci.variation_id, ci.quantity,
+                       p.name AS product_name, p.stock_quantity AS product_stock, p.is_active,
+                       pv.variation_name, pv.stock_quantity AS variation_stock
+                FROM cart_items ci
+                JOIN products p ON ci.product_id = p.id
+                LEFT JOIN product_variations pv ON ci.variation_id = pv.id
+                WHERE ci.user_id = ? AND ci.product_id = ? AND ci.variation_id IS NULL
+                """,
+                (user_id, pid)
+            ).fetchone()
+
+    if not item:
+        conn.close()
+        flash("Cart item not found.", "warning")
+        return redirect(url_for("main.customer_cart"))
+
+    item_name = f"{item['product_name']} ({item['variation_name']})" if item['variation_name'] else item['product_name']
+    available_stock = item['variation_stock'] if item['variation_id'] else item['product_stock']
+    available_stock = int(available_stock or 0)
+
     if qty <= 0:
-        cart.pop(product_id, None)
-        flash("Item removed from cart.", "info")
+        conn.execute("DELETE FROM cart_items WHERE id = ? AND user_id = ?", (item["id"], user_id))
+        conn.commit()
+        conn.close()
+        session.pop("cart", None)
+        flash(f"Removed {item_name} from your cart.", "info")
+        return redirect(url_for("main.customer_cart"))
+
+    if available_stock > 0 and qty > available_stock:
+        qty = available_stock
+        flash(f"Quantity for {item_name} adjusted to maximum available stock ({available_stock}).", "warning")
     else:
-        cart[product_id] = qty
         flash("Cart updated.", "success")
 
-    session["cart"] = cart
-    return redirect(url_for("main.customer_checkout"))
+    conn.execute(
+        "UPDATE cart_items SET quantity = ?, updated_at = datetime('now', 'localtime') WHERE id = ? AND user_id = ?",
+        (qty, item["id"], user_id)
+    )
+    conn.commit()
+    conn.close()
+    session.pop("cart", None)
+    return redirect(url_for("main.customer_cart"))
+
+
+@main_bp.route("/customer/cart/remove/<int:item_id>", methods=["POST"])
+@login_required("customer")
+def cart_remove(item_id):
+    user_id = session.get("user_id")
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM cart_items WHERE id = ? AND user_id = ?", (item_id, user_id))
+    if cur.rowcount > 0:
+        flash("Item removed from your shopping cart.", "info")
+    else:
+        flash("Cart item not found.", "warning")
+    conn.commit()
+    conn.close()
+    session.pop("cart", None)
+    return redirect(url_for("main.customer_cart"))
+
+
+@main_bp.route("/customer/cart/clear", methods=["POST"])
+@login_required("customer")
+def cart_clear():
+    user_id = session.get("user_id")
+    conn = get_db()
+    conn.execute("DELETE FROM cart_items WHERE user_id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    session.pop("cart", None)
+    flash("Your shopping cart has been cleared.", "info")
+    return redirect(url_for("main.customer_cart"))
 
 
 @main_bp.route("/customer/checkout", methods=["GET", "POST"])
 @login_required("customer")
 def customer_checkout():
-    cart = session.get("cart", {})
+    user_id = session.get("user_id")
     conn = get_db()
 
-    cart_items = []
-    subtotal = 0.0
-    if cart:
-        placeholders = ",".join("?" for _ in cart.keys())
-        rows = conn.execute(
-            f"SELECT * FROM products WHERE id IN ({placeholders})", list(cart.keys())
-        ).fetchall()
-        for row in rows:
-            qty = cart.get(str(row["id"]), 0)
-            line_total = qty * row["price"]
-            subtotal += line_total
-            cart_items.append({"product": row, "quantity": qty, "line_total": line_total})
+    cart_data = get_customer_cart_details(conn, user_id)
+    cart_items = cart_data["items"]
+    subtotal = cart_data["subtotal"]
+    delivery_fee = cart_data["delivery_fee"]
+    vat_amount = cart_data["vat_amount"]
+    total_amount = cart_data["total_amount"]
 
-    delivery_fee = 1500.00 if cart_items else 0.00
-    vat_amount = round(subtotal * 0.12, 2)
-    total_amount = round(subtotal + delivery_fee + vat_amount, 2)
+    if not cart_items:
+        conn.close()
+        flash("Your shopping cart is empty. Browse our catalog and add construction materials to get started.", "warning")
+        return redirect(url_for("main.customer_cart"))
 
     if request.method == "POST":
-        if not cart_items:
-            conn.close()
-            flash("Your cart is empty. Add materials to continue.", "warning")
-            return redirect(url_for("main.customer_catalog"))
-
         recipient_name = request.form.get("recipient_name", "").strip()
-        # Accept both 'phone' and 'recipient_phone'
         phone = request.form.get("phone", "").strip() or request.form.get("recipient_phone", "").strip()
         delivery_address = request.form.get("delivery_address", "").strip()
         special_instructions = request.form.get("special_instructions", "").strip()
 
         if not recipient_name or not delivery_address:
             flash("Please provide recipient name and delivery address.", "warning")
-            user = conn.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+            user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
             conn.close()
             return render_template(
                 "customer/checkout.html",
@@ -299,6 +1529,33 @@ def customer_checkout():
                 user=user,
             )
 
+        # Automatic Delivery Availability Check & Proposal
+        proposed_slot = find_and_reserve_delivery_slot(conn)
+
+        if proposed_slot:
+            order_status = "awaiting_confirmation"
+            schedule_status = "proposed"
+            assigned_date = proposed_slot["assigned_date"]
+            assigned_time_slot = proposed_slot["assigned_time_slot"]
+            reservation_expires_at = proposed_slot["expires_at"]
+            flash(
+                f"Your order has been submitted! We automatically proposed the next available delivery schedule: "
+                f"{assigned_date} ({assigned_time_slot}). Please review and accept this schedule within "
+                f"{proposed_slot['timeout_hours']} hours to proceed to payment.",
+                "success",
+            )
+        else:
+            order_status = "pending_scheduling"
+            schedule_status = "unassigned"
+            assigned_date = None
+            assigned_time_slot = None
+            reservation_expires_at = None
+            flash(
+                "Your order has been submitted! All immediate delivery schedules are currently fully booked. "
+                "Our administrator will review your order and assign a delivery schedule as soon as capacity opens.",
+                "info",
+            )
+
         order_code = f"#{random.randint(1053, 9999)}"
         cur = conn.cursor()
         cur.execute(
@@ -306,12 +1563,13 @@ def customer_checkout():
             INSERT INTO orders (
                 order_code, customer_id, recipient_name, phone, delivery_address,
                 special_instructions, subtotal, delivery_fee, vat_amount, total_amount,
-                order_status, schedule_status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_scheduling', 'unassigned')
+                order_status, schedule_status, assigned_date, assigned_time_slot,
+                reservation_expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 order_code,
-                session["user_id"],
+                user_id,
                 recipient_name,
                 phone,
                 delivery_address,
@@ -320,23 +1578,78 @@ def customer_checkout():
                 delivery_fee,
                 vat_amount,
                 total_amount,
+                order_status,
+                schedule_status,
+                assigned_date,
+                assigned_time_slot,
+                reservation_expires_at,
             ),
         )
         order_id = cur.lastrowid
 
         for item in cart_items:
+            var_id = item["variation_id"]
+            var_name = item["variation_name"]
             cur.execute(
-                "INSERT INTO order_items (order_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)",
-                (order_id, item["product"]["id"], item["quantity"], item["product"]["price"], item["line_total"]),
+                """
+                INSERT INTO order_items (order_id, product_id, variation_id, variation_name, quantity, unit_price, subtotal)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (order_id, item["product_id"], var_id, var_name, item["quantity"], item["price"], item["line_total"]),
             )
+            # Deduct stock
+            if var_id:
+                cur.execute(
+                    "UPDATE product_variations SET stock_quantity = MAX(0, stock_quantity - ?) WHERE id = ?",
+                    (item["quantity"], var_id),
+                )
+            cur.execute(
+                "UPDATE products SET stock_quantity = MAX(0, stock_quantity - ?) WHERE id = ?",
+                (item["quantity"], item["product_id"]),
+            )
+
+        if proposed_slot:
+            while True:
+                d_code = f"DLV-{datetime.now().strftime('%m%d')}-{random.randint(1000, 9999)}"
+                if not conn.execute("SELECT id FROM deliveries WHERE delivery_code = ?", (d_code,)).fetchone():
+                    break
+            cur.execute(
+                """
+                INSERT INTO deliveries (
+                    delivery_code, order_id, driver_id, truck_id, delivery_window,
+                    delivery_status, current_lat, current_lng
+                ) VALUES (?, ?, ?, ?, ?, 'proposed', 13.9411, 121.1631)
+                """,
+                (d_code, order_id, proposed_slot["driver_id"], proposed_slot["truck_id"], assigned_time_slot),
+            )
+
+        create_notification(
+            conn,
+            user_id,
+            "Order Submitted Successfully",
+            f"Order {order_code} for ₱{total_amount:,.2f} has been submitted and is queued for scheduling.",
+            "order",
+            order_id,
+        )
+        if proposed_slot:
+            create_notification(
+                conn,
+                user_id,
+                "Delivery Schedule Proposed",
+                f"Delivery schedule for order {order_code} has been proposed: {assigned_date} ({assigned_time_slot}). Please review and accept.",
+                "schedule",
+                order_id,
+            )
+
+        # Clear customer's shopping cart in database and session only after order is placed
+        cur.execute("DELETE FROM cart_items WHERE user_id = ?", (user_id,))
+        session.pop("cart", None)
 
         conn.commit()
         conn.close()
-        session["cart"] = {}
-        flash("Your order has been submitted successfully! Please wait while our administrator reviews your order and assigns an available delivery schedule.", "success")
         return redirect(url_for("main.customer_order_confirmation", order_id=order_id))
 
-    user = conn.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     conn.close()
     return render_template(
         "customer/checkout.html",
@@ -373,12 +1686,24 @@ def customer_order_confirmation(order_id):
         """,
         (order_id,),
     ).fetchall()
+
+    delivery = conn.execute(
+        """
+        SELECT d.*, u.name AS driver_name, t.truck_code, t.plate_number
+        FROM deliveries d
+        LEFT JOIN users u ON d.driver_id = u.id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        WHERE d.order_id = ?
+        """,
+        (order_id,),
+    ).fetchone()
     conn.close()
 
     return render_template(
         "customer/order_confirmation.html",
         order=order,
         items=items,
+        delivery=delivery,
     )
 
 
@@ -459,34 +1784,54 @@ def customer_payment(order_id):
             ref = draft.get("reference_number") or request.form.get("reference_number") or request.form.get("reference_no", "")
             note = draft.get("receipt_note") or request.form.get("receipt_note", "")
 
-            if method == "cash" and not ref:
-                ref = f"COD-{clean_order_code(order['order_code']).replace('#', '')}"
+            if method == "cash":
+                ref = ref or f"COD-{clean_order_code(order['order_code']).replace('#', '')}"
+                new_payment_status = "payment_due"
+                flash_msg = "Cash on Delivery arrangement confirmed! Awaiting administrator approval before release for delivery."
+            else:
+                new_payment_status = "pending_verification"
+                flash_msg = "QR payment information submitted! Awaiting administrator verification before release for delivery."
 
             if existing_payment:
                 conn.execute(
                     """
                     UPDATE payments
                     SET method=?, reference_number=?, receipt_note=?, payer_name=?, bank_used=?,
-                        payment_status='pending', paid_at=datetime('now','localtime')
+                        payment_status=?, paid_at=datetime('now','localtime'), rejection_reason=NULL
                     WHERE order_id=?
                     """,
-                    (method, ref, note, payer_name, bank_used, order_id),
+                    (method, ref, note, payer_name, bank_used, new_payment_status, order_id),
                 )
             else:
                 conn.execute(
                     """
                     INSERT INTO payments (order_id, method, reference_number, receipt_note, payer_name, bank_used, amount, payment_status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (order_id, method, ref, note, payer_name, bank_used, order["total_amount"]),
+                    (order_id, method, ref, note, payer_name, bank_used, order["total_amount"], new_payment_status),
                 )
+
+            # Move order status to pending_payment_verification
             conn.execute(
-                "UPDATE orders SET order_status = 'scheduled' WHERE id = ? AND order_status = 'schedule_confirmed'",
+                """
+                UPDATE orders
+                SET order_status = 'pending_payment_verification',
+                    rejection_reason = NULL
+                WHERE id = ?
+                """,
                 (order_id,),
+            )
+            create_notification(
+                conn,
+                session["user_id"],
+                "Payment Submitted",
+                f"Payment for order {clean_order_code(order['order_code'])} ({method.upper()}) was submitted and is pending administrator verification.",
+                "payment",
+                order_id,
             )
             conn.commit()
             conn.close()
-            flash("Payment confirmed! Review the confirmation details.", "success")
+            flash(flash_msg, "success")
             return redirect(url_for("main.customer_payment", order_id=order_id, step=4, method=method))
 
     draft = session.get("payment_draft", {})
@@ -506,9 +1851,11 @@ def customer_payment(order_id):
 @login_required("customer")
 def customer_orders():
     conn = get_db()
+    expire_stale_reservations(conn)
     orders = conn.execute(
         """
         SELECT o.*, p.method AS payment_method, p.payment_status, p.reference_number,
+               p.rejection_reason AS payment_rejection_reason,
                d.delivery_status, d.delivery_code,
                t.truck_code, t.plate_number, t.capacity AS truck_capacity,
                u_drv.name AS driver_name, u_drv.phone AS driver_phone
@@ -530,6 +1877,8 @@ def customer_orders():
 @login_required("customer")
 def customer_accept_schedule(order_id):
     conn = get_db()
+    expire_stale_reservations(conn)
+
     order = conn.execute(
         "SELECT * FROM orders WHERE id = ? AND customer_id = ?",
         (order_id, session["user_id"]),
@@ -540,11 +1889,22 @@ def customer_accept_schedule(order_id):
         flash("Order not found.", "danger")
         return redirect(url_for("main.customer_orders"))
 
-    # Backend validation: only allow acceptance when awaiting confirmation
+    # Backend validation: check if reservation has expired or order is not awaiting confirmation
     if order["order_status"] != "awaiting_confirmation":
         conn.close()
-        flash(f"Order {clean_order_code(order['order_code'])} is not currently awaiting schedule confirmation.", "warning")
+        if order["schedule_status"] == "expired":
+            flash("Your proposed delivery schedule reservation has expired. Please check with administrator for an updated schedule.", "warning")
+        else:
+            flash(f"Order {clean_order_code(order['order_code'])} is not currently awaiting schedule confirmation.", "warning")
         return redirect(url_for("main.customer_orders"))
+
+    if order["reservation_expires_at"]:
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if order["reservation_expires_at"] <= now_str:
+            expire_stale_reservations(conn)
+            conn.close()
+            flash("Your schedule reservation has expired. The reserved delivery slot has been released.", "warning")
+            return redirect(url_for("main.customer_orders"))
 
     conn.execute(
         """
@@ -557,8 +1917,16 @@ def customer_accept_schedule(order_id):
         (order_id,),
     )
     conn.execute(
-        "UPDATE deliveries SET delivery_status = 'assigned' WHERE order_id = ? AND delivery_status = 'queued'",
+        "UPDATE deliveries SET delivery_status = 'confirmed' WHERE order_id = ?",
         (order_id,),
+    )
+    create_notification(
+        conn,
+        session["user_id"],
+        "Schedule Confirmed",
+        f"You confirmed the delivery schedule for order {clean_order_code(order['order_code'])}. You may now proceed to payment.",
+        "schedule",
+        order_id,
     )
     conn.commit()
     conn.close()
@@ -636,6 +2004,15 @@ def customer_cancel_order(order_id):
                 (item["product_id"], item["quantity"], f"Cancelled Order {clean_order_code(order['order_code'])} stock restored", session.get("user_id")),
             )
 
+    create_notification(
+        conn,
+        order["customer_id"],
+        "Order Cancelled",
+        f"Order {clean_order_code(order['order_code'])} has been cancelled.",
+        "order",
+        order_id,
+    )
+
     conn.commit()
     conn.close()
     flash(
@@ -649,6 +2026,7 @@ def customer_cancel_order(order_id):
 @login_required("customer")
 def customer_order_tracking(order_id):
     conn = get_db()
+    expire_stale_reservations(conn)
     order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
     if not order:
         conn.close()
@@ -906,6 +2284,9 @@ def api_gps_simulate(delivery_id):
 @login_required("admin")
 def admin_dashboard():
     conn = get_db()
+    total_products = conn.execute("SELECT COUNT(*) FROM products WHERE is_active = 1").fetchone()[0]
+    total_customers = conn.execute("SELECT COUNT(*) FROM users WHERE role = 'customer' AND is_active = 1").fetchone()[0]
+    total_revenue = conn.execute("SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE order_status IN ('payment_verified', 'ready_for_dispatch', 'out_for_delivery', 'in_transit', 'delivered')").fetchone()[0]
     pending_orders = conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('pending', 'pending_scheduling')").fetchone()[0]
     low_stock = conn.execute("SELECT COUNT(*) FROM products WHERE stock_quantity <= low_stock_threshold").fetchone()[0]
     in_progress_deliveries = conn.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_status IN ('assigned', 'loading', 'en_route')").fetchone()[0]
@@ -916,10 +2297,35 @@ def admin_dashboard():
         "SELECT COUNT(*) FROM orders WHERE order_status IN ('for_scheduling', 'approved', 'awaiting_confirmation', 'schedule_confirmed', 'scheduled')"
     ).fetchone()[0]
     pending_receipts = conn.execute("SELECT COUNT(*) FROM payments WHERE payment_status = 'pending'").fetchone()[0]
+
+    recent_orders = conn.execute(
+        """
+        SELECT o.*, u.name AS customer_name, p.method AS payment_method, p.payment_status
+        FROM orders o
+        JOIN users u ON o.customer_id = u.id
+        LEFT JOIN payments p ON o.id = p.order_id
+        ORDER BY o.id DESC LIMIT 6
+        """
+    ).fetchall()
+
+    recent_deliveries = conn.execute(
+        """
+        SELECT d.*, o.order_code, o.delivery_address, t.truck_code, u.name AS driver_name
+        FROM deliveries d
+        JOIN orders o ON d.order_id = o.id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        LEFT JOIN users u ON d.driver_id = u.id
+        ORDER BY d.id DESC LIMIT 4
+        """
+    ).fetchall()
+
     conn.close()
 
     return render_template(
         "admin/dashboard.html",
+        total_products=total_products,
+        total_customers=total_customers,
+        total_revenue=total_revenue,
         pending_orders=pending_orders,
         low_stock=low_stock,
         in_progress_deliveries=in_progress_deliveries,
@@ -928,6 +2334,8 @@ def admin_dashboard():
         payments_count=payments_count,
         ready_dispatch=ready_dispatch,
         pending_receipts=pending_receipts,
+        recent_orders=recent_orders,
+        recent_deliveries=recent_deliveries,
     )
 
 
@@ -936,14 +2344,20 @@ def admin_dashboard():
 def admin_orders():
     tab = request.args.get("tab", "pending")
     conn = get_db()
+    expire_stale_reservations(conn)
 
     base_sql = """
         SELECT o.*, u.name AS customer_name, u.phone AS customer_phone,
-               MIN(CASE WHEN p.stock_quantity >= oi.quantity THEN 1 ELSE 0 END) AS all_in_stock
+               p.method AS payment_method, p.payment_status, p.reference_number AS payment_ref,
+               p.rejection_reason AS payment_rejection_reason,
+               u_auth.name AS authorized_by_name,
+               MIN(CASE WHEN pr.stock_quantity >= oi.quantity THEN 1 ELSE 0 END) AS all_in_stock
         FROM orders o
         JOIN users u ON o.customer_id = u.id
+        LEFT JOIN payments p ON o.id = p.order_id
+        LEFT JOIN users u_auth ON o.authorized_by = u_auth.id
         LEFT JOIN order_items oi ON o.id = oi.order_id
-        LEFT JOIN products p ON oi.product_id = p.id
+        LEFT JOIN products pr ON oi.product_id = pr.id
     """
     if tab in ("pending", "pending_scheduling"):
         where = " WHERE o.order_status IN ('pending', 'pending_scheduling')"
@@ -951,8 +2365,12 @@ def admin_orders():
         where = " WHERE o.order_status IN ('for_scheduling', 'approved')"
     elif tab == "awaiting_confirmation":
         where = " WHERE o.order_status = 'awaiting_confirmation'"
-    elif tab in ("scheduled", "ready", "schedule_confirmed"):
-        where = " WHERE o.order_status IN ('schedule_confirmed', 'scheduled', 'payment_pending', 'out_for_delivery', 'in_transit', 'preparing')"
+    elif tab == "payment_verification":
+        where = " WHERE o.order_status IN ('schedule_confirmed', 'pending_payment', 'pending_payment_verification')"
+    elif tab == "ready_authorization":
+        where = " WHERE o.order_status = 'payment_verified'"
+    elif tab in ("scheduled", "ready", "ready_for_dispatch"):
+        where = " WHERE o.order_status IN ('ready_for_dispatch', 'scheduled', 'out_for_delivery', 'in_transit', 'preparing')"
     else:
         where = ""
 
@@ -964,7 +2382,9 @@ def admin_orders():
         "pending": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('pending', 'pending_scheduling')").fetchone()[0],
         "for_scheduling": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('for_scheduling', 'approved')").fetchone()[0],
         "awaiting_confirmation": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status='awaiting_confirmation'").fetchone()[0],
-        "scheduled": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('schedule_confirmed', 'scheduled', 'payment_pending', 'out_for_delivery', 'in_transit', 'preparing')").fetchone()[0],
+        "payment_verification": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('schedule_confirmed', 'pending_payment', 'pending_payment_verification')").fetchone()[0],
+        "ready_authorization": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status = 'payment_verified'").fetchone()[0],
+        "scheduled": conn.execute("SELECT COUNT(*) FROM orders WHERE order_status IN ('ready_for_dispatch', 'scheduled', 'out_for_delivery', 'in_transit', 'preparing')").fetchone()[0],
         "all": conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0],
     }
 
@@ -1002,7 +2422,7 @@ def admin_orders():
         JOIN deliveries d ON o.id = d.order_id
         LEFT JOIN trucks t ON d.truck_id = t.id
         LEFT JOIN users u ON d.driver_id = u.id
-        WHERE o.order_status IN ('awaiting_confirmation', 'schedule_confirmed', 'scheduled', 'out_for_delivery', 'in_transit')
+        WHERE o.order_status IN ('awaiting_confirmation', 'schedule_confirmed', 'pending_payment_verification', 'payment_verified', 'ready_for_dispatch', 'scheduled', 'out_for_delivery', 'in_transit')
           AND o.assigned_date IS NOT NULL
         ORDER BY o.assigned_date ASC, o.assigned_time_slot ASC
         """
@@ -1064,7 +2484,7 @@ def admin_order_assign_schedule(order_id):
         LEFT JOIN trucks t ON d.truck_id = t.id
         LEFT JOIN users u ON d.driver_id = u.id
         WHERE o.id != ?
-          AND o.order_status IN ('awaiting_confirmation', 'schedule_confirmed', 'scheduled', 'out_for_delivery', 'in_transit')
+          AND o.order_status IN ('awaiting_confirmation', 'schedule_confirmed', 'pending_payment_verification', 'payment_verified', 'ready_for_dispatch', 'scheduled', 'out_for_delivery', 'in_transit')
           AND o.assigned_date = ?
           AND o.assigned_time_slot = ?
           AND (d.truck_id = ? OR d.driver_id = ?)
@@ -1137,6 +2557,15 @@ def admin_order_assign_schedule(order_id):
             (d_code, order_id, driver_id, truck_id, assigned_time_slot),
         )
 
+    create_notification(
+        conn,
+        order["customer_id"],
+        "Delivery Schedule Proposed",
+        f"Admin assigned a delivery schedule for order {clean_order_code(order['order_code'])}: {assigned_date} ({assigned_time_slot}). Please review and accept.",
+        "schedule",
+        order_id,
+    )
+
     conn.commit()
     conn.close()
     flash(
@@ -1195,6 +2624,89 @@ def admin_order_decision(order_id):
     return redirect(url_for("main.admin_orders"))
 
 
+@main_bp.route("/admin/orders/<int:order_id>/authorize-delivery", methods=["POST"])
+@login_required("admin")
+def admin_order_authorize_delivery(order_id):
+    """Admin delivery authorization gate: Ensures payment verified & schedule accepted before driver release."""
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        flash("Order not found.", "danger")
+        return redirect(url_for("main.admin_orders"))
+
+    payment = conn.execute("SELECT * FROM payments WHERE order_id = ?", (order_id,)).fetchone()
+    delivery = conn.execute("SELECT * FROM deliveries WHERE order_id = ?", (order_id,)).fetchone()
+
+    # Rule 1: Delivery schedule must have been confirmed / accepted
+    if not order["assigned_date"] or order["schedule_status"] != "accepted":
+        conn.close()
+        flash(f"Cannot authorize delivery: Delivery schedule for {clean_order_code(order['order_code'])} has not been confirmed by customer.", "warning")
+        return redirect(url_for("main.admin_orders", tab="ready_authorization"))
+
+    # Rule 2: Delivery assignment (truck and driver) must exist
+    if not delivery or not delivery["driver_id"] or not delivery["truck_id"]:
+        conn.close()
+        flash(f"Cannot authorize delivery: No truck and driver assigned to {clean_order_code(order['order_code'])}. Please assign logistics first.", "warning")
+        return redirect(url_for("main.admin_orders", tab="ready_authorization"))
+
+    # Rule 3: Payment must be verified (or COD arrangement approved)
+    if not payment:
+        conn.close()
+        flash(f"Cannot authorize delivery: No payment record found for {clean_order_code(order['order_code'])}.", "danger")
+        return redirect(url_for("main.admin_orders", tab="ready_authorization"))
+
+    if payment["method"] == "qr" and payment["payment_status"] not in ("verified", "paid"):
+        conn.close()
+        flash(f"Cannot authorize delivery: QR Payment for {clean_order_code(order['order_code'])} has not been verified yet. Admin must confirm payment receipt first.", "danger")
+        return redirect(url_for("main.admin_payments"))
+
+    if payment["method"] == "cash" and order["order_status"] not in ("payment_verified", "ready_for_dispatch") and payment["payment_status"] not in ("payment_due", "verified", "paid"):
+        conn.close()
+        flash(f"Cannot authorize delivery: Cash on Delivery arrangement for {clean_order_code(order['order_code'])} has not been approved yet.", "warning")
+        return redirect(url_for("main.admin_payments"))
+
+    # Prevent duplicate authorization
+    if order["order_status"] == "ready_for_dispatch" and delivery["delivery_status"] == "authorized":
+        conn.close()
+        flash(f"Order {clean_order_code(order['order_code'])} is already authorized for dispatch.", "info")
+        return redirect(url_for("main.admin_orders", tab="scheduled"))
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute(
+        """
+        UPDATE orders
+        SET order_status = 'ready_for_dispatch',
+            authorized_by = ?,
+            authorized_at = ?
+        WHERE id = ?
+        """,
+        (session["user_id"], now_str, order_id),
+    )
+    conn.execute(
+        """
+        UPDATE deliveries
+        SET delivery_status = 'authorized',
+            authorized_by = ?,
+            authorized_at = ?
+        WHERE id = ?
+        """,
+        (session["user_id"], now_str, delivery["id"]),
+    )
+    create_notification(
+        conn,
+        order["customer_id"],
+        "Ready for Dispatch",
+        f"Order {clean_order_code(order['order_code'])} has been authorized for delivery. Assigned truck is preparing for dispatch.",
+        "delivery",
+        order_id,
+    )
+    conn.commit()
+    conn.close()
+    flash(f"Order {clean_order_code(order['order_code'])} authorized for delivery! The assigned driver has been released to begin dispatch.", "success")
+    return redirect(url_for("main.admin_orders", tab="scheduled"))
+
+
 @main_bp.route("/admin/inventory", methods=["GET", "POST"])
 @login_required("admin")
 def admin_inventory():
@@ -1213,7 +2725,7 @@ def admin_inventory():
             image_url = request.form.get("image_url", "").strip() or "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500&auto=format&fit=crop"
 
             conn.execute(
-                "INSERT INTO products (category_id, name, description, unit, price, stock_quantity, low_stock_threshold, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO products (category_id, name, description, unit, price, stock_quantity, low_stock_threshold, image_url, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
                 (category_id, name, description, unit, price, stock_quantity, low_stock_threshold, image_url),
             )
             conn.commit()
@@ -1251,6 +2763,48 @@ def admin_inventory():
             conn.commit()
             flash(f"Product '{name}' updated successfully.", "success")
 
+        elif action == "add_variation":
+            product_id = int(request.form.get("product_id"))
+            variation_name = request.form.get("variation_name", "").strip()
+            price = float(request.form.get("price", 0))
+            unit = request.form.get("unit", "").strip()
+            stock_quantity = int(request.form.get("stock_quantity", 50))
+
+            conn.execute(
+                """
+                INSERT INTO product_variations (product_id, variation_name, price, unit, stock_quantity, is_available)
+                VALUES (?, ?, ?, ?, ?, 1)
+                """,
+                (product_id, variation_name, price, unit, stock_quantity),
+            )
+            conn.commit()
+            flash(f"Variation '{variation_name}' added successfully.", "success")
+
+        elif action == "update_variation":
+            variation_id = int(request.form.get("variation_id"))
+            variation_name = request.form.get("variation_name", "").strip()
+            price = float(request.form.get("price", 0))
+            unit = request.form.get("unit", "").strip()
+            stock_quantity = int(request.form.get("stock_quantity", 0))
+            is_available = int(request.form.get("is_available", 1))
+
+            conn.execute(
+                """
+                UPDATE product_variations
+                SET variation_name = ?, price = ?, unit = ?, stock_quantity = ?, is_available = ?
+                WHERE id = ?
+                """,
+                (variation_name, price, unit, stock_quantity, is_available, variation_id),
+            )
+            conn.commit()
+            flash(f"Variation '{variation_name}' updated successfully.", "success")
+
+        elif action == "delete_variation":
+            variation_id = int(request.form.get("variation_id"))
+            conn.execute("UPDATE product_variations SET is_available = 0 WHERE id = ?", (variation_id,))
+            conn.commit()
+            flash("Variation deactivated successfully.", "info")
+
         elif action == "stock_movement":
             product_id = int(request.form.get("product_id"))
             movement_type = request.form.get("movement_type", "stock_in")
@@ -1275,10 +2829,20 @@ def admin_inventory():
         return redirect(url_for("main.admin_inventory"))
 
     products = [dict(p) for p in conn.execute(
-        "SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON p.category_id = c.id ORDER BY p.id"
+        "SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.is_active = 1 ORDER BY p.id"
     ).fetchall()]
+
+    all_variations = [dict(v) for v in conn.execute(
+        "SELECT * FROM product_variations WHERE is_available = 1 ORDER BY price ASC"
+    ).fetchall()]
+    vars_by_product = {}
+    for v in all_variations:
+        vars_by_product.setdefault(v["product_id"], []).append(v)
+    for p in products:
+        p["variations"] = vars_by_product.get(p["id"], [])
+
     categories = conn.execute("SELECT * FROM categories ORDER BY name").fetchall()
-    low_stock_count = conn.execute("SELECT COUNT(*) FROM products WHERE stock_quantity <= low_stock_threshold").fetchone()[0]
+    low_stock_count = conn.execute("SELECT COUNT(*) FROM products WHERE stock_quantity <= low_stock_threshold AND is_active = 1").fetchone()[0]
     logs = conn.execute(
         """
         SELECT l.*, p.name AS product_name, u.name AS staff_name
@@ -1303,6 +2867,7 @@ def admin_inventory():
 @login_required("admin")
 def admin_deliveries():
     conn = get_db()
+    expire_stale_reservations(conn)
 
     if request.method == "POST":
         try:
@@ -1413,7 +2978,7 @@ def admin_deliveries():
         SELECT o.*, u.name AS customer_name
         FROM orders o
         JOIN users u ON o.customer_id = u.id
-        WHERE o.order_status IN ('for_scheduling', 'approved', 'awaiting_confirmation', 'schedule_confirmed', 'scheduled')
+        WHERE o.order_status IN ('pending', 'pending_scheduling', 'for_scheduling', 'approved', 'awaiting_confirmation', 'schedule_confirmed', 'scheduled')
         ORDER BY o.id DESC
         """
     ).fetchall()
@@ -1423,9 +2988,11 @@ def admin_deliveries():
     deliveries = conn.execute(
         """
         SELECT d.*, o.order_code, o.recipient_name, o.delivery_address, o.assigned_date, o.assigned_time_slot, o.order_status,
-               u.name AS driver_name, t.truck_code, t.plate_number
+               u.name AS driver_name, t.truck_code, t.plate_number,
+               p.payment_status, p.method AS payment_method
         FROM deliveries d
         JOIN orders o ON d.order_id = o.id
+        LEFT JOIN payments p ON o.id = p.order_id
         LEFT JOIN users u ON d.driver_id = u.id
         LEFT JOIN trucks t ON d.truck_id = t.id
         ORDER BY d.id DESC
@@ -1440,6 +3007,272 @@ def admin_deliveries():
         drivers=drivers,
         trucks=trucks,
         deliveries=deliveries,
+    )
+
+
+@main_bp.route("/admin/delivery-availability", methods=["GET", "POST"])
+@login_required("admin")
+def admin_delivery_availability():
+    """Admin delivery schedule availability and capacity management."""
+    conn = get_db()
+    expire_stale_reservations(conn)
+
+    if request.method == "POST":
+        action = request.form.get("action", "").strip()
+
+        if action == "update_settings":
+            try:
+                timeout_h = max(1, int(request.form.get("reservation_timeout_hours", 24)))
+                cap = max(1, int(request.form.get("default_slot_capacity", 3)))
+                lead = max(0, int(request.form.get("lead_time_days", 1)))
+                horizon = max(1, int(request.form.get("horizon_days", 14)))
+            except (ValueError, TypeError):
+                timeout_h, cap, lead, horizon = 24, 3, 1, 14
+
+            settings_to_save = [
+                ("reservation_timeout_hours", str(timeout_h)),
+                ("default_slot_capacity", str(cap)),
+                ("lead_time_days", str(lead)),
+                ("horizon_days", str(horizon)),
+            ]
+            for k, v in settings_to_save:
+                conn.execute(
+                    """
+                    INSERT INTO delivery_settings (setting_key, setting_value)
+                    VALUES (?, ?)
+                    ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value
+                    """,
+                    (k, v),
+                )
+            conn.commit()
+            flash("Delivery availability settings updated successfully.", "success")
+            conn.close()
+            return redirect(url_for("main.admin_delivery_availability"))
+
+        elif action == "toggle_slot":
+            delivery_date = request.form.get("delivery_date", "").strip()
+            time_slot = request.form.get("time_slot", "").strip()
+            if delivery_date and time_slot:
+                row = conn.execute(
+                    "SELECT is_available, max_capacity FROM delivery_availability WHERE delivery_date = ? AND time_slot = ?",
+                    (delivery_date, time_slot),
+                ).fetchone()
+                default_cap = int(get_delivery_setting(conn, "default_slot_capacity", 3))
+                if row:
+                    new_avail = 0 if row["is_available"] == 1 else 1
+                    conn.execute(
+                        "UPDATE delivery_availability SET is_available = ? WHERE delivery_date = ? AND time_slot = ?",
+                        (new_avail, delivery_date, time_slot),
+                    )
+                else:
+                    new_avail = 0
+                    conn.execute(
+                        """
+                        INSERT INTO delivery_availability (delivery_date, time_slot, max_capacity, is_available, notes)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (delivery_date, time_slot, default_cap, new_avail, "Manually blocked"),
+                    )
+                conn.commit()
+                status_str = "Enabled" if new_avail == 1 else "Blocked / Blackout"
+                flash(f"Slot {delivery_date} {time_slot} is now {status_str}.", "success")
+            conn.close()
+            return redirect(url_for("main.admin_delivery_availability"))
+
+        elif action == "update_slot":
+            delivery_date = request.form.get("delivery_date", "").strip()
+            time_slot = request.form.get("time_slot", "").strip()
+            try:
+                max_capacity = max(1, int(request.form.get("max_capacity", 3)))
+            except (ValueError, TypeError):
+                max_capacity = 3
+            is_available = 1 if request.form.get("is_available") in ("1", "on", "true") else 0
+            notes = request.form.get("notes", "").strip()
+
+            if delivery_date and time_slot:
+                conn.execute(
+                    """
+                    INSERT INTO delivery_availability (delivery_date, time_slot, max_capacity, is_available, notes)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(delivery_date, time_slot) DO UPDATE SET
+                        max_capacity = excluded.max_capacity,
+                        is_available = excluded.is_available,
+                        notes = excluded.notes
+                    """,
+                    (delivery_date, time_slot, max_capacity, is_available, notes),
+                )
+                conn.commit()
+                flash(f"Updated capacity & availability for {delivery_date} ({time_slot}).", "success")
+            conn.close()
+            return redirect(url_for("main.admin_delivery_availability"))
+
+        elif action == "bulk_generate":
+            try:
+                days_ahead = max(1, int(request.form.get("days_ahead", 14)))
+                default_cap = max(1, int(request.form.get("default_capacity", 3)))
+            except (ValueError, TypeError):
+                days_ahead, default_cap = 14, 3
+
+            today_d = datetime.now().date()
+            std_slots = ["Morning (08:00 - 12:00)", "Afternoon (13:00 - 17:00)"]
+            for i in range(1, days_ahead + 1):
+                day_target = today_d + timedelta(days=i)
+                day_str = day_target.strftime("%Y-%m-%d")
+                is_avail = 0 if day_target.weekday() == 6 else 1
+                day_note = "Sunday - Closed" if day_target.weekday() == 6 else None
+                for s_name in std_slots:
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO delivery_availability (delivery_date, time_slot, max_capacity, is_available, notes)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (day_str, s_name, default_cap, is_avail, day_note),
+                    )
+            conn.commit()
+            flash(f"Populated delivery schedule availability for the next {days_ahead} days.", "success")
+            conn.close()
+            return redirect(url_for("main.admin_delivery_availability"))
+
+        elif action == "toggle_truck":
+            try:
+                truck_id = int(request.form.get("truck_id", 0))
+            except (ValueError, TypeError):
+                truck_id = 0
+            new_status = request.form.get("status", "available").strip()
+            if truck_id and new_status in ("available", "maintenance"):
+                conn.execute("UPDATE trucks SET status = ? WHERE id = ?", (new_status, truck_id))
+                conn.commit()
+                flash(f"Truck status updated to {new_status.title()}.", "success")
+            conn.close()
+            return redirect(url_for("main.admin_delivery_availability"))
+
+        elif action == "toggle_driver":
+            try:
+                driver_id = int(request.form.get("driver_id", 0))
+                is_active = int(request.form.get("is_active", 1))
+            except (ValueError, TypeError):
+                driver_id = 0
+                is_active = 1
+            if driver_id:
+                conn.execute("UPDATE users SET is_active = ? WHERE id = ? AND role = 'driver'", (is_active, driver_id))
+                conn.commit()
+                flash("Driver availability updated.", "success")
+            conn.close()
+            return redirect(url_for("main.admin_delivery_availability"))
+
+    # GET: Prepare settings, metrics, and schedule matrix
+    settings = {
+        "reservation_timeout_hours": int(get_delivery_setting(conn, "reservation_timeout_hours", 24)),
+        "default_slot_capacity": int(get_delivery_setting(conn, "default_slot_capacity", 3)),
+        "lead_time_days": int(get_delivery_setting(conn, "lead_time_days", 1)),
+        "horizon_days": int(get_delivery_setting(conn, "horizon_days", 14)),
+    }
+
+    horizon = settings["horizon_days"]
+    lead_time = settings["lead_time_days"]
+    default_capacity = settings["default_slot_capacity"]
+    today = datetime.now().date()
+    std_slots = ["Morning (08:00 - 12:00)", "Afternoon (13:00 - 17:00)"]
+
+    avail_rows = conn.execute("SELECT * FROM delivery_availability").fetchall()
+    avail_map = {(r["delivery_date"], r["time_slot"]): r for r in avail_rows}
+
+    active_orders = conn.execute(
+        """
+        SELECT o.id, o.order_code, o.assigned_date, o.assigned_time_slot, o.order_status, o.total_amount,
+               u.name AS customer_name,
+               d.truck_id, d.driver_id, t.truck_code, t.plate_number, u_drv.name AS driver_name
+        FROM orders o
+        JOIN users u ON o.customer_id = u.id
+        LEFT JOIN deliveries d ON o.id = d.order_id
+        LEFT JOIN trucks t ON d.truck_id = t.id
+        LEFT JOIN users u_drv ON d.driver_id = u_drv.id
+        WHERE o.order_status IN ('awaiting_confirmation', 'schedule_confirmed', 'pending_payment_verification', 'payment_verified', 'ready_for_dispatch', 'scheduled', 'out_for_delivery', 'in_transit')
+          AND o.assigned_date IS NOT NULL
+        ORDER BY o.assigned_date, o.assigned_time_slot
+        """
+    ).fetchall()
+
+    bookings_map = {}
+    for ord_row in active_orders:
+        key = (ord_row["assigned_date"], ord_row["assigned_time_slot"])
+        bookings_map.setdefault(key, []).append(ord_row)
+
+    schedule_calendar = []
+    total_slots = 0
+    available_slots_count = 0
+    booked_slots_count = 0
+    blackout_slots_count = 0
+
+    for i in range(0, horizon + lead_time):
+        day_d = today + timedelta(days=i)
+        day_str = day_d.strftime("%Y-%m-%d")
+        day_name = day_d.strftime("%A")
+        is_lead_day = (i < lead_time)
+
+        for slot_name in std_slots:
+            total_slots += 1
+            cfg = avail_map.get((day_str, slot_name))
+            if cfg:
+                is_available = bool(cfg["is_available"])
+                max_capacity = cfg["max_capacity"]
+                notes = cfg["notes"] or ""
+            else:
+                is_available = False if day_d.weekday() == 6 else True
+                max_capacity = default_capacity
+                notes = "Sunday - Closed" if day_d.weekday() == 6 else ""
+
+            bookings = bookings_map.get((day_str, slot_name), [])
+            booked_count = len(bookings)
+            remaining = max(0, max_capacity - booked_count)
+
+            if not is_available:
+                status = "unavailable"
+                blackout_slots_count += 1
+            elif booked_count >= max_capacity:
+                status = "full"
+                booked_slots_count += 1
+            else:
+                status = "available"
+                available_slots_count += 1
+
+            schedule_calendar.append({
+                "date": day_str,
+                "day_name": day_name,
+                "time_slot": slot_name,
+                "is_available": is_available,
+                "max_capacity": max_capacity,
+                "booked_count": booked_count,
+                "remaining": remaining,
+                "notes": notes,
+                "status": status,
+                "is_lead_day": is_lead_day,
+                "bookings": bookings,
+            })
+
+    trucks = conn.execute("SELECT * FROM trucks ORDER BY truck_code").fetchall()
+    drivers = conn.execute("SELECT * FROM users WHERE role = 'driver' ORDER BY name").fetchall()
+    conn.close()
+
+    metrics = {
+        "horizon_days": horizon,
+        "total_slots": total_slots,
+        "available_slots": available_slots_count,
+        "full_slots": booked_slots_count,
+        "blackout_slots": blackout_slots_count,
+        "active_trucks": sum(1 for t in trucks if t["status"] != "maintenance"),
+        "total_trucks": len(trucks),
+        "active_drivers": sum(1 for d in drivers if d["is_active"] == 1),
+        "total_drivers": len(drivers),
+    }
+
+    return render_template(
+        "admin/delivery_availability.html",
+        settings=settings,
+        metrics=metrics,
+        calendar=schedule_calendar,
+        trucks=trucks,
+        drivers=drivers,
     )
 
 
@@ -1470,7 +3303,123 @@ def admin_payments():
     if request.method == "POST":
         action = request.form.get("action", "")
 
-        if action == "record_payment":
+        if action in ("confirm_payment", "verify_status"):
+            payment_id = int(request.form.get("payment_id"))
+            p_row = conn.execute("SELECT p.*, o.order_code FROM payments p JOIN orders o ON p.order_id = o.id WHERE p.id = ?", (payment_id,)).fetchone()
+            if not p_row:
+                conn.close()
+                flash("Payment record not found.", "danger")
+                return redirect(url_for("main.admin_payments"))
+
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if p_row["method"] == "cash":
+                # Special COD Handling: approve arrangement without marking Paid before collection
+                conn.execute(
+                    """
+                    UPDATE payments
+                    SET payment_status = 'payment_due',
+                        verified_by = ?,
+                        verified_at = ?,
+                        rejection_reason = NULL
+                    WHERE id = ?
+                    """,
+                    (session["user_id"], now_str, payment_id),
+                )
+                conn.execute(
+                    """
+                    UPDATE orders
+                    SET order_status = 'payment_verified',
+                        rejection_reason = NULL
+                    WHERE id = ?
+                    """,
+                    (p_row["order_id"],),
+                )
+                flash(f"Cash on Delivery arrangement for Order {clean_order_code(p_row['order_code'])} approved! Order is now eligible for delivery authorization.", "success")
+            else:
+                # Online QR: verify actual receipt of payment
+                conn.execute(
+                    """
+                    UPDATE payments
+                    SET payment_status = 'verified',
+                        verified_by = ?,
+                        verified_at = ?,
+                        paid_at = ?,
+                        rejection_reason = NULL
+                    WHERE id = ?
+                    """,
+                    (session["user_id"], now_str, now_str, payment_id),
+                )
+                conn.execute(
+                    """
+                    UPDATE orders
+                    SET order_status = 'payment_verified',
+                        rejection_reason = NULL
+                    WHERE id = ?
+                    """,
+                    (p_row["order_id"],),
+                )
+                flash(f"QR Payment for Order {clean_order_code(p_row['order_code'])} successfully verified and confirmed! Order is now eligible for delivery authorization.", "success")
+
+            conn.commit()
+
+        elif action == "reject_payment":
+            payment_id = int(request.form.get("payment_id"))
+            rejection_reason = request.form.get("rejection_reason", "").strip()
+            if not rejection_reason:
+                conn.close()
+                flash("Please provide a rejection reason so the customer can correct the payment.", "warning")
+                return redirect(url_for("main.admin_payments"))
+
+            p_row = conn.execute("SELECT p.*, o.order_code FROM payments p JOIN orders o ON p.order_id = o.id WHERE p.id = ?", (payment_id,)).fetchone()
+            if not p_row:
+                conn.close()
+                flash("Payment record not found.", "danger")
+                return redirect(url_for("main.admin_payments"))
+
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            conn.execute(
+                """
+                UPDATE payments
+                SET payment_status = 'rejected',
+                    rejection_reason = ?,
+                    verified_by = ?,
+                    verified_at = ?
+                WHERE id = ?
+                """,
+                (rejection_reason, session["user_id"], now_str, payment_id),
+            )
+            conn.execute(
+                """
+                UPDATE orders
+                SET order_status = 'payment_rejected',
+                    rejection_reason = ?
+                WHERE id = ?
+                """,
+                (rejection_reason, p_row["order_id"]),
+            )
+            conn.commit()
+            flash(f"Payment for Order {clean_order_code(p_row['order_code'])} rejected with reason: '{rejection_reason}'. Customer notified to resubmit.", "info")
+
+        elif action == "record_cod_collected":
+            payment_id = int(request.form.get("payment_id"))
+            p_row = conn.execute("SELECT p.*, o.order_code FROM payments p JOIN orders o ON p.order_id = o.id WHERE p.id = ?", (payment_id,)).fetchone()
+            if p_row:
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                conn.execute(
+                    """
+                    UPDATE payments
+                    SET payment_status = 'paid',
+                        paid_at = ?,
+                        verified_by = ?,
+                        verified_at = ?
+                    WHERE id = ?
+                    """,
+                    (now_str, session["user_id"], now_str, payment_id),
+                )
+                conn.commit()
+                flash(f"Cash on Delivery collection for Order {clean_order_code(p_row['order_code'])} officially confirmed as Paid.", "success")
+
+        elif action == "record_payment":
             order_id = int(request.form.get("order_id"))
             method = request.form.get("method", "cash")
             ref = request.form.get("reference_number", "").strip() or request.form.get("reference_no", "").strip()
@@ -1479,44 +3428,92 @@ def admin_payments():
             amount = float(request.form.get("amount", 0))
 
             existing = conn.execute("SELECT id FROM payments WHERE order_id = ?", (order_id,)).fetchone()
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             if existing:
                 conn.execute(
                     """
                     UPDATE payments
-                    SET method=?, reference_number=?, payment_status=?, receipt_note=?, amount=?
+                    SET method=?, reference_number=?, payment_status=?, receipt_note=?, amount=?, verified_by=?, verified_at=?
                     WHERE order_id=?
                     """,
-                    (method, ref, status, notes, amount, order_id),
+                    (method, ref, status, notes, amount, session["user_id"], now_str, order_id),
                 )
             else:
                 conn.execute(
                     """
-                    INSERT INTO payments (order_id, method, reference_number, payment_status, receipt_note, amount)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO payments (order_id, method, reference_number, payment_status, receipt_note, amount, verified_by, verified_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (order_id, method, ref, status, notes, amount),
+                    (order_id, method, ref, status, notes, amount, session["user_id"], now_str),
                 )
+
+            if status in ("verified", "paid") or (method == "cash" and status == "payment_due"):
+                conn.execute(
+                    "UPDATE orders SET order_status = 'payment_verified', rejection_reason = NULL WHERE id = ?",
+                    (order_id,),
+                )
+                ord_row = conn.execute("SELECT customer_id, order_code FROM orders WHERE id = ?", (order_id,)).fetchone()
+                if ord_row:
+                    create_notification(
+                        conn,
+                        ord_row["customer_id"],
+                        "Payment Verified",
+                        f"Payment for order {clean_order_code(ord_row['order_code'])} has been verified and confirmed. Ready for warehouse dispatch.",
+                        "payment",
+                        order_id,
+                    )
             conn.commit()
             flash("Payment and receipt successfully recorded.", "success")
-
-        elif action == "verify_status":
-            payment_id = int(request.form.get("payment_id"))
-            status = request.form.get("status", "verified")
-            conn.execute("UPDATE payments SET payment_status = ? WHERE id = ?", (status, payment_id))
-            conn.commit()
-            flash(f"Payment marked as {status}.", "success")
 
         conn.close()
         return redirect(url_for("main.admin_payments"))
 
-    payments = conn.execute(
-        """
-        SELECT p.*, p.reference_number, o.order_code, o.recipient_name, o.total_amount AS order_total
+    tab = request.args.get("tab", "awaiting")
+    base_sql = """
+        SELECT p.*, p.reference_number, o.order_code, o.recipient_name, o.phone AS customer_phone, o.delivery_address,
+               o.total_amount AS order_total, o.order_status, o.assigned_date, o.assigned_time_slot,
+               u_ver.name AS verified_by_name
         FROM payments p
         JOIN orders o ON p.order_id = o.id
-        ORDER BY p.id DESC
-        """
-    ).fetchall()
+        LEFT JOIN users u_ver ON p.verified_by = u_ver.id
+    """
+    if tab == "awaiting":
+        where = " WHERE p.payment_status IN ('pending', 'pending_verification') OR (p.method = 'cash' AND o.order_status = 'pending_payment_verification')"
+    elif tab == "verified":
+        where = " WHERE p.payment_status IN ('verified', 'paid') OR (p.method = 'cash' AND o.order_status IN ('payment_verified', 'ready_for_dispatch', 'out_for_delivery', 'delivered'))"
+    elif tab == "rejected":
+        where = " WHERE p.payment_status = 'rejected' OR o.order_status = 'payment_rejected'"
+    else:
+        where = ""
+
+    payments = conn.execute(base_sql + where + " ORDER BY p.id DESC").fetchall()
+
+    counts = {
+        "awaiting": conn.execute(
+            """
+            SELECT COUNT(*) FROM payments p
+            JOIN orders o ON p.order_id = o.id
+            WHERE p.payment_status IN ('pending', 'pending_verification')
+               OR (p.method = 'cash' AND o.order_status = 'pending_payment_verification')
+            """
+        ).fetchone()[0],
+        "verified": conn.execute(
+            """
+            SELECT COUNT(*) FROM payments p
+            JOIN orders o ON p.order_id = o.id
+            WHERE p.payment_status IN ('verified', 'paid')
+               OR (p.method = 'cash' AND o.order_status IN ('payment_verified', 'ready_for_dispatch', 'out_for_delivery', 'delivered'))
+            """
+        ).fetchone()[0],
+        "rejected": conn.execute(
+            """
+            SELECT COUNT(*) FROM payments p
+            JOIN orders o ON p.order_id = o.id
+            WHERE p.payment_status = 'rejected' OR o.order_status = 'payment_rejected'
+            """
+        ).fetchone()[0],
+        "all": conn.execute("SELECT COUNT(*) FROM payments").fetchone()[0],
+    }
 
     all_orders = conn.execute(
         """
@@ -1528,7 +3525,13 @@ def admin_payments():
     ).fetchall()
 
     conn.close()
-    return render_template("admin/payments.html", payments=payments, all_orders=all_orders)
+    return render_template(
+        "admin/payments.html",
+        payments=payments,
+        all_orders=all_orders,
+        tab=tab,
+        counts=counts,
+    )
 
 
 @main_bp.route("/admin/reports")
@@ -1656,14 +3659,15 @@ def admin_access():
 # DRIVER PORTAL
 # -------------------------------------------------------------------------
 
-@main_bp.route("/driver/schedule")
+@main_bp.route("/driver/schedule", endpoint="driver_schedule")
+@main_bp.route("/driver/dashboard", endpoint="driver_dashboard")
 @login_required("driver")
 def driver_schedule():
     conn = get_db()
     uid = session["user_id"]
 
     query = """
-        SELECT d.*, o.order_code, o.recipient_name, o.delivery_address, o.phone,
+        SELECT d.*, o.order_code, o.recipient_name, o.delivery_address, o.phone, o.order_status,
                t.truck_code, t.plate_number
         FROM deliveries d
         JOIN orders o ON d.order_id = o.id
@@ -1679,7 +3683,7 @@ def driver_schedule():
 
     # Find the current / next active delivery
     active_delivery = next(
-        (d for d in deliveries if d["delivery_status"] in ("en_route", "assigned", "loading")),
+        (d for d in deliveries if d["delivery_status"] in ("en_route", "assigned", "authorized", "loading")),
         deliveries[0] if deliveries else None,
     )
     conn.close()
@@ -1698,20 +3702,68 @@ def driver_schedule():
 def driver_delivery_task(delivery_id):
     conn = get_db()
 
+    delivery_check = conn.execute(
+        """
+        SELECT d.*, o.order_code, o.order_status, o.customer_id
+        FROM deliveries d
+        JOIN orders o ON d.order_id = o.id
+        WHERE d.id = ?
+        """,
+        (delivery_id,),
+    ).fetchone()
+
+    if not delivery_check:
+        conn.close()
+        flash("Delivery task not found.", "danger")
+        return redirect(url_for("main.driver_schedule"))
+
+    # Security check: driver can only access their assigned deliveries (unless admin)
+    if session.get("role") != "admin" and delivery_check["driver_id"] != session["user_id"]:
+        conn.close()
+        flash("Unauthorized access to this delivery task.", "danger")
+        return redirect(url_for("main.driver_schedule"))
+
+    is_authorized = (
+        delivery_check["order_status"] in ("ready_for_dispatch", "out_for_delivery", "delivered") or
+        delivery_check["delivery_status"] in ("authorized", "loading", "en_route", "delivered")
+    )
+
     if request.method == "POST":
         action = request.form.get("action")
         if action == "update_status":
             new_status = request.form.get("delivery_status", "en_route")
+
+            # STRICT RESTRICTION: Driver CANNOT start delivery or load unless authorized by admin!
+            if not is_authorized and new_status in ("loading", "en_route"):
+                conn.close()
+                flash("Dispatch Restricted: This delivery has NOT been authorized by the administrator. Driver cannot start delivery.", "danger")
+                return redirect(url_for("main.driver_delivery_task", delivery_id=delivery_id))
+
             conn.execute("UPDATE deliveries SET delivery_status = ? WHERE id = ?", (new_status, delivery_id))
             if new_status == "en_route":
                 conn.execute(
                     "UPDATE orders SET order_status = 'out_for_delivery' WHERE id = (SELECT order_id FROM deliveries WHERE id = ?)",
                     (delivery_id,),
                 )
+                ord_cust = conn.execute("SELECT customer_id, order_code, id FROM orders WHERE id = (SELECT order_id FROM deliveries WHERE id = ?)", (delivery_id,)).fetchone()
+                if ord_cust:
+                    create_notification(
+                        conn,
+                        ord_cust["customer_id"],
+                        "Out for Delivery",
+                        f"Delivery truck is now en route with your materials for order {clean_order_code(ord_cust['order_code'])}. Live GPS tracking is active.",
+                        "delivery",
+                        ord_cust["id"],
+                    )
             conn.commit()
             flash(f"Delivery status updated to '{new_status.replace('_', ' ').title()}'.", "success")
 
         elif action == "confirm_delivered":
+            if not is_authorized:
+                conn.close()
+                flash("Dispatch Restricted: Unauthorized delivery cannot be completed.", "danger")
+                return redirect(url_for("main.driver_delivery_task", delivery_id=delivery_id))
+
             recipient = request.form.get("recipient_received_by", "").strip()
             role = request.form.get("recipient_role", "").strip()
             notes = request.form.get("delivery_notes", "").strip()
@@ -1738,6 +3790,32 @@ def driver_delivery_task(delivery_id):
                 "UPDATE orders SET order_status = 'delivered' WHERE id = (SELECT order_id FROM deliveries WHERE id = ?)",
                 (delivery_id,),
             )
+            ord_cust = conn.execute("SELECT customer_id, order_code, id FROM orders WHERE id = (SELECT order_id FROM deliveries WHERE id = ?)", (delivery_id,)).fetchone()
+            if ord_cust:
+                create_notification(
+                    conn,
+                    ord_cust["customer_id"],
+                    "Materials Delivered",
+                    f"Order {clean_order_code(ord_cust['order_code'])} has been successfully delivered and acknowledged on-site.",
+                    "delivery",
+                    ord_cust["id"],
+                )
+
+            # Special Handling for Cash on Delivery:
+            # When driver completes COD delivery, record that COD payment was collected
+            payment = conn.execute("SELECT * FROM payments WHERE order_id = ?", (delivery_check["order_id"],)).fetchone()
+            if payment and payment["method"] == "cash":
+                conn.execute(
+                    """
+                    UPDATE payments
+                    SET payment_status = 'paid',
+                        paid_at = datetime('now', 'localtime'),
+                        receipt_note = COALESCE(receipt_note, '') || ' [Collected on site by driver upon delivery]'
+                    WHERE id = ?
+                    """,
+                    (payment["id"],),
+                )
+
             conn.commit()
             flash("Delivery confirmed and marked as Delivered!", "success")
 
@@ -1747,11 +3825,14 @@ def driver_delivery_task(delivery_id):
     delivery = conn.execute(
         """
         SELECT d.*, o.order_code, o.recipient_name, o.delivery_address, o.phone, o.phone AS recipient_phone,
-               o.special_instructions, t.truck_code, t.plate_number, u.name AS driver_name
+               o.special_instructions, o.order_status, o.total_amount AS order_total,
+               t.truck_code, t.plate_number, u.name AS driver_name,
+               u_auth.name AS authorized_by_name
         FROM deliveries d
         JOIN orders o ON d.order_id = o.id
         LEFT JOIN trucks t ON d.truck_id = t.id
         LEFT JOIN users u ON d.driver_id = u.id
+        LEFT JOIN users u_auth ON d.authorized_by = u_auth.id
         WHERE d.id = ?
         """,
         (delivery_id,),

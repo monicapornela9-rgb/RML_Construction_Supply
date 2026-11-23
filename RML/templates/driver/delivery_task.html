@@ -22,6 +22,25 @@
 
 <!-- Delivery Progress Stepper (Matching Delivery task and site confirmation.png) -->
 <div class="card border-0 shadow-sm p-4 mb-4">
+  {% if not is_authorized %}
+    <div class="alert alert-warning border border-warning d-flex align-items-center gap-3 mb-3">
+      <i class="bi bi-shield-lock-fill fs-2 text-warning flex-shrink-0"></i>
+      <div>
+        <h6 class="fw-bold mb-1">Awaiting Administrator Delivery Authorization</h6>
+        <p class="small mb-0">
+          This order has not yet been authorized for dispatch by operations. The administrator must verify customer payment and release the delivery before you can load materials or begin your route.
+        </p>
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert-success d-flex align-items-center gap-2 mb-3 py-2 px-3">
+      <i class="bi bi-shield-check text-success fs-5 flex-shrink-0"></i>
+      <div class="small">
+        <strong>Delivery Officially Authorized:</strong> Cleared for yard loading and road dispatch{% if delivery.authorized_by_name %} by {{ delivery.authorized_by_name }}{% endif %}.
+      </div>
+    </div>
+  {% endif %}
+
   <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
     <h6 class="fw-bold mb-0">Update delivery progress</h6>
     <div class="d-flex gap-2">
@@ -29,7 +48,7 @@
         <form method="POST" action="{{ url_for('main.driver_delivery_task', delivery_id=delivery.id) }}" class="d-inline">
           <input type="hidden" name="action" value="update_status">
           <input type="hidden" name="delivery_status" value="loading">
-          <button type="submit" class="btn btn-outline-secondary btn-sm" {% if delivery.delivery_status == 'loading' %}disabled{% endif %}>
+          <button type="submit" class="btn btn-outline-secondary btn-sm" {% if not is_authorized or delivery.delivery_status == 'loading' %}disabled{% endif %}>
             1. Loading at Yard
           </button>
         </form>
@@ -37,12 +56,12 @@
         <form method="POST" action="{{ url_for('main.driver_delivery_task', delivery_id=delivery.id) }}" class="d-inline">
           <input type="hidden" name="action" value="update_status">
           <input type="hidden" name="delivery_status" value="en_route">
-          <button type="submit" class="btn btn-outline-primary btn-sm" {% if delivery.delivery_status == 'en_route' %}disabled{% endif %}>
+          <button type="submit" class="btn btn-outline-primary btn-sm" {% if not is_authorized or delivery.delivery_status == 'en_route' %}disabled{% endif %}>
             2. Mark En Route
           </button>
         </form>
 
-        <button type="button" class="btn btn-rml btn-sm" onclick="startDriverGps({{ delivery.id }}, 'gpsStatus')">
+        <button type="button" class="btn btn-rml btn-sm" {% if not is_authorized %}disabled{% endif %} onclick="startDriverGps({{ delivery.id }}, 'gpsStatus')">
           <i class="bi bi-geo-alt-fill me-1"></i> Start Live GPS
         </button>
       {% endif %}

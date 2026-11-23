@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Notifications & Order Updates - RML Construction Supply{% endblock %}
+
+{% block content %}
+<!-- Top Header / Breadcrumb -->
+<div class="customer-portal-header mb-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+      <div class="customer-breadcrumb">Customer Portal &middot; Activity Center</div>
+      <h1 class="customer-portal-title mb-1">Notifications &amp; Activity</h1>
+      <p class="customer-portal-subtitle mb-0">Track real-time status updates, delivery schedules, payment confirmations, and transit dispatches.</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      {% if unread_count and unread_count > 0 %}
+        <form method="POST" action="{{ url_for('main.customer_notifications_mark_all_read') }}" class="m-0">
+          <button type="submit" class="btn btn-outline-danger btn-sm fw-semibold shadow-sm px-3 py-2">
+            <i class="bi bi-check2-all me-1"></i> Mark All as Read ({{ unread_count }})
+          </button>
+        </form>
+      {% endif %}
+      <a href="{{ url_for('main.customer_dashboard') }}" class="btn btn-outline-dark btn-sm fw-semibold px-3 py-2">
+        <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Category Filter Pills -->
+<div class="d-flex gap-2 flex-wrap mb-3 align-items-center">
+  <span class="smaller fw-bold text-uppercase text-muted me-1">Filter Updates:</span>
+  <a href="{{ url_for('main.customer_notifications') }}" 
+     class="btn btn-sm {% if not active_filter %}btn-dark{% else %}btn-outline-secondary bg-white text-dark{% endif %} fw-semibold px-3 py-1 rounded-pill">
+    All ({{ total_count if total_count is defined else notifications|length }})
+  </a>
+  <a href="{{ url_for('main.customer_notifications', type='unread') }}" 
+     class="btn btn-sm {% if active_filter == 'unread' %}btn-dark{% else %}btn-outline-secondary bg-white text-dark{% endif %} fw-semibold px-3 py-1 rounded-pill">
+    Unread {% if unread_count and unread_count > 0 %}<span class="badge bg-danger ms-1">{{ unread_count }}</span>{% endif %}
+  </a>
+  <a href="{{ url_for('main.customer_notifications', type='order') }}" 
+     class="btn btn-sm {% if active_filter == 'order' %}btn-dark{% else %}btn-outline-secondary bg-white text-dark{% endif %} fw-semibold px-3 py-1 rounded-pill">
+    <i class="bi bi-receipt me-1"></i> Orders
+  </a>
+  <a href="{{ url_for('main.customer_notifications', type='schedule') }}" 
+     class="btn btn-sm {% if active_filter == 'schedule' %}btn-dark{% else %}btn-outline-secondary bg-white text-dark{% endif %} fw-semibold px-3 py-1 rounded-pill">
+    <i class="bi bi-calendar2-check me-1"></i> Schedules
+  </a>
+  <a href="{{ url_for('main.customer_notifications', type='payment') }}" 
+     class="btn btn-sm {% if active_filter == 'payment' %}btn-dark{% else %}btn-outline-secondary bg-white text-dark{% endif %} fw-semibold px-3 py-1 rounded-pill">
+    <i class="bi bi-credit-card me-1"></i> Payments
+  </a>
+  <a href="{{ url_for('main.customer_notifications', type='delivery') }}" 
+     class="btn btn-sm {% if active_filter == 'delivery' %}btn-dark{% else %}btn-outline-secondary bg-white text-dark{% endif %} fw-semibold px-3 py-1 rounded-pill">
+    <i class="bi bi-truck me-1"></i> Deliveries
+  </a>
+</div>
+
+<!-- Main Notifications Card (Moved from Customer Dashboard) -->
+<div class="customer-portal-card p-0 overflow-hidden mb-4 shadow-sm" style="border-radius: 12px;">
+  <!-- Card Header -->
+  <div class="p-3.5 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2" style="background: #F8FAFC;">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-bell-fill text-rml fs-5"></i>
+      <h5 class="fw-bold mb-0 text-navy">Recent Order &amp; Delivery Updates</h5>
+      <span class="badge bg-white border text-dark ms-1">{{ notifications|length }} displayed</span>
+      {% if unread_count and unread_count > 0 and not active_filter == 'unread' %}
+        <span class="customer-status-pill warning" style="font-size: 0.72rem; padding: 2px 8px;">{{ unread_count }} unread</span>
+      {% endif %}
+    </div>
+    <div class="smaller text-muted">
+      Updates are synchronized directly from your jobsite transactions.
+    </div>
+  </div>
+
+  <!-- Notification Items List -->
+  <div class="list-group list-group-flush">
+    {% for n in notifications %}
+      {# Determine status icon, background, and badge type #}
+      {% if 'Order Submitted' in n.title %}
+        {% set icon_class = "bi-receipt-cutoff" %}
+        {% set icon_bg = "bg-primary-subtle text-primary border border-primary-subtle" %}
+        {% set pill_class = "primary" %}
+        {% set type_label = "Order" %}
+      {% elif 'Delivery Schedule Proposed' in n.title or 'Schedule Assigned' in n.title or 'Delivery Schedule Assigned' in n.title %}
+        {% set icon_class = "bi-calendar2-range" %}
+        {% set icon_bg = "bg-warning-subtle text-warning-emphasis border border-warning-subtle" %}
+        {% set pill_class = "warning" %}
+        {% set type_label = "Schedule" %}
+      {% elif 'Schedule Confirmed' in n.title %}
+        {% set icon_class = "bi-calendar2-check" %}
+        {% set icon_bg = "bg-success-subtle text-success border border-success-subtle" %}
+        {% set pill_class = "success" %}
+        {% set type_label = "Schedule" %}
+      {% elif 'Payment Submitted' in n.title %}
+        {% set icon_class = "bi-credit-card-2-front" %}
+        {% set icon_bg = "bg-info-subtle text-info-emphasis border border-info-subtle" %}
+        {% set pill_class = "info" %}
+        {% set type_label = "Payment" %}
+      {% elif 'Payment Verified' in n.title %}
+        {% set icon_class = "bi-patch-check-fill" %}
+        {% set icon_bg = "bg-success-subtle text-success border border-success-subtle" %}
+        {% set pill_class = "success" %}
+        {% set type_label = "Payment" %}
+      {% elif 'Ready for Dispatch' in n.title %}
+        {% set icon_class = "bi-box-seam-fill" %}
+        {% set icon_bg = "bg-primary-subtle text-primary border border-primary-subtle" %}
+        {% set pill_class = "primary" %}
+        {% set type_label = "Dispatch" %}
+      {% elif 'Out for Delivery' in n.title or 'In Transit' in n.title %}
+        {% set icon_class = "bi-truck" %}
+        {% set icon_bg = "bg-danger-subtle text-danger border border-danger-subtle" %}
+        {% set pill_class = "danger" %}
+        {% set type_label = "Delivery" %}
+      {% elif 'Delivered' in n.title or 'Materials Delivered' in n.title or 'Order Delivered' in n.title %}
+        {% set icon_class = "bi-check2-circle" %}
+        {% set icon_bg = "bg-success-subtle text-success border border-success-subtle" %}
+        {% set pill_class = "success" %}
+        {% set type_label = "Delivered" %}
+      {% elif 'Cancelled' in n.title or 'Cancel' in n.title %}
+        {% set icon_class = "bi-x-circle" %}
+        {% set icon_bg = "bg-danger-subtle text-danger border border-danger-subtle" %}
+        {% set pill_class = "danger" %}
+        {% set type_label = "Cancelled" %}
+      {% else %}
+        {% set icon_class = "bi-bell" %}
+        {% set icon_bg = "bg-secondary-subtle text-secondary border border-secondary-subtle" %}
+        {% set pill_class = "secondary" %}
+        {% set type_label = n.notification_type|title %}
+      {% endif %}
+
+      <div class="list-group-item p-3.5 px-4 {% if not n.is_read %}bg-light bg-opacity-75 border-start border-4 border-danger{% endif %}" style="border-bottom: 1px solid #F1F5F9;">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap flex-md-nowrap">
+          <div class="d-flex gap-3 align-items-start flex-grow-1">
+            <!-- Status Icon -->
+            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 mt-0.5 {{ icon_bg }}" style="width: 44px; height: 44px;">
+              <i class="bi {{ icon_class }} fs-5"></i>
+            </div>
+
+            <!-- Content Area -->
+            <div class="flex-grow-1">
+              <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                <span class="fw-bold text-navy fs-6">{{ n.title }}</span>
+                {% if not n.is_read %}
+                  <span class="badge bg-danger rounded-pill" style="font-size: 0.65rem; padding: 3px 7px;">NEW</span>
+                {% endif %}
+                <span class="customer-status-pill {{ pill_class }} text-uppercase" style="font-size: 0.68rem; padding: 2px 7px;">{{ type_label }}</span>
+                {% if n.order_code %}
+                  <span class="badge bg-light text-navy border fw-bold" style="font-size: 0.72rem;">{{ n.order_code|order_code }}</span>
+                {% endif %}
+              </div>
+
+              <!-- Update Description -->
+              <p class="text-secondary small mb-2" style="font-size: 0.88rem; line-height: 1.45;">{{ n.message }}</p>
+
+              <!-- Meta: Timestamp & View Order -->
+              <div class="d-flex align-items-center gap-3 smaller text-muted flex-wrap">
+                <span class="d-flex align-items-center text-muted" style="font-size: 0.8rem;">
+                  <i class="bi bi-clock me-1.5 text-secondary"></i> {{ n.created_at }}
+                </span>
+                {% if n.order_id %}
+                  <a href="{{ url_for('main.customer_order_tracking', order_id=n.order_id) }}" class="btn btn-sm btn-outline-dark fw-semibold py-1 px-3 d-inline-flex align-items-center" style="font-size: 0.76rem; border-radius: 6px;">
+                    <i class="bi bi-box-arrow-up-right me-1.5 text-rml"></i> View Order Details &rarr;
+                  </a>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Mark As Read Action Area -->
+          <div class="flex-shrink-0 ms-md-2 mt-2 mt-md-0 d-flex align-items-center">
+            {% if not n.is_read %}
+              <form method="POST" action="{{ url_for('main.customer_notification_mark_read', notification_id=n.id) }}" class="m-0">
+                <button type="submit" class="btn btn-sm btn-outline-secondary py-1 px-2.5 fw-semibold d-flex align-items-center" title="Mark as read" style="font-size: 0.75rem;">
+                  <i class="bi bi-check2 me-1 text-success"></i> Mark Read
+                </button>
+              </form>
+            {% else %}
+              <span class="smaller text-muted d-flex align-items-center" style="font-size: 0.78rem;">
+                <i class="bi bi-check2-all text-success me-1 fs-6"></i> Read
+              </span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <!-- Empty State -->
+      <div class="text-center py-5 text-muted px-3">
+        <div class="d-inline-flex align-items-center justify-content-center bg-light text-secondary rounded-circle mb-3" style="width: 68px; height: 68px;">
+          <i class="bi bi-bell-slash fs-2 text-muted"></i>
+        </div>
+        <h5 class="fw-bold text-dark">No Notifications in this Category</h5>
+        <p class="small text-muted mb-3" style="max-width: 480px; margin: 0 auto;">
+          You are all caught up! Order submissions, delivery schedule proposals, payment confirmations, and transit alerts will appear here in real time.
+        </p>
+        <div class="d-flex justify-content-center gap-2">
+          {% if active_filter %}
+            <a href="{{ url_for('main.customer_notifications') }}" class="btn btn-outline-dark btn-sm fw-semibold px-3 py-2">
+              View All Notifications
+            </a>
+          {% endif %}
+          <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-rml btn-sm fw-semibold px-4 py-2">
+            <i class="bi bi-box-seam me-1"></i> Browse Materials Catalog
+          </a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Depot Logistics Notice Card -->
+<div class="customer-portal-card p-3.5 bg-light border d-flex justify-content-between align-items-center flex-wrap gap-3" style="border-color: #E2E8F0 !important;">
+  <div class="d-flex align-items-center gap-3">
+    <div class="rounded-circle bg-white p-2 border text-rml">
+      <i class="bi bi-info-circle-fill fs-5"></i>
+    </div>
+    <div>
+      <div class="fw-bold text-navy small">Need Immediate Logistics Assistance?</div>
+      <div class="smaller text-muted">For urgent site delivery rescheduling or truck dispatch inquiries, contact the Lipa City Central Depot at <strong>0917 555 0100</strong>.</div>
+    </div>
+  </div>
+  <a href="{{ url_for('main.customer_support') }}" class="btn btn-sm btn-outline-dark fw-semibold px-3 py-1.5">
+    <i class="bi bi-headset me-1"></i> Contact Depot Support &rarr;
+  </a>
+</div>
+{% endblock %}

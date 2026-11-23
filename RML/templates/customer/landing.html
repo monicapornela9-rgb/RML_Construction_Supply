@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RML Construction Supply - Quality Building Materials &amp; Delivery</title>
+    <!-- Google Fonts: Inter & Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  </head>
+  <body>
+    <div class="figma-landing-wrapper">
+      
+      <!-- =====================================================================
+           SECTION 1 – NAVIGATION BAR (Figma Node 172:12908)
+           ===================================================================== -->
+      <nav class="figma-landing-nav">
+        <!-- Brand Link -->
+        <a href="{{ url_for('main.home') }}" class="figma-landing-brand">
+          <div class="figma-landing-logo-badge">
+            <span>🏗️</span>
+          </div>
+          <span class="figma-landing-brand-title">RML Construction Supply</span>
+        </a>
+
+        <!-- Desktop Navigation Links -->
+        <div class="figma-landing-links d-none d-lg-flex">
+          <a href="#categories" class="figma-landing-link">Materials</a>
+          <a href="#about" class="figma-landing-link">About RML</a>
+          <a href="#services" class="figma-landing-link">Service areas</a>
+          <a href="#contact" class="figma-landing-link">Contact</a>
+        </div>
+
+        <!-- Right Side CTA Actions -->
+        <div class="d-flex align-items-center gap-3">
+          {% if session.get('role') == 'customer' %}
+            <a href="{{ url_for('main.customer_dashboard') }}" class="figma-landing-btn-login">
+              <i class="bi bi-speedometer2 me-1"></i> Customer Portal
+            </a>
+          {% else %}
+            <a href="{{ url_for('main.login') }}" class="figma-landing-btn-login">
+              Customer login
+            </a>
+          {% endif %}
+          
+          <!-- Mobile Menu Toggle Button -->
+          <button class="btn btn-outline-dark d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#mobileMenu" aria-label="Toggle navigation">
+            <i class="bi bi-list fs-5"></i>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Mobile Navigation Drawer -->
+      <div class="collapse bg-white border-bottom p-3 d-lg-none" id="mobileMenu">
+        <div class="d-flex flex-column gap-2">
+          <a href="#categories" class="text-navy fw-semibold py-1 text-decoration-none">Materials</a>
+          <a href="#about" class="text-navy fw-semibold py-1 text-decoration-none">About RML</a>
+          <a href="#services" class="text-navy fw-semibold py-1 text-decoration-none">Service areas</a>
+          <a href="#contact" class="text-navy fw-semibold py-1 text-decoration-none">Contact</a>
+          <hr class="my-2">
+          {% if session.get('role') == 'customer' %}
+            <a href="{{ url_for('main.customer_dashboard') }}" class="btn btn-outline-dark btn-sm text-start">Open Dashboard</a>
+            <a href="{{ url_for('main.logout') }}" class="btn btn-outline-secondary btn-sm text-start">Sign out</a>
+          {% else %}
+            <a href="{{ url_for('main.login') }}" class="btn btn-rml btn-sm text-center">Customer Login</a>
+            <a href="{{ url_for('main.register') }}" class="btn btn-outline-dark btn-sm text-center">Register Account</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Flash Messages Container -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="container mt-3">
+            {% for category, msg in messages %}
+              <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show py-2 px-3 small mb-2" role="alert">
+                {{ msg }}
+                <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <!-- =====================================================================
+           SECTION 2 – HERO SECTION (Figma Node 172:12909)
+           ===================================================================== -->
+      <header class="figma-landing-hero">
+        <div class="figma-landing-hero-content">
+          <div class="figma-landing-hero-tagline">
+            LIPA CITY, BATANGAS
+          </div>
+          <h1 class="figma-landing-hero-title">
+            RML Construction Supply
+          </h1>
+          <p class="figma-landing-hero-desc">
+            Cement, Steel Bars, Yero, and Plywood – Marine — delivered across Lipa City, Batangas.
+          </p>
+          <div class="figma-landing-hero-actions">
+            <a href="{{ url_for('main.customer_catalog') }}" class="figma-landing-btn-primary">
+              Browse Materials
+            </a>
+            <a href="#services" class="figma-landing-btn-secondary">
+              Get a Quote
+            </a>
+          </div>
+          <div class="figma-landing-hero-notice">
+            Confirm availability and delivery schedules before ordering.
+          </div>
+        </div>
+
+        <div class="figma-landing-hero-visual">
+          <img src="{{ url_for('static', filename='images/landing_steel_bars.png') }}"
+               alt="RML Steel bars and construction materials">
+        </div>
+      </header>
+
+      <!-- =====================================================================
+           SECTION 3 – SHOP BY CATEGORY (Figma Node 172:12910)
+           ===================================================================== -->
+      <section class="figma-landing-section" id="categories">
+        <h2 class="figma-landing-section-title">Shop by Category</h2>
+        <p class="figma-landing-section-subtitle">
+          Choose what you need and request delivery in minutes.
+        </p>
+
+        <div class="figma-landing-cat-grid">
+          <!-- 1. Cement -->
+          <a href="{{ url_for('main.customer_catalog', q='Cement') }}" class="figma-landing-cat-card">
+            <div class="figma-landing-cat-img-wrap">
+              <img src="{{ url_for('static', filename='images/landing_cement.png') }}" alt="Cement Visual">
+            </div>
+            <h3 class="figma-landing-cat-title">Cement</h3>
+            <p class="figma-landing-cat-desc">For concrete and masonry</p>
+            <div class="figma-landing-cat-btn">Browse materials</div>
+          </a>
+
+          <!-- 2. Steel Bars -->
+          <a href="{{ url_for('main.customer_catalog', q='Steel') }}" class="figma-landing-cat-card">
+            <div class="figma-landing-cat-img-wrap">
+              <img src="{{ url_for('static', filename='images/landing_steel_bars.png') }}" alt="Steel Bars Visual">
+            </div>
+            <h3 class="figma-landing-cat-title">Steel Bars</h3>
+            <p class="figma-landing-cat-desc">For reinforced structures</p>
+            <div class="figma-landing-cat-btn">Browse materials</div>
+          </a>
+
+          <!-- 3. Yero (Roofing) -->
+          <a href="{{ url_for('main.customer_catalog', q='Roof') }}" class="figma-landing-cat-card">
+            <div class="figma-landing-cat-img-wrap">
+              <img src="{{ url_for('static', filename='images/landing_roofing.png') }}" alt="Yero Roofing Visual">
+            </div>
+            <h3 class="figma-landing-cat-title">Yero</h3>
+            <p class="figma-landing-cat-desc">Roofing materials</p>
+            <div class="figma-landing-cat-btn">Browse materials</div>
+          </a>
+
+          <!-- 4. Plywood – Marine -->
+          <a href="{{ url_for('main.customer_catalog', q='Plywood') }}" class="figma-landing-cat-card">
+            <div class="figma-landing-cat-img-wrap">
+              <img src="{{ url_for('static', filename='images/landing_plywood.png') }}" alt="Plywood Marine Visual">
+            </div>
+            <h3 class="figma-landing-cat-title">Plywood – Marine</h3>
+            <p class="figma-landing-cat-desc">Sheets for your project</p>
+            <div class="figma-landing-cat-btn">Browse materials</div>
+          </a>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           SECTION 4 – ABOUT RML (Figma Node 172:12911)
+           ===================================================================== -->
+      <section class="figma-landing-section figma-landing-section-bg-light" id="about">
+        <div class="figma-landing-about-flex">
+          <div class="figma-landing-about-img">
+            <img src="{{ url_for('static', filename='images/landing_cement.png') }}" alt="Cement in the RML warehouse">
+          </div>
+          <div class="figma-landing-about-content">
+            <h2 class="figma-landing-section-title">About RML</h2>
+            <h3 class="figma-landing-about-heading">
+              Local supply, dependable delivery, and transparent transactions.
+            </h3>
+            <p class="figma-landing-about-text">
+              We supply construction materials for residential and commercial projects—helping customers get the right materials at the right time with organized delivery scheduling.
+            </p>
+            <div class="figma-landing-about-brandtag">
+              RML Construction Supply &middot; Lipa &bull; Batangas
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           SECTION 5 – HOW ORDERING WORKS (Figma Node 172:12912)
+           ===================================================================== -->
+      <section class="figma-landing-section">
+        <h2 class="figma-landing-section-title">From your materials list to your site</h2>
+        <p class="figma-landing-section-subtitle">
+          Three simple steps to order and receive your certified materials.
+        </p>
+
+        <div class="figma-landing-steps-grid">
+          <!-- Step 01 -->
+          <div class="figma-landing-step-card">
+            <div class="figma-landing-step-num">01</div>
+            <h3 class="figma-landing-step-title">Choose materials</h3>
+            <p class="figma-landing-step-desc">
+              Browse materials, inspect photos and select the right size.
+            </p>
+          </div>
+
+          <!-- Step 02 -->
+          <div class="figma-landing-step-card">
+            <div class="figma-landing-step-num">02</div>
+            <h3 class="figma-landing-step-title">Review your order</h3>
+            <p class="figma-landing-step-desc">
+              Confirm quantities, delivery address and availability.
+            </p>
+          </div>
+
+          <!-- Step 03 -->
+          <div class="figma-landing-step-card">
+            <div class="figma-landing-step-num">03</div>
+            <h3 class="figma-landing-step-title">Pay and track</h3>
+            <p class="figma-landing-step-desc">
+              Choose cash or online QR payment, then follow your delivery.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           SECTION 6 – SERVICE AREAS & CONTACT DETAILS (Figma Node 172:12913)
+           ===================================================================== -->
+      <section class="figma-landing-section figma-landing-section-bg-navy" id="services">
+        <h2 class="figma-landing-section-title">Service Areas &amp; Contact Details</h2>
+        <p class="figma-landing-section-subtitle">
+          Reach us for availability and delivery schedules.
+        </p>
+
+        <div class="figma-landing-coverage-grid">
+          <!-- Card 1: Lipa City -->
+          <div class="figma-landing-coverage-card">
+            <h3 class="figma-landing-coverage-title">Lipa City, Batangas</h3>
+            <div class="figma-landing-coverage-text">
+              <p class="mb-1 fw-medium">City-wide delivery &amp; nearby barangays</p>
+              <p class="mb-0 text-muted small">Delivery schedule by request</p>
+            </div>
+          </div>
+
+          <!-- Card 2: Batangas Province -->
+          <div class="figma-landing-coverage-card">
+            <h3 class="figma-landing-coverage-title">Batangas Province</h3>
+            <div class="figma-landing-coverage-text">
+              <p class="mb-1 fw-medium">Selected municipalities</p>
+              <p class="mb-0 text-muted small">Confirm coverage before ordering</p>
+            </div>
+          </div>
+        </div>
+
+        <p class="figma-landing-coverage-notice">
+          Send your materials list and site address to confirm availability, coverage and a delivery schedule.
+        </p>
+
+        <a href="{{ url_for('main.register') }}" class="figma-landing-btn-quote-full">
+          Contact RML for a quote
+        </a>
+      </section>
+
+      <!-- =====================================================================
+           SECTION 7 – CUSTOMER ACCESS (Figma Node 172:12914)
+           ===================================================================== -->
+      <section class="figma-landing-section" id="access">
+        <h2 class="figma-landing-section-title">Customer Login / Sign Up</h2>
+        <p class="figma-landing-section-subtitle">
+          Create an account to speed up future orders and manage delivery details.
+        </p>
+
+        <div class="figma-landing-access-grid">
+          <!-- Benefits Card -->
+          <div class="figma-landing-access-card">
+            <h3 class="figma-landing-access-title">Your project, in one place</h3>
+            <div class="figma-landing-access-list">
+              <div class="figma-landing-access-list-item">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>Save delivery details</span>
+              </div>
+              <div class="figma-landing-access-list-item">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>Review material selections</span>
+              </div>
+              <div class="figma-landing-access-list-item">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>Track orders and payments</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Card -->
+          <div class="figma-landing-access-card justify-content-between">
+            <div>
+              <h3 class="figma-landing-access-title">Ready to get started?</h3>
+              <p class="text-muted small mt-2 mb-4">
+                Use the customer portal to manage your orders.
+              </p>
+            </div>
+            <a href="{{ url_for('main.login') }}" class="figma-landing-btn-access">
+              Continue to customer sign-in &rarr;
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           SECTION 8 – CUSTOMER FEEDBACK (Figma Node 172:12915)
+           ===================================================================== -->
+      <section class="figma-landing-section figma-landing-section-bg-light">
+        <h2 class="figma-landing-section-title">Customer Feedback</h2>
+        <p class="figma-landing-section-subtitle">
+          Real experiences from customers across Lipa, Batangas.
+        </p>
+
+        <div class="figma-landing-feedback-grid">
+          <!-- Marian S. -->
+          <div class="figma-landing-feedback-card">
+            <p class="figma-landing-feedback-quote">
+              &ldquo;Fast confirmation and the cement arrived on time. Great communication.&rdquo;
+            </p>
+            <div class="figma-landing-feedback-author">
+              <i class="bi bi-person-circle fs-5 text-secondary"></i>
+              <span>Marian S.</span>
+            </div>
+          </div>
+
+          <!-- Eugene R. -->
+          <div class="figma-landing-feedback-card">
+            <p class="figma-landing-feedback-quote">
+              &ldquo;Steel quality was consistent and delivery was smooth. Will order again.&rdquo;
+            </p>
+            <div class="figma-landing-feedback-author">
+              <i class="bi bi-person-circle fs-5 text-secondary"></i>
+              <span>Eugene R.</span>
+            </div>
+          </div>
+
+          <!-- Kaye L. -->
+          <div class="figma-landing-feedback-card">
+            <p class="figma-landing-feedback-quote">
+              &ldquo;Concrete mix was dependable and the staff helped us schedule correctly.&rdquo;
+            </p>
+            <div class="figma-landing-feedback-author">
+              <i class="bi bi-person-circle fs-5 text-secondary"></i>
+              <span>Kaye L.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           SECTION 9 – FOOTER (Figma Node 172:12916)
+           ===================================================================== -->
+      <footer class="figma-landing-footer" id="contact">
+        <h3 class="figma-landing-footer-title">
+          RML Construction Supply &bull; Lipa, Batangas
+        </h3>
+        <p class="figma-landing-footer-text mb-1">
+          Materials: Cement &bull; Steel &bull; Aggregates &bull; Concrete
+        </p>
+        <p class="figma-landing-footer-text mb-1">
+          Contact: Call / Message for Quotes &middot; Business Hotline: 0917 555 0100 &middot; Email: logistics@rml.com
+        </p>
+        
+        <div class="figma-landing-footer-bottom">
+          <div>
+            &copy; 2026 RML Construction Supply. All rights reserved.
+          </div>
+          <div class="d-flex align-items-center gap-3">
+            <a href="#" class="text-white-50 text-decoration-none" data-bs-toggle="modal" data-bs-target="#privacyModal">Privacy Policy</a>
+            <span>&middot;</span>
+            <a href="#" class="text-white-50 text-decoration-none" data-bs-toggle="modal" data-bs-target="#termsModal">Terms and Conditions</a>
+          </div>
+        </div>
+      </footer>
+
+      <!-- Privacy Policy Modal -->
+      <div class="modal fade" id="privacyModal" tabindex="-1" aria-labelledby="privacyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+          <div class="modal-content">
+            <div class="modal-header border-bottom">
+              <h5 class="modal-title fw-bold text-navy" id="privacyModalLabel">Privacy Policy</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body small text-muted">
+              <p><strong>RML Construction Supply</strong> values customer privacy and complies with the Data Privacy Act of 2012 (Republic Act No. 10173). Personal details provided during customer registration, such as contact numbers, email addresses, and delivery addresses, are securely processed solely for order fulfillment, payment verification, and fleet dispatch delivery services.</p>
+              <p class="mb-0">Delivery vehicle GPS telemetry is visible only to authorized accounts and is not shared with third parties.</p>
+            </div>
+            <div class="modal-footer border-top py-2">
+              <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Terms and Conditions Modal -->
+      <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+          <div class="modal-content">
+            <div class="modal-header border-bottom">
+              <h5 class="modal-title fw-bold text-navy" id="termsModalLabel">Terms and Conditions</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body small text-muted">
+              <p><strong>1. Ordering &amp; Delivery Scheduling:</strong> All orders are subject to inventory availability and admin dispatch verification. Proposed delivery time slots (Morning or Afternoon) must be accepted by the customer before order confirmation.</p>
+              <p><strong>2. Payment Verification:</strong> For QR code or bank transfers, payment proofs must be verified by depot administration prior to delivery dispatch. Cash on Delivery (COD) is collected upon site arrival.</p>
+              <p class="mb-0"><strong>3. Unloading &amp; Site Access:</strong> The customer is responsible for ensuring clear, accessible roadways suitable for cargo and boom trucks at the specified delivery site.</p>
+            </div>
+            <div class="modal-footer border-top py-2">
+              <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

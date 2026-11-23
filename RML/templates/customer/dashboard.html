@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Customer Dashboard - RML Construction Supply{% endblock %}
+
+{% block content %}
+<!-- Top Header / Welcome Banner -->
+<div class="customer-portal-card border-0 mb-4 p-4 text-white" style="background: linear-gradient(135deg, #142235 0%, #1e3352 100%); border-radius: 12px; box-shadow: 0 4px 14px rgba(20, 34, 53, 0.12);">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="badge bg-danger px-2 py-1 text-uppercase fw-semibold" style="letter-spacing: 0.5px; font-size: 0.72rem;">Customer Portal</span>
+        <span class="text-white-50 small">&middot; Lipa City Distribution Hub</span>
+      </div>
+      <h1 class="fw-bold mb-1 text-white" style="font-size: 1.85rem;">Welcome back, {{ current_user.name }}!</h1>
+      <p class="text-white-50 small mb-0">Monitor your orders, check admin delivery schedules, and track live dispatches across Batangas.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-rml fw-semibold shadow-sm px-3 py-2">
+        <i class="bi bi-box-seam me-1"></i> Order Materials
+      </a>
+      <a href="{{ url_for('main.customer_orders') }}" class="btn btn-outline-light fw-semibold px-3 py-2">
+        <i class="bi bi-receipt me-1"></i> My Orders
+      </a>
+      <a href="{{ url_for('main.customer_tracking') }}" class="btn btn-light fw-semibold px-3 py-2 text-navy">
+        <i class="bi bi-truck me-1"></i> Track Deliveries
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- 4 Key Performance Indicators (KPI Cards) -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="customer-portal-card p-3 h-100" style="border-left: 4px solid #142235 !important;">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted smaller fw-bold text-uppercase">Total Orders</span>
+        <span class="badge bg-light text-navy border"><i class="bi bi-receipt"></i></span>
+      </div>
+      <div class="fs-3 fw-bold text-navy">{{ total_orders_count }}</div>
+      <div class="smaller text-muted">All-time submitted orders</div>
+    </div>
+  </div>
+
+  <div class="col-6 col-lg-3">
+    <div class="customer-portal-card p-3 h-100" style="border-left: 4px solid #f59e0b !important;">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted smaller fw-bold text-uppercase">Pending Orders</span>
+        <span class="customer-status-pill warning"><i class="bi bi-clock-history"></i></span>
+      </div>
+      <div class="fs-3 fw-bold text-dark">{{ pending_orders_count }}</div>
+      <div class="smaller text-muted">Awaiting scheduling or acceptance</div>
+    </div>
+  </div>
+
+  <div class="col-6 col-lg-3">
+    <div class="customer-portal-card p-3 h-100" style="border-left: 4px solid #0284c7 !important;">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted smaller fw-bold text-uppercase">In Processing</span>
+        <span class="customer-status-pill primary"><i class="bi bi-gear-wide-connected"></i></span>
+      </div>
+      <div class="fs-3 fw-bold text-dark">{{ processing_orders_count }}</div>
+      <div class="smaller text-muted">Payment verification &amp; prep</div>
+    </div>
+  </div>
+
+  <div class="col-6 col-lg-3">
+    <div class="customer-portal-card p-3 h-100" style="border-left: 4px solid #C83227 !important;">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted smaller fw-bold text-uppercase">Active Deliveries</span>
+        <span class="customer-status-pill danger"><i class="bi bi-truck"></i></span>
+      </div>
+      <div class="fs-3 fw-bold text-rml">{{ active_deliveries_count }}</div>
+      <div class="smaller text-muted">Dispatches &amp; en-route fleet</div>
+    </div>
+  </div>
+</div>
+
+<!-- Awaiting Schedule Confirmation Alert Banner (Conditional) -->
+{% if awaiting_orders %}
+<div class="customer-portal-card border-warning mb-4" style="background: #FFFDF9;">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 pb-3 mb-3 border-bottom" style="border-color: #FDE68A !important;">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-exclamation-triangle-fill text-warning fs-5"></i>
+      <h5 class="fw-bold mb-0 text-navy">Action Required: Confirm Proposed Delivery Schedules</h5>
+    </div>
+    <span class="customer-status-pill warning">{{ awaiting_orders|length }} Order(s) Awaiting Your Response</span>
+  </div>
+  <div>
+    {% for o in awaiting_orders %}
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 p-3 bg-white rounded border mb-2" style="border-color: #E2E8F0 !important;">
+        <div>
+          <strong class="fs-6 text-navy">{{ o.order_code|order_code }}</strong> &middot;
+          <span class="fw-bold text-navy">{{ o.assigned_date }} ({{ o.assigned_time_slot }})</span>
+          <div class="small text-muted">Destination: {{ o.delivery_address }} &middot; Total: &#8369;{{ "{:,.2f}".format(o.total_amount) }}</div>
+        </div>
+        <div class="d-flex gap-2">
+          <form method="POST" action="{{ url_for('main.customer_accept_schedule', order_id=o.id) }}" class="m-0">
+            <button type="submit" class="btn btn-sm btn-success fw-bold px-3 shadow-sm">
+              <i class="bi bi-check-circle me-1"></i> Accept Schedule &rarr;
+            </button>
+          </form>
+          <a href="{{ url_for('main.customer_order_tracking', order_id=o.id) }}" class="btn btn-sm btn-outline-dark fw-semibold">
+            Review Details
+          </a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Main Section: Recently Placed Orders (Full-Width Card) -->
+<div class="customer-portal-card p-0 overflow-hidden mb-4 shadow-sm" style="border-radius: 12px;">
+  <div class="p-3.5 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom" style="background: #F8FAFC;">
+    <div class="d-flex align-items-center gap-2">
+      <div class="rounded-circle bg-white p-2 border text-navy d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+        <i class="bi bi-receipt fs-5 text-rml"></i>
+      </div>
+      <div>
+        <h5 class="fw-bold mb-0 text-navy">Recently Placed Orders</h5>
+        <div class="smaller text-muted">Latest procurement records, delivery windows, and fulfillment statuses</div>
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('main.customer_orders') }}" class="btn btn-sm btn-outline-dark fw-semibold px-3 py-1.5">
+        <i class="bi bi-receipt me-1"></i> View All Orders &rarr;
+      </a>
+      <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-sm btn-rml fw-semibold px-3 py-1.5 shadow-sm">
+        <i class="bi bi-plus-circle me-1"></i> Order Materials
+      </a>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead style="background: #F8FAFC;">
+        <tr>
+          <th class="ps-4 py-3 text-uppercase text-muted smaller fw-bold">Order Code</th>
+          <th class="py-3 text-uppercase text-muted smaller fw-bold">Placed Date</th>
+          <th class="py-3 text-uppercase text-muted smaller fw-bold">Delivery Schedule</th>
+          <th class="py-3 text-uppercase text-muted smaller fw-bold">Destination</th>
+          <th class="py-3 text-uppercase text-muted smaller fw-bold">Total Amount</th>
+          <th class="py-3 text-uppercase text-muted smaller fw-bold">Order Status</th>
+          <th class="pe-4 py-3 text-end text-uppercase text-muted smaller fw-bold">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in recent_orders %}
+        <tr style="border-bottom: 1px solid #F1F5F9;">
+          <td class="ps-4 py-3 fw-bold text-navy">
+            <span class="badge bg-light text-navy border px-2.5 py-1.5 fw-bold" style="font-size: 0.85rem;">{{ o.order_code|order_code }}</span>
+          </td>
+          <td class="py-3 small text-muted">
+            <i class="bi bi-calendar3 me-1 text-secondary"></i> {{ o.created_at[:10] if o.created_at else '' }}
+          </td>
+          <td class="py-3 small">
+            {% if o.assigned_date %}
+              <div class="fw-semibold text-dark"><i class="bi bi-calendar-event me-1 text-primary"></i> {{ o.assigned_date }}</div>
+              <div class="text-muted smaller"><i class="bi bi-clock me-1"></i> {{ o.assigned_time_slot }}</div>
+            {% else %}
+              <span class="customer-status-pill secondary">Awaiting Schedule</span>
+            {% endif %}
+          </td>
+          <td class="py-3 small text-secondary" style="max-width: 240px;">
+            <div class="text-truncate" title="{{ o.delivery_address }}">
+              <i class="bi bi-geo-alt me-1 text-danger"></i> {{ o.delivery_address }}
+            </div>
+          </td>
+          <td class="py-3 fw-bold text-navy" style="font-size: 0.95rem;">
+            &#8369;{{ "{:,.2f}".format(o.total_amount) }}
+          </td>
+          <td class="py-3">
+            {% if o.order_status in ('pending', 'pending_scheduling') %}
+              <span class="customer-status-pill secondary">Pending Schedule</span>
+            {% elif o.order_status == 'awaiting_confirmation' %}
+              <span class="customer-status-pill warning"><i class="bi bi-exclamation-circle me-1"></i> Awaiting Acceptance</span>
+            {% elif o.order_status in ('scheduled', 'schedule_confirmed') %}
+              <span class="customer-status-pill success"><i class="bi bi-check-circle me-1"></i> Schedule Confirmed</span>
+            {% elif o.order_status == 'pending_payment_verification' %}
+              <span class="customer-status-pill warning"><i class="bi bi-hourglass-split me-1"></i> Payment Verification</span>
+            {% elif o.order_status == 'payment_verified' %}
+              <span class="customer-status-pill primary"><i class="bi bi-patch-check me-1"></i> Payment Verified</span>
+            {% elif o.order_status == 'ready_for_dispatch' %}
+              <span class="customer-status-pill primary"><i class="bi bi-box-seam me-1"></i> Ready for Dispatch</span>
+            {% elif o.order_status in ('out_for_delivery', 'in_transit') %}
+              <span class="customer-status-pill primary"><i class="bi bi-truck me-1"></i> Out for Delivery</span>
+            {% elif o.order_status == 'delivered' %}
+              <span class="customer-status-pill success"><i class="bi bi-check2-circle me-1"></i> Delivered</span>
+            {% elif o.order_status == 'cancelled' %}
+              <span class="customer-status-pill danger"><i class="bi bi-x-circle me-1"></i> Cancelled</span>
+            {% else %}
+              <span class="customer-status-pill secondary">{{ o.order_status|title }}</span>
+            {% endif %}
+          </td>
+          <td class="pe-4 py-3 text-end">
+            <div class="d-inline-flex gap-1">
+              <a href="{{ url_for('main.customer_order_tracking', order_id=o.id) }}" class="btn btn-sm btn-outline-dark fw-semibold px-2.5 py-1" title="View order tracking details">
+                Track &rarr;
+              </a>
+              <a href="{{ url_for('main.order_invoice', order_id=o.id) }}" target="_blank" class="btn btn-sm btn-light border text-muted px-2 py-1" title="Print Invoice">
+                <i class="bi bi-printer"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center py-5 text-muted">
+            <div class="d-inline-flex align-items-center justify-content-center bg-light text-secondary rounded-circle mb-3" style="width: 64px; height: 64px;">
+              <i class="bi bi-inbox fs-2 text-muted"></i>
+            </div>
+            <div class="fw-bold text-dark fs-6">No Orders Placed Yet</div>
+            <p class="small text-muted mb-3">Browse our Batangas hardware depot catalog to submit your first materials order.</p>
+            <a href="{{ url_for('main.customer_catalog') }}" class="btn btn-rml btn-sm fw-semibold px-4 py-2 shadow-sm">
+              <i class="bi bi-box-seam me-1"></i> Browse Materials Catalog
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

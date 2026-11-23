@@ -2,48 +2,238 @@
 {% block title %}Customer Registration - RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-lg-7">
-      <div class="card border-0 shadow-sm p-4 p-md-5">
-        <div class="mb-4 text-center">
-          <span class="rml-logo-box mb-2">R</span>
-          <h3 class="fw-bold">Create Customer Account</h3>
-          <p class="text-muted small">Sign up to order construction supplies, schedule deliveries, and track live truck GPS.</p>
+<div class="figma-auth-screen-layout">
+  <!-- 1. Header (80px Figma Specification) -->
+  <header class="figma-auth-header">
+    <a href="{{ url_for('main.home') }}" class="figma-auth-brand">
+      <span class="figma-auth-brand-logo">R</span>
+      <span class="figma-auth-brand-name">RML Construction Supply</span>
+    </a>
+
+    <div class="figma-auth-nav-group">
+      <a href="{{ url_for('main.customer_catalog') }}" class="figma-auth-nav-link">Materials</a>
+      <a href="{{ url_for('main.home') }}#fleet" class="figma-auth-nav-link d-none d-md-inline">Delivery</a>
+      <a href="{{ url_for('main.home') }}#about" class="figma-auth-nav-link d-none d-sm-inline">Help</a>
+      
+      <div class="figma-auth-search-box">
+        <i class="bi bi-search text-muted me-2" style="font-size: 0.85rem;"></i>
+        <input type="text" class="figma-auth-search-input" placeholder="Search site..." aria-label="Search site">
+      </div>
+    </div>
+  </header>
+
+  <!-- 2. Main 50/50 Split Section -->
+  <main class="figma-auth-main">
+    <!-- Left Hero Pane -->
+    <div class="figma-auth-hero-pane">
+      <div class="figma-auth-hero-content">
+        <div class="figma-auth-hero-badge">
+          <i class="bi bi-building-check"></i> Project Procurement Portal
         </div>
-
-        <form method="POST" action="{{ url_for('main.register') }}">
-          <div class="mb-3">
-            <label class="form-label small fw-semibold">Company / Full Name *</label>
-            <input type="text" name="name" class="form-control" required placeholder="e.g. Santos Residence or Engr. Juan Perez">
+        <h1 class="figma-auth-hero-title">RML Construction Supply</h1>
+        <p class="figma-auth-hero-desc">
+          Open a verified customer account to place orders, schedule bulk deliveries, and streamline jobsite logistics across Batangas.
+        </p>
+        <div class="figma-auth-hero-features">
+          <div class="figma-auth-hero-feature-item">
+            <i class="bi bi-check-circle-fill"></i>
+            <span>Verified depot yard pricing on certified rebar, cement &amp; aggregates</span>
           </div>
-          <div class="row g-3 mb-3">
-            <div class="col-md-6">
-              <label class="form-label small fw-semibold">Email Address *</label>
-              <input type="email" name="email" class="form-control" required placeholder="name@example.com">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label small fw-semibold">Contact Mobile Number *</label>
-              <input type="tel" name="phone" class="form-control" required placeholder="0917 123 4567">
-            </div>
+          <div class="figma-auth-hero-feature-item">
+            <i class="bi bi-calendar2-check-fill"></i>
+            <span>Guaranteed morning &amp; afternoon fleet delivery time slots</span>
           </div>
-          <div class="mb-3">
-            <label class="form-label small fw-semibold">Default Site / Delivery Address *</label>
-            <input type="text" name="address" class="form-control" required placeholder="Lot, Street, Brgy, Lipa City, Batangas">
+          <div class="figma-auth-hero-feature-item">
+            <i class="bi bi-geo-alt-fill"></i>
+            <span>Live GPS route tracking from warehouse dispatch to job site</span>
           </div>
-          <div class="mb-4">
-            <label class="form-label small fw-semibold">Password *</label>
-            <input type="password" name="password" class="form-control" required placeholder="Create a secure password">
-          </div>
-
-          <button type="submit" class="btn btn-rml w-100 py-2 fw-semibold">Complete Registration</button>
-        </form>
-
-        <div class="text-center mt-3 small text-muted">
-          Already have an account? <a href="{{ url_for('main.login', role='customer') }}" class="text-rml fw-semibold text-decoration-none">Sign in here</a>
         </div>
       </div>
     </div>
-  </div>
+
+    <!-- Right Form Pane -->
+    <div class="figma-auth-form-pane">
+      <div class="figma-auth-form-card figma-auth-form-card-wide">
+        <h2 class="figma-auth-card-title">Create Account</h2>
+        <p class="figma-auth-card-subtitle">Fill in your contractor or customer details to access the procurement portal.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show py-2 px-3 small mb-3" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('main.register') }}" id="registerForm">
+          <!-- Full Name / Company -->
+          <div class="figma-auth-field-group">
+            <label class="figma-auth-label" for="regName">Name or Company Name</label>
+            <input type="text" name="name" id="regName" class="figma-auth-input" required autocomplete="name"
+                   placeholder="Juan Dela Cruz / ACME Construction" value="{{ form_data.name if form_data else '' }}" autofocus>
+          </div>
+
+          <!-- Email & Phone Number (Two-Column on Desktop) -->
+          <div class="row g-3 figma-auth-field-group">
+            <div class="col-md-6">
+              <label class="figma-auth-label" for="regEmail">Email Address</label>
+              <input type="email" name="email" id="regEmail" class="figma-auth-input" required autocomplete="email"
+                     placeholder="name@company.com" value="{{ form_data.email if form_data else '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="figma-auth-label" for="regPhone">Phone Number</label>
+              <input type="tel" name="phone" id="regPhone" class="figma-auth-input" required autocomplete="tel"
+                     placeholder="0917 123 4567" value="{{ form_data.phone if form_data else '' }}">
+            </div>
+          </div>
+
+          <!-- Delivery Address -->
+          <div class="figma-auth-field-group">
+            <label class="figma-auth-label" for="regAddress">Primary Delivery Address</label>
+            <input type="text" name="address" id="regAddress" class="figma-auth-input" required autocomplete="street-address"
+                   placeholder="Street, Barangay, City, Batangas" value="{{ form_data.address if form_data else '' }}">
+          </div>
+
+          <!-- Password -->
+          <div class="figma-auth-field-group">
+            <label class="figma-auth-label" for="regPassword">Password</label>
+            <div class="position-relative">
+              <input type="password" name="password" id="regPassword" class="figma-auth-input pe-5" required
+                     placeholder="Create password" autocomplete="new-password">
+              <button type="button" class="btn btn-link position-absolute end-0 top-50 translate-middle-y text-muted text-decoration-none pe-3 border-0"
+                      onclick="togglePassword('regPassword', this)" title="Show/Hide Password" tabindex="-1">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+            <div id="passwordHelper" class="smaller mt-1 text-muted">
+              Use at least 8 characters with uppercase, lowercase, a number, and a special character.
+            </div>
+          </div>
+
+          <!-- Confirm Password -->
+          <div class="figma-auth-field-group">
+            <label class="figma-auth-label" for="regConfirmPassword">Confirm Password</label>
+            <div class="position-relative">
+              <input type="password" name="confirm_password" id="regConfirmPassword" class="figma-auth-input pe-5" required
+                     placeholder="Re-enter password" autocomplete="new-password">
+              <button type="button" class="btn btn-link position-absolute end-0 top-50 translate-middle-y text-muted text-decoration-none pe-3 border-0"
+                      onclick="togglePassword('regConfirmPassword', this)" title="Show/Hide Password" tabindex="-1">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Submit CTA -->
+          <button type="submit" id="submitBtn" class="figma-auth-btn-primary mt-2">
+            Create Account
+          </button>
+        </form>
+
+        <!-- Login Switcher -->
+        <div class="text-center pt-3 small text-muted">
+          Already have an account?
+          <a href="{{ url_for('main.login') }}" class="fw-bold text-decoration-none ms-1" style="color: var(--rml-red);">
+            Sign in &rarr;
+          </a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 3. Footer (217px Figma Specification) -->
+  <footer class="figma-auth-footer">
+    <div class="figma-auth-footer-inner">
+      <div>
+        <strong class="text-navy">RML Construction Supply</strong> &middot; Lipa City, Batangas
+        <div class="smaller text-muted mt-1">&copy; 2026 RML Construction Supply. All rights reserved.</div>
+      </div>
+      <div class="figma-auth-footer-links">
+        <a href="{{ url_for('main.customer_catalog') }}" class="figma-auth-footer-link">Materials</a>
+        <a href="{{ url_for('main.home') }}#fleet" class="figma-auth-footer-link">Delivery Fleet</a>
+        <a href="{{ url_for('main.home') }}#about" class="figma-auth-footer-link">About Us</a>
+        <span class="text-muted d-none d-md-inline">&middot;</span>
+        <span class="smaller text-muted d-none d-md-inline">Support: logistics@rml.com</span>
+      </div>
+    </div>
+  </footer>
 </div>
+
+<script>
+function togglePassword(fieldId, btn) {
+  const field = document.getElementById(fieldId);
+  const icon = btn.querySelector('i');
+  const isVisible = field.type === 'password';
+  field.type = isVisible ? 'text' : 'password';
+  icon.classList.toggle('bi-eye', !isVisible);
+  icon.classList.toggle('bi-eye-slash', isVisible);
+  btn.setAttribute('aria-label', isVisible ? 'Hide password' : 'Show password');
+  btn.setAttribute('aria-pressed', String(isVisible));
+}
+
+const registerForm = document.getElementById('registerForm');
+const regPhone = document.getElementById('regPhone');
+const regPassword = document.getElementById('regPassword');
+const regConfirmPassword = document.getElementById('regConfirmPassword');
+const passwordRules = /^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[@$!%*?&#^()_\-+=\[\]{}|\\:;"'<>,.~`])\S{8,}$/;
+
+function validatePhone() {
+  const cleanPhone = regPhone.value.trim().replace(/[\s\-()]/g, '');
+  const valid = cleanPhone === '' || /^(\+639\d{9}|09\d{9})$/.test(cleanPhone);
+  regPhone.setCustomValidity(valid ? '' : 'Enter a valid Philippine mobile number.');
+}
+
+function validatePasswords() {
+  const password = regPassword.value;
+  const confirmation = regConfirmPassword.value;
+  const helper = document.getElementById('passwordHelper');
+
+  if (!password) {
+    helper.innerHTML = 'Use at least 8 characters with uppercase, lowercase, a number, and a special character.';
+    helper.className = 'smaller mt-1 text-muted';
+  } else if (!passwordRules.test(password)) {
+    helper.innerHTML = '<i class="bi bi-info-circle me-1 text-warning"></i> Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.';
+    helper.className = 'smaller mt-1 text-danger';
+  } else {
+    helper.innerHTML = '<i class="bi bi-check-circle-fill me-1 text-success"></i> Password meets all requirements.';
+    helper.className = 'smaller mt-1 text-success';
+  }
+
+  regPassword.setCustomValidity(password && !passwordRules.test(password)
+    ? 'Use 8 or more characters with uppercase, lowercase, a number, and a symbol. No spaces.'
+    : '');
+
+  if (confirmation && password !== confirmation) {
+    regConfirmPassword.setCustomValidity('Passwords do not match.');
+  } else {
+    regConfirmPassword.setCustomValidity('');
+  }
+}
+
+if (regPhone) {
+  regPhone.addEventListener('input', validatePhone);
+  regPhone.addEventListener('blur', validatePhone);
+}
+
+if (regPassword) {
+  regPassword.addEventListener('input', validatePasswords);
+}
+
+if (regConfirmPassword) {
+  regConfirmPassword.addEventListener('input', validatePasswords);
+}
+
+if (registerForm) {
+  registerForm.addEventListener('submit', function(event) {
+    validatePhone();
+    validatePasswords();
+    if (!registerForm.checkValidity()) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+}
+</script>
 {% endblock %}

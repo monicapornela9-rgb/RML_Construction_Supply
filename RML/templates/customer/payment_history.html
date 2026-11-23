@@ -2,45 +2,65 @@
 {% block title %}Payment History - RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-  <h2 class="fw-bold mb-1">Payment History</h2>
-  <p class="text-muted small mb-0">View all your submitted cash on delivery and online QR payment records.</p>
+<div class="customer-portal-header">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <div class="text-muted smaller mb-1">
+        <a href="{{ url_for('main.customer_dashboard') }}" class="text-decoration-none text-muted">Customer Portal</a>
+        <span class="mx-1">&middot;</span>
+        <span class="text-dark fw-semibold">Payment History</span>
+      </div>
+      <h1 class="customer-portal-title">Payment History</h1>
+      <p class="customer-portal-subtitle">Review records of completed and pending payments for your materials orders.</p>
+    </div>
+    <a href="{{ url_for('main.customer_orders') }}" class="btn btn-outline-dark btn-sm fw-semibold">
+      <i class="bi bi-receipt me-1"></i> View All Orders
+    </a>
+  </div>
 </div>
 
-<div class="card border-0 shadow-sm overflow-hidden">
+<div class="customer-portal-card overflow-hidden p-0">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
-          <th>Order</th>
+          <th class="ps-3 py-3">Order Code</th>
           <th>Payment Method</th>
           <th>Reference Number</th>
           <th>Amount Paid</th>
-          <th>Status</th>
+          <th>Verification Status</th>
           <th>Date Recorded</th>
-          <th class="text-end">Actions</th>
+          <th class="text-end pe-3">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for p in payments %}
         <tr>
-          <td class="fw-bold">{{ p.order_code|order_code }}</td>
-          <td>
-            <span class="badge text-bg-light border text-uppercase">{{ p.method }}</span>
+          <td class="ps-3 py-3 fw-bold text-navy">
+            {{ p.order_code|order_code }}
           </td>
           <td>
-            <code>{{ p.reference_number or '-' }}</code>
+            <span class="badge text-bg-light border text-uppercase fw-semibold">{{ p.method }}</span>
           </td>
-          <td class="fw-bold">&#8369;{{ "{:,.2f}".format(p.amount) }}</td>
           <td>
-            <span class="badge {% if p.payment_status == 'verified' %}badge-instock{% elif p.payment_status == 'rejected' %}badge-danger{% else %}badge-check{% endif %}">
-              {{ p.payment_status|title }}
-            </span>
+            <code class="text-dark fw-semibold">{{ p.reference_number or 'Cash on Delivery' }}</code>
+          </td>
+          <td class="fw-bold text-navy">
+            &#8369;{{ "{:,.2f}".format(p.amount) }}
+          </td>
+          <td>
+            {% if p.payment_status == 'verified' %}
+              <span class="customer-status-pill success"><i class="bi bi-check-circle-fill"></i> Verified</span>
+            {% elif p.payment_status == 'rejected' %}
+              <span class="customer-status-pill danger"><i class="bi bi-x-circle-fill"></i> Rejected</span>
+            {% else %}
+              <span class="customer-status-pill warning"><i class="bi bi-clock-history"></i> Pending Review</span>
+            {% endif %}
           </td>
           <td class="small text-muted">{{ p.paid_at }}</td>
-          <td class="text-end">
+          <td class="text-end pe-3">
             <div class="btn-group btn-group-sm">
-              <a href="{{ url_for('main.order_invoice', order_id=p.order_id) }}" class="btn btn-outline-secondary" title="View Invoice">
+              <a href="{{ url_for('main.order_invoice', order_id=p.order_id) }}" class="btn btn-outline-secondary" title="View Official Invoice" target="_blank">
                 <i class="bi bi-receipt"></i> Invoice
               </a>
               <a href="{{ url_for('main.customer_order_tracking', order_id=p.order_id) }}" class="btn btn-outline-dark" title="Track Order">
@@ -52,9 +72,9 @@
         {% else %}
         <tr>
           <td colspan="7" class="text-center py-5 text-muted">
-            <i class="bi bi-credit-card-2-front fs-1 d-block mb-2"></i>
-            <h6>No payment records found.</h6>
-            <p class="small">Completed payments will appear here with verification status.</p>
+            <i class="bi bi-credit-card-2-front fs-1 d-block mb-2 text-secondary"></i>
+            <h5 class="fw-bold text-dark">No payment records found</h5>
+            <p class="small text-muted mb-0">Completed payments and receipts will appear here with verification status.</p>
           </td>
         </tr>
         {% endfor %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Admin Login - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="portal-login-page">
+  <div class="compact-portal-login">
+    <div class="mb-4">
+      <span class="badge text-bg-light border text-muted smaller mb-2">Admin / Staff Portal</span>
+      <h2 class="fw-bold text-navy mb-0" style="font-size: 1.5rem;">Admin sign in</h2>
+    </div>
+
+    <form method="POST" action="{{ url_for('main.admin_login') }}" id="adminLoginForm">
+      <div class="mb-3">
+        <label class="form-label" for="adminIdentifier">Staff ID or email</label>
+        <input type="text" name="identifier" id="adminIdentifier" class="form-control" required
+               placeholder="Enter your staff ID or email" value="{{ identifier_value or '' }}" autocomplete="username" autofocus>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="adminPassword">Password</label>
+        <div class="input-group">
+          <input type="password" name="password" id="adminPassword" class="form-control" required
+                 placeholder="Enter your password" autocomplete="current-password">
+          <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('adminPassword', this)"
+                  aria-label="Show password" aria-pressed="false">
+            <i class="bi bi-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-navy w-100">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function togglePasswordVisibility(fieldId, btn) {
+  const field = document.getElementById(fieldId);
+  const icon = btn.querySelector('i');
+  const isVisible = field.type === 'password';
+  field.type = isVisible ? 'text' : 'password';
+  icon.classList.toggle('bi-eye', !isVisible);
+  icon.classList.toggle('bi-eye-slash', isVisible);
+  btn.setAttribute('aria-label', isVisible ? 'Hide password' : 'Show password');
+  btn.setAttribute('aria-pressed', String(isVisible));
+}
+</script>
+{% endblock %}

@@ -73,7 +73,12 @@
           {% for item in items %}
           <tr>
             <td class="text-center small text-muted">{{ loop.index }}</td>
-            <td class="fw-semibold">{{ item.name }}</td>
+            <td class="fw-semibold">
+              {{ item.name }}
+              {% if item.variation_name %}
+                <span class="text-muted fw-normal">({{ item.variation_name }})</span>
+              {% endif %}
+            </td>
             <td class="text-center">{{ item.quantity }} {{ item.unit }}</td>
             <td class="text-end">&#8369;{{ "{:,.2f}".format(item.unit_price) }}</td>
             <td class="text-end fw-semibold">&#8369;{{ "{:,.2f}".format(item.subtotal) }}</td>

@@ -1,0 +1,247 @@
+--- P0 ---
+KB
+Denatured Alcohol = 45
+Paint thinner = 65
+
+TOWER 
+Lacquer thinner = 45
+
+CENTRO
+Varnish maple = 70
+Varnish brown = 70
+Varnish natural = 70
+Varniah mahogany = 70 
+
+LIGHTS
+Opple
+5w = 70
+15w = 170
+18w = 190
+
+--- P1 ---
+Alco
+7w = 85
+9w = 95
+12w = 110
+15w = 120
+18w = 190
+
+--- P2 ---
+Focus
+5w = 75
+7w = 90
+12w = 130
+
+--- P3 ---
+Philips
+
+--- P4 ---
+3w = 95
+
+--- P5 ---
+5w = 105
+
+--- P6 ---
+7w = 115
+
+--- P7 ---
+9w = 125
+
+--- P8 ---
+12w = 189
+
+--- P10 ---
+Rugby
+Small = 45
+Big = 110
+
+Vulcaseal
+75 ml = 90
+1/4 l = 295
+1/2 l = 498 
+1l = 800
+
+--- P11 ---
+ElastoSeal 
+S  = 85
+M = 170
+
+--- P12 ---
+No more nails
+S = 65
+M = 110
+L = 255
+
+Solvent cement = 95
+
+--- P14 ---
+Neltex pvc pipe cement
+S = 145
+M = 175
+L = 275
+
+Solignum
+1L = 860
+4L = 1850
+
+--- P15 ---
+Stikwel
+250g  = 65
+500g = 170
+1kg = 350
+4kg = 900
+
+--- P19 ---
+E tape 
+S = 25
+M = 70
+
+Masking tape 
+1/2 = 40
+3/4 = 55
+1 = 65
+
+Teflon
+S = 15
+M = 20
+
+G.I wire
+16* = 100 per kilo
+18* = 110 per kilo
+
+Bistayan
+1meter = 100
+
+Cement
+Fortune = 220
+Holcim = 220
+
+Panambak = 1800-2000
+Panambak D/T = 8000
+Boulder M/D = 4800
+White Sand = 6000
+S1 = 5000
+3/4 = 5000
+3/8 = 4800
+
+Shena Board ¼ = 500
+Plain Sheet 
+3x8 = 580
+4x8  680
+
+--- P21 ---
+Yero
+8 = 464
+10 = 580
+12 = 696
+
+Bakal
+9mm = 130
+10mm = 170
+12mm = 245
+16mm = 440  
+
+PLYWOOD
+Ordinary
+¼ = 550
+½ = 950
+¾ = 1800
+Marine
+¼ = 600
+½ = 1100
+¾ = 2000
+
+NELTEX
+pvc pipe (black)
+½ = 130
+¾ = 165
+pvc pipe (orange)
+½ = 145
+1 = 230
+2 = 370
+3 = 880
+4 = 980
+
+elbow (black)
+2 = 20
+3 = 40
+4 = 55
+
+TEE (black)
+2x2 = 20
+2x3 = 35
+2x4 = 45
+
+--- P22 ---
+Clean out
+2 = 20
+3 = 30
+4 = 40
+
+elbow neltex
+#2 – 90° = 95
+          45° = 65
+#3 – 90° = 120
+          45° = 90
+#4 – 90° = 145
+          45° = 110 
+
+p-trap = 90
+
+neltex cover
+2x2 = 75
+3x3 = 90
+3x2 = 130
+
+BIO PIPE
+2 = 210
+3 = 380
+4 = 420
+
+WYE
+2x2 = 55
+3x3 = 85
+4x3 = 120
+4x4 = 145
+
+TEE
+2x2 = 55
+3x2 = 75
+3x3 = 85
+4x2 =  95
+4x3 = 110
+4x4 = 125
+
+--- P23 ---
+Bisagra 
+3x3 = 75
+3 ½ x 3 ½ = 85
+
+helmet = 280
+steel brush = 60
+cut off blade = 200
+roller brush = 110
+ - refill = 45
+rubber gloves = 50
+plastic faucet = 50
+junction box = 35
+ - with cover = 65
+utility box = 35
+
+welding rad
+ordinary = 130 p.kilo
+special = 200 p.kilo
+stainless = 20 pc.
+
+Ballast
+20w = 250
+40w = 310
+
+Fluorescent
+18/20w = 150
+36w = 210
+
+1 set fluorescent
+20w = 360
+36w = 420
+
