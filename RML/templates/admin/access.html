@@ -2,214 +2,812 @@
 {% block title %}Access & Roles - RML Construction Supply{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
   <div>
-    <div class="text-muted small">Admin console &middot; Access &amp; roles</div>
-    <h2 class="fw-bold mb-1">Access &amp; roles</h2>
-    <p class="text-muted small mb-0">Only Admins can assign roles, manage accounts, and oversee customer and driver workspaces.</p>
+    <div class="text-muted small fw-semibold text-uppercase" style="letter-spacing: 0.05em;">Admin Console &middot; Access &amp; Roles</div>
+    <h2 class="fw-bold mb-1 text-dark">Access &amp; Roles Management</h2>
+    <p class="text-muted small mb-0">System account directory, role-based access control, and security activity audit logs.</p>
   </div>
-  <button class="btn btn-rml btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
-    <i class="bi bi-person-plus me-1"></i> Add Staff / Driver
-  </button>
-</div>
-
-<!-- Workspace / Permission Matrix Table (Matching High Fidelity Mockup) -->
-<div class="card border-0 shadow-sm mb-4 overflow-hidden">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <thead class="table-light">
-        <tr>
-          <th>Workspace / permission</th>
-          <th>Admin</th>
-          <th>Driver</th>
-        </tr>
-      </thead>
-      <tbody class="small">
-        <tr>
-          <td class="fw-semibold">Customer accounts, orders &amp; payments</td>
-          <td><span class="badge text-bg-light border text-dark fw-bold">Full control</span></td>
-          <td class="text-muted">No access</td>
-        </tr>
-        <tr>
-          <td class="fw-semibold">All driver activity, assignments &amp; dispatch</td>
-          <td><span class="badge text-bg-light border text-dark fw-bold">Full control</span></td>
-          <td><span class="badge bg-light text-dark border">Own deliveries only</span></td>
-        </tr>
-        <tr>
-          <td class="fw-semibold">Inventory, stock, reports &amp; finances</td>
-          <td><span class="badge text-bg-light border text-dark fw-bold">Full control</span></td>
-          <td class="text-muted">No access</td>
-        </tr>
-        <tr>
-          <td class="fw-semibold">Delivery status, site details &amp; confirmation</td>
-          <td><span class="badge text-bg-light border text-dark fw-bold">All deliveries</span></td>
-          <td><span class="badge bg-light text-dark border">Assigned deliveries only</span></td>
-        </tr>
-        <tr>
-          <td class="fw-semibold">User accounts, roles &amp; permissions</td>
-          <td><span class="badge text-bg-light border text-dark fw-bold">Manage access</span></td>
-          <td class="text-muted">No access</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="p-3 bg-light text-muted small border-top">
-    <i class="bi bi-info-circle me-1"></i> Driver site contacts are visible only for their assigned deliveries. No access to other customers or other drivers.
+  <div class="d-flex gap-2">
+    <button class="btn btn-rml btn-sm rounded-pill px-3 py-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
+      <i class="bi bi-person-plus me-1"></i> Add Staff / Driver
+    </button>
   </div>
 </div>
 
-<!-- Manage a Staff Account Card (Matching High Fidelity Mockup) -->
-<div class="card border-0 shadow-sm p-4 mb-4">
-  <h5 class="fw-bold mb-3">Manage a staff account</h5>
-
-  <form method="POST" action="{{ url_for('main.admin_access') }}" id="manageStaffForm">
-    <input type="hidden" name="action" id="staffAction" value="update_role">
-
-    <div class="row g-3 mb-3">
-      <div class="col-md-6">
-        <label class="form-label small fw-semibold">Staff account</label>
-        <select name="user_id" id="staffUserSelect" class="form-select" onchange="onStaffSelected()">
-          {% for u in staff_users %}
-            <option value="{{ u.id }}" data-role="{{ u.role }}" data-active="{{ u.is_active }}" data-name="{{ u.name }}" data-staffid="{{ u.staff_id }}">
-              {{ u.name }} &middot; {{ u.staff_id or 'No ID' }} ({{ u.role|title }})
-            </option>
-          {% endfor %}
-        </select>
+<!-- Overview Stats Row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm p-3 rounded-3 bg-white h-100">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <span class="text-muted small fw-semibold">Total Accounts</span>
+        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(31, 87, 118, 0.1); color: #1F5776;">
+          <i class="bi bi-people-fill"></i>
+        </div>
       </div>
+      <div class="fs-3 fw-bold text-dark mb-0">{{ stats.total }}</div>
+      <div class="small text-muted mt-1">{{ stats.active }} active &middot; {{ stats.suspended }} suspended</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm p-3 rounded-3 bg-white h-100">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <span class="text-muted small fw-semibold">Administrators</span>
+        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(200, 49, 38, 0.1); color: #C83126;">
+          <i class="bi bi-shield-lock-fill"></i>
+        </div>
+      </div>
+      <div class="fs-3 fw-bold text-dark mb-0">{{ stats.admin }}</div>
+      <div class="small text-muted mt-1">Full system authority</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm p-3 rounded-3 bg-white h-100">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <span class="text-muted small fw-semibold">Delivery Drivers</span>
+        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(13, 148, 136, 0.1); color: #0D9488;">
+          <i class="bi bi-truck"></i>
+        </div>
+      </div>
+      <div class="fs-3 fw-bold text-dark mb-0">{{ stats.driver }}</div>
+      <div class="small text-muted mt-1">Field dispatch operations</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm p-3 rounded-3 bg-white h-100">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <span class="text-muted small fw-semibold">Customer Accounts</span>
+        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(59, 130, 246, 0.1); color: #2563EB;">
+          <i class="bi bi-person-check-fill"></i>
+        </div>
+      </div>
+      <div class="fs-3 fw-bold text-dark mb-0">{{ stats.customer }}</div>
+      <div class="small text-muted mt-1">Storefront purchasing</div>
+    </div>
+  </div>
+</div>
 
-      <div class="col-md-6">
-        <label class="form-label small fw-semibold">Assigned role</label>
-        <div class="btn-group w-100" role="group">
-          <input type="radio" class="btn-check" name="role" id="roleAdmin" value="admin" autocomplete="off" onchange="updateRoleDescription()">
-          <label class="btn btn-outline-dark" for="roleAdmin">Admin</label>
+<!-- Navigation Tabs -->
+<ul class="nav nav-pills mb-4 bg-white p-2 rounded-3 shadow-sm border" id="accessTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link rounded-pill px-4 fw-semibold {% if active_tab == 'accounts' %}active{% endif %}" id="accounts-tab" data-bs-toggle="pill" data-bs-target="#tab-accounts" type="button" role="tab" aria-controls="tab-accounts" aria-selected="{% if active_tab == 'accounts' %}true{% else %}false{% endif %}">
+      <i class="bi bi-people me-2"></i>User Accounts
+      <span class="badge rounded-pill ms-2 {% if active_tab == 'accounts' %}bg-white text-dark{% else %}bg-light text-secondary border{% endif %}">{{ stats.total }}</span>
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link rounded-pill px-4 fw-semibold {% if active_tab == 'roles' %}active{% endif %}" id="roles-tab" data-bs-toggle="pill" data-bs-target="#tab-roles" type="button" role="tab" aria-controls="tab-roles" aria-selected="{% if active_tab == 'roles' %}true{% else %}false{% endif %}">
+      <i class="bi bi-shield-check me-2"></i>Roles &amp; Permissions
+      <span class="badge rounded-pill ms-2 {% if active_tab == 'roles' %}bg-white text-dark{% else %}bg-light text-secondary border{% endif %}">3 Roles</span>
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link rounded-pill px-4 fw-semibold {% if active_tab == 'logs' %}active{% endif %}" id="logs-tab" data-bs-toggle="pill" data-bs-target="#tab-logs" type="button" role="tab" aria-controls="tab-logs" aria-selected="{% if active_tab == 'logs' %}true{% else %}false{% endif %}">
+      <i class="bi bi-clock-history me-2"></i>Access Logs
+      <span class="badge rounded-pill ms-2 {% if active_tab == 'logs' %}bg-white text-dark{% else %}bg-light text-secondary border{% endif %}">{{ access_logs|length }}</span>
+    </button>
+  </li>
+</ul>
 
-          <input type="radio" class="btn-check" name="role" id="roleDriver" value="driver" autocomplete="off" onchange="updateRoleDescription()">
-          <label class="btn btn-outline-dark" for="roleDriver">Driver</label>
+<!-- Tab Content Panes -->
+<div class="tab-content" id="accessTabsContent">
+
+  <!-- ================================================================= -->
+  <!-- TAB 1: USER ACCOUNTS (ALL ACCOUNTS DIRECTORY)                     -->
+  <!-- ================================================================= -->
+  <div class="tab-pane fade {% if active_tab == 'accounts' %}show active{% endif %}" id="tab-accounts" role="tabpanel" aria-labelledby="accounts-tab">
+
+    <!-- Search & Filter Card -->
+    <div class="card border-0 shadow-sm p-3 mb-4 rounded-3 bg-white">
+      <div class="row g-2 align-items-center">
+        <!-- Search Input -->
+        <div class="col-12 col-md-5">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-light border-end-0 text-muted">
+              <i class="bi bi-search"></i>
+            </span>
+            <input type="text" id="accountSearchInput" class="form-control border-start-0 bg-light" placeholder="Search by name, email, phone, or ID..." value="{{ search_query }}">
+          </div>
+        </div>
+
+        <!-- Role Filter Dropdown -->
+        <div class="col-6 col-md-3">
+          <select id="roleFilterSelect" class="form-select form-select-sm">
+            <option value="all" {% if role_filter == 'all' %}selected{% endif %}>All Roles (Admin, Driver, Customer)</option>
+            <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Admin Only</option>
+            <option value="driver" {% if role_filter == 'driver' %}selected{% endif %}>Driver Only</option>
+            <option value="customer" {% if role_filter == 'customer' %}selected{% endif %}>Customer Only</option>
+          </select>
+        </div>
+
+        <!-- Status Filter Dropdown -->
+        <div class="col-6 col-md-2">
+          <select id="statusFilterSelect" class="form-select form-select-sm">
+            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active Only</option>
+            <option value="suspended" {% if status_filter == 'suspended' %}selected{% endif %}>Suspended Only</option>
+          </select>
+        </div>
+
+        <!-- Reset Button -->
+        <div class="col-12 col-md-2 text-md-end">
+          <button type="button" id="resetFiltersBtn" class="btn btn-outline-secondary btn-sm w-100">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Role Description Box -->
-    <div class="p-3 rounded border mb-4 bg-light" id="roleDescBox">
-      <div class="fw-bold small mb-1" id="roleDescTitle">Driver &middot; Limited access</div>
-      <p class="small text-muted mb-0" id="roleDescText">
-        Can view and update only assigned deliveries, routes, site contacts, and recipient confirmations. Cannot view other drivers, customer accounts, payment records, inventory, reports, or role settings.
-      </p>
-    </div>
-
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <div>
-        <span class="small text-muted me-2">Account status:</span>
-        <span id="staffStatusBadge" class="badge badge-instock">Active</span>
+    <!-- Accounts Table Card -->
+    <div class="card border-0 shadow-sm rounded-3 overflow-hidden bg-white mb-4">
+      <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h6 class="fw-bold mb-0 text-dark">All Accounts Directory</h6>
+          <span class="text-muted small">Registered administrator, driver, and customer accounts</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-light text-dark border px-2 py-1 small" id="accountsMatchCount">
+            Showing {{ users|length }} of {{ all_users|length }} Accounts
+          </span>
+        </div>
       </div>
-      <div class="d-flex gap-2">
-        <button type="submit" onclick="setToggleActiveAction()" class="btn btn-outline-secondary btn-sm" id="suspendBtn">
-          Suspend account
-        </button>
-        <button type="submit" onclick="setUpdateRoleAction()" class="btn btn-rml btn-sm px-4">
-          Save role
-        </button>
-      </div>
-    </div>
-  </form>
-</div>
 
-<!-- Staff Directory Table -->
-<h5 class="fw-bold mb-3">All Accounts Directory</h5>
-<div class="card border-0 shadow-sm overflow-hidden mb-4">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <thead class="table-light">
-        <tr>
-          <th>Staff ID / User</th>
-          <th>Email Address</th>
-          <th>Phone</th>
-          <th>Role</th>
-          <th>Status</th>
-          <th class="text-end">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for u in users %}
-        <tr>
-          <td>
-            <div class="fw-bold">{{ u.staff_id or 'CUSTOMER' }}</div>
-            <div class="small text-muted">{{ u.name }}</div>
-          </td>
-          <td class="small">{{ u.email }}</td>
-          <td class="small text-muted">{{ u.phone or '-' }}</td>
-          <td>
-            <span class="badge {% if u.role in ('admin', 'staff') %}bg-dark{% elif u.role == 'driver' %}btn-rml{% else %}text-bg-light border{% endif %} text-uppercase">
-              {{ u.role }}
-            </span>
-          </td>
-          <td>
-            {% if u.is_active == 1 %}
-              <span class="badge badge-instock">Active</span>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="accountsTable">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-4">Account ID</th>
+              <th>User / Name</th>
+              <th>Email Address</th>
+              <th>Phone Number</th>
+              <th>Assigned Role</th>
+              <th>Account Status</th>
+              <th class="text-end pe-4">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="accountsTableBody">
+            {% for u in users %}
+            {% set is_self = (u.id == session.user_id) %}
+            <tr class="account-row"
+                data-id="{{ u.id }}"
+                data-staffid="{{ u.staff_id or '' }}"
+                data-name="{{ u.name|lower }}"
+                data-email="{{ u.email|lower }}"
+                data-phone="{{ (u.phone or '')|lower }}"
+                data-role="{{ u.role|lower }}"
+                data-status="{% if u.is_active == 1 %}active{% else %}suspended{% endif %}">
+              
+              <!-- Account ID -->
+              <td class="ps-4">
+                {% if u.role == 'admin' %}
+                  <span class="badge bg-dark text-white fw-bold px-2 py-1" style="font-size: 0.75rem;">
+                    {{ u.staff_id or 'RML-ADM' }}
+                  </span>
+                {% elif u.role == 'driver' %}
+                  <span class="badge bg-secondary-subtle text-dark border fw-bold px-2 py-1" style="font-size: 0.75rem;">
+                    {{ u.staff_id or 'RML-DRV' }}
+                  </span>
+                {% else %}
+                  <span class="badge bg-light text-secondary border px-2 py-1" style="font-size: 0.75rem;">
+                    CUST-{{ "%04d"|format(u.id) }}
+                  </span>
+                {% endif %}
+              </td>
+
+              <!-- User Name & Registration Date -->
+              <td>
+                <div class="d-flex align-items-center">
+                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2 fw-bold text-white shadow-sm"
+                       style="width: 34px; height: 34px; font-size: 0.8rem; background: {% if u.role == 'admin' %}#142235{% elif u.role == 'driver' %}#0D9488{% else %}#2563EB{% endif %};">
+                    {{ u.name[:2]|upper }}
+                  </div>
+                  <div>
+                    <div class="fw-bold text-dark d-flex align-items-center gap-1">
+                      {{ u.name }}
+                      {% if is_self %}
+                        <span class="badge bg-secondary text-white rounded-pill ms-1" style="font-size: 0.65rem;">You</span>
+                      {% endif %}
+                    </div>
+                    <div class="small text-muted" style="font-size: 0.75rem;">
+                      Joined {{ u.created_at[:10] if u.created_at else 'Active' }}
+                    </div>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Email Address -->
+              <td class="small text-dark">{{ u.email }}</td>
+
+              <!-- Phone Number -->
+              <td class="small text-muted">{{ u.phone or '—' }}</td>
+
+              <!-- Role Badge -->
+              <td>
+                {% if u.role == 'admin' %}
+                  <span class="badge bg-dark-subtle text-dark border px-2 py-1 text-uppercase fw-semibold" style="font-size: 0.72rem;">
+                    <i class="bi bi-shield-fill-check me-1"></i>Admin
+                  </span>
+                {% elif u.role == 'driver' %}
+                  <span class="badge bg-info-subtle text-dark border border-info-subtle px-2 py-1 text-uppercase fw-semibold" style="font-size: 0.72rem;">
+                    <i class="bi bi-truck me-1"></i>Driver
+                  </span>
+                {% else %}
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 text-uppercase fw-semibold" style="font-size: 0.72rem;">
+                    <i class="bi bi-person me-1"></i>Customer
+                  </span>
+                {% endif %}
+              </td>
+
+              <!-- Account Status Badge -->
+              <td>
+                {% if u.is_active == 1 %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill" style="font-size: 0.72rem;">
+                    <i class="bi bi-check-circle-fill me-1"></i>Active
+                  </span>
+                {% else %}
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill" style="font-size: 0.72rem;">
+                    <i class="bi bi-slash-circle-fill me-1"></i>Suspended
+                  </span>
+                {% endif %}
+              </td>
+
+              <!-- Actions Column -->
+              <td class="text-end pe-4">
+                <div class="d-inline-flex gap-1 align-items-center">
+                  <!-- View Details Button -->
+                  <button type="button"
+                          class="btn btn-outline-secondary btn-sm px-2 py-1 rounded-2"
+                          onclick="openAccountDetails(this)"
+                          data-id="{{ u.id }}"
+                          data-staffid="{{ u.staff_id or ('CUST-%04d'|format(u.id)) }}"
+                          data-name="{{ u.name }}"
+                          data-email="{{ u.email }}"
+                          data-phone="{{ u.phone or 'Not provided' }}"
+                          data-address="{{ u.address or 'No delivery address recorded' }}"
+                          data-role="{{ u.role }}"
+                          data-active="{{ u.is_active }}"
+                          data-created="{{ u.created_at }}"
+                          data-orders="{{ u.order_count or 0 }}"
+                          data-spent="{{ '{:,.2f}'.format(u.total_spent or 0) }}"
+                          data-deliveries="{{ u.delivery_count or 0 }}"
+                          data-isself="{{ '1' if is_self else '0' }}"
+                          title="View complete account details">
+                    <i class="bi bi-eye me-1"></i>Details
+                  </button>
+
+                  <!-- Suspend / Activate Action Button -->
+                  {% if is_self %}
+                    <button type="button"
+                            class="btn btn-light btn-sm px-2 py-1 text-muted border"
+                            disabled
+                            title="Protection active: You cannot suspend your own active administrator account.">
+                      <i class="bi bi-shield-lock me-1"></i>Self
+                    </button>
+                  {% else %}
+                    {% if u.is_active == 1 %}
+                      <button type="button"
+                              class="btn btn-outline-danger btn-sm px-2 py-1 rounded-2"
+                              onclick="promptStatusToggle({{ u.id }}, '{{ u.name }}', '{{ u.email }}', 'suspend')"
+                              title="Suspend this user account">
+                        <i class="bi bi-pause-circle me-1"></i>Suspend
+                      </button>
+                    {% else %}
+                      <button type="button"
+                              class="btn btn-outline-success btn-sm px-2 py-1 rounded-2"
+                              onclick="promptStatusToggle({{ u.id }}, '{{ u.name }}', '{{ u.email }}', 'activate')"
+                              title="Activate this user account">
+                        <i class="bi bi-play-circle me-1"></i>Activate
+                      </button>
+                    {% endif %}
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
             {% else %}
-              <span class="badge badge-danger">Suspended</span>
-            {% endif %}
-          </td>
-          <td class="text-end">
-            <form method="POST" action="{{ url_for('main.admin_access') }}" class="d-inline">
-              <input type="hidden" name="action" value="toggle_active">
-              <input type="hidden" name="user_id" value="{{ u.id }}">
-              <button type="submit" class="btn btn-outline-secondary btn-sm py-0">
-                {% if u.is_active == 1 %}Suspend{% else %}Activate{% endif %}
-              </button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+            <tr id="emptyTableRow">
+              <td colspan="7" class="text-center py-5 text-muted">
+                <div class="py-4">
+                  <i class="bi bi-search text-muted fs-2 mb-2 d-block"></i>
+                  <p class="mb-1 fw-semibold">No accounts match the selected criteria.</p>
+                  <small class="text-muted">Try clearing the search query or adjusting role and status filters.</small>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table Footer / Pagination -->
+      <div class="card-footer bg-white py-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="small text-muted" id="paginationInfo">
+          Showing <span id="pagStart">1</span> to <span id="pagEnd">{{ users|length }}</span> of <span id="pagTotal">{{ users|length }}</span> accounts
+        </div>
+        <nav aria-label="Account list pagination">
+          <ul class="pagination pagination-sm mb-0" id="accountsPagination">
+            <!-- Rendered by client script if accounts > 10 -->
+          </ul>
+        </nav>
+      </div>
+    </div>
   </div>
+
+  <!-- ================================================================= -->
+  <!-- TAB 2: ROLES & PERMISSIONS                                        -->
+  <!-- ================================================================= -->
+  <div class="tab-pane fade {% if active_tab == 'roles' %}show active{% endif %}" id="tab-roles" role="tabpanel" aria-labelledby="roles-tab">
+
+    <!-- Role Architecture Cards -->
+    <div class="row g-3 mb-4">
+      <!-- Admin Card -->
+      <div class="col-lg-4">
+        <div class="card border-0 shadow-sm p-4 rounded-3 bg-white h-100 border-top border-4" style="border-top-color: #142235 !important;">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="badge bg-dark text-white px-2 py-1 text-uppercase fw-bold">Admin</span>
+            <span class="small text-muted fw-semibold">System Governance</span>
+          </div>
+          <h5 class="fw-bold text-dark mb-2">Administrator</h5>
+          <p class="small text-muted mb-3">
+            Full enterprise control. Can assign roles, manage accounts, authorize dispatch deliveries, replenish inventory, verify payments, and export reports.
+          </p>
+          <div class="p-2 bg-light rounded-2 border small">
+            <div class="fw-semibold text-dark mb-1"><i class="bi bi-check2-circle text-success me-1"></i>Key Capabilities:</div>
+            <ul class="list-unstyled mb-0 ps-2 text-muted" style="font-size: 0.8rem; line-height: 1.6;">
+              <li>&bull; User management &amp; role assignment</li>
+              <li>&bull; Order scheduling &amp; status approvals</li>
+              <li>&bull; Truck dispatch &amp; driver assignment</li>
+              <li>&bull; Catalog pricing &amp; inventory control</li>
+              <li>&bull; Payment verification &amp; business reports</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Driver Card -->
+      <div class="col-lg-4">
+        <div class="card border-0 shadow-sm p-4 rounded-3 bg-white h-100 border-top border-4" style="border-top-color: #0D9488 !important;">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="badge bg-info-subtle text-dark border border-info-subtle px-2 py-1 text-uppercase fw-bold">Driver</span>
+            <span class="small text-muted fw-semibold">Field Operations</span>
+          </div>
+          <h5 class="fw-bold text-dark mb-2">Delivery Driver</h5>
+          <p class="small text-muted mb-3">
+            Restricted field interface. Can view and update assigned dispatches, update live GPS, record recipient acknowledgement, and upload delivery proof.
+          </p>
+          <div class="p-2 bg-light rounded-2 border small">
+            <div class="fw-semibold text-dark mb-1"><i class="bi bi-shield-check text-info me-1"></i>Boundary Protections:</div>
+            <ul class="list-unstyled mb-0 ps-2 text-muted" style="font-size: 0.8rem; line-height: 1.6;">
+              <li>&bull; View assigned delivery stops only</li>
+              <li>&bull; GPS tracking &amp; status updates</li>
+              <li>&bull; Collect digital proof &amp; recipient signature</li>
+              <li>&bull; <strong>No access</strong> to customer database</li>
+              <li>&bull; <strong>No access</strong> to inventory or financial reports</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Customer Card -->
+      <div class="col-lg-4">
+        <div class="card border-0 shadow-sm p-4 rounded-3 bg-white h-100 border-top border-4" style="border-top-color: #2563EB !important;">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 text-uppercase fw-bold">Customer</span>
+            <span class="small text-muted fw-semibold">Self-Service Storefront</span>
+          </div>
+          <h5 class="fw-bold text-dark mb-2">Customer</h5>
+          <p class="small text-muted mb-3">
+            Public purchasing portal. Can browse catalog, place orders, choose preferred delivery time slots, upload payment proof, and track real-time delivery dispatches.
+          </p>
+          <div class="p-2 bg-light rounded-2 border small">
+            <div class="fw-semibold text-dark mb-1"><i class="bi bi-person-check text-primary me-1"></i>Customer Workspaces:</div>
+            <ul class="list-unstyled mb-0 ps-2 text-muted" style="font-size: 0.8rem; line-height: 1.6;">
+              <li>&bull; Product discovery &amp; shopping cart</li>
+              <li>&bull; Order placement &amp; slot reservation</li>
+              <li>&bull; Proof of payment upload (QR/Bank)</li>
+              <li>&bull; Order status &amp; dispatch tracking</li>
+              <li>&bull; Personal profile &amp; security management</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Permissions Matrix Table -->
+    <div class="card border-0 shadow-sm rounded-3 overflow-hidden bg-white mb-4">
+      <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+        <div>
+          <h6 class="fw-bold mb-0 text-dark">System Permission Matrix</h6>
+          <span class="text-muted small">Access authorization across core system workspaces and operational modules</span>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-4">System Module / Workspace</th>
+              <th>Administrator</th>
+              <th>Delivery Driver</th>
+              <th class="pe-4">Customer</th>
+            </tr>
+          </thead>
+          <tbody class="small">
+            <tr>
+              <td class="ps-4 fw-semibold text-dark">User Accounts, Roles &amp; Permissions</td>
+              <td><span class="badge bg-dark text-white px-2 py-1"><i class="bi bi-check2-all me-1"></i>Full Control</span></td>
+              <td><span class="text-muted">No Access</span></td>
+              <td class="pe-4"><span class="text-muted">Profile Self-Service Only</span></td>
+            </tr>
+            <tr>
+              <td class="ps-4 fw-semibold text-dark">Customer Orders &amp; Schedule Confirmations</td>
+              <td><span class="badge bg-dark text-white px-2 py-1"><i class="bi bi-check2-all me-1"></i>Full Control</span></td>
+              <td><span class="badge bg-light text-dark border">Assigned Dispatches Only</span></td>
+              <td class="pe-4"><span class="badge bg-primary-subtle text-primary border border-primary-subtle">Own Orders Only</span></td>
+            </tr>
+            <tr>
+              <td class="ps-4 fw-semibold text-dark">Truck Dispatches &amp; Driver Fleet Management</td>
+              <td><span class="badge bg-dark text-white px-2 py-1"><i class="bi bi-check2-all me-1"></i>Full Control</span></td>
+              <td><span class="badge bg-light text-dark border">Assigned Truck Only</span></td>
+              <td class="pe-4"><span class="text-muted">No Access</span></td>
+            </tr>
+            <tr>
+              <td class="ps-4 fw-semibold text-dark">Delivery Execution, Route GPS &amp; Proof of Delivery</td>
+              <td><span class="badge bg-dark text-white px-2 py-1"><i class="bi bi-check2-all me-1"></i>Monitor All</span></td>
+              <td><span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-geo-alt-fill me-1"></i>Update &amp; Confirm</span></td>
+              <td class="pe-4"><span class="badge bg-light text-dark border">View Own ETA Only</span></td>
+            </tr>
+            <tr>
+              <td class="ps-4 fw-semibold text-dark">Product Catalog, Variations &amp; Pricing</td>
+              <td><span class="badge bg-dark text-white px-2 py-1"><i class="bi bi-check2-all me-1"></i>Full Control</span></td>
+              <td><span class="text-muted">No Access</span></td>
+              <td class="pe-4"><span class="badge bg-primary-subtle text-primary border border-primary-subtle">Browse &amp; Search</span></td>
+            </tr>
+            <tr>
+              <td class="ps-4 fw-semibold text-dark">Inventory Movements, Stock-In &amp; Thresholds</td>
+              <td><span class="badge bg-dark text-white px-2 py-1"><i class="bi bi-check2-all me-1"></i>Full Control</span></td>
+              <td><span class="text-muted">No Access</span></td>
+              <td class="pe-4"><span class="text-muted">View Stock Status Only</span></td>
+            </tr>
+            <tr>
+              <td class="ps-4 fw-semibold text-dark">Payment Verification &amp; Transaction Ledger</td>
+              <td><span class="badge bg-dark text-white px-2 py-1"><i class="bi bi-check2-all me-1"></i>Full Control</span></td>
+              <td><span class="badge bg-light text-dark border">COD Collection Notes Only</span></td>
+              <td class="pe-4"><span class="badge bg-primary-subtle text-primary border border-primary-subtle">Submit Proof Only</span></td>
+            </tr>
+            <tr>
+              <td class="ps-4 fw-semibold text-dark">Operational Reports &amp; Financial Analytics</td>
+              <td><span class="badge bg-dark text-white px-2 py-1"><i class="bi bi-check2-all me-1"></i>Full Control</span></td>
+              <td><span class="text-muted">No Access</span></td>
+              <td class="pe-4"><span class="text-muted">No Access</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="p-3 bg-light text-muted small border-top">
+        <i class="bi bi-info-circle me-1"></i> Role access boundaries are strictly enforced server-side using <code>@login_required</code> decorators and session validation.
+      </div>
+    </div>
+
+    <!-- Staff Role Assignment Card -->
+    <div class="card border-0 shadow-sm p-4 rounded-3 bg-white mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h5 class="fw-bold mb-0 text-dark">Staff Role Assignment</h5>
+          <span class="text-muted small">Update role assignments between Administrator and Delivery Driver</span>
+        </div>
+        <span class="badge bg-light text-dark border px-2 py-1 small">
+          {{ staff_users|length }} Staff Members
+        </span>
+      </div>
+
+      <form method="POST" action="{{ url_for('main.admin_access') }}" id="staffRoleForm">
+        <input type="hidden" name="action" value="update_role">
+        <input type="hidden" name="target_tab" value="roles">
+
+        <div class="row g-3 mb-3">
+          <!-- Select Staff Member -->
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-secondary">Select Staff Account</label>
+            <select name="user_id" id="staffSelectBox" class="form-select" onchange="handleStaffChange()">
+              {% for u in staff_users %}
+                <option value="{{ u.id }}"
+                        data-role="{{ u.role }}"
+                        data-name="{{ u.name }}"
+                        data-email="{{ u.email }}"
+                        data-staffid="{{ u.staff_id or 'No ID' }}"
+                        data-isself="{{ '1' if u.id == session.user_id else '0' }}">
+                  {{ u.name }} &middot; {{ u.staff_id or 'No ID' }} ({{ u.role|title }}){% if u.id == session.user_id %} — (You){% endif %}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Target Role Radios -->
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-secondary">Assign Role</label>
+            <div class="btn-group w-100" role="group">
+              <input type="radio" class="btn-check" name="role" id="targetAdmin" value="admin" autocomplete="off" onchange="renderRoleDescription()">
+              <label class="btn btn-outline-dark" for="targetAdmin">
+                <i class="bi bi-shield-lock me-1"></i>Administrator
+              </label>
+
+              <input type="radio" class="btn-check" name="role" id="targetDriver" value="driver" autocomplete="off" onchange="renderRoleDescription()">
+              <label class="btn btn-outline-dark" for="targetDriver">
+                <i class="bi bi-truck me-1"></i>Delivery Driver
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Role Description Box -->
+        <div class="p-3 rounded-2 border mb-3 bg-light" id="staffRoleDescriptionBox">
+          <div class="fw-bold small mb-1" id="staffRoleTitle">Driver &middot; Limited access</div>
+          <p class="small text-muted mb-0" id="staffRoleSummary">
+            Can view and update only assigned deliveries, routes, site contacts, and recipient confirmations. Restricted from customer accounts, payment records, inventory, reports, and role settings.
+          </p>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div id="selfProtectionAlert" class="small text-danger d-none">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>You cannot demote your own active administrator account.
+          </div>
+          <div class="ms-auto">
+            <button type="submit" class="btn btn-rml btn-sm px-4" id="saveRoleSubmitBtn">
+              <i class="bi bi-check2-circle me-1"></i>Save Role Assignment
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- TAB 3: ACCESS LOGS (AUDIT TRAIL)                                  -->
+  <!-- ================================================================= -->
+  <div class="tab-pane fade {% if active_tab == 'logs' %}show active{% endif %}" id="tab-logs" role="tabpanel" aria-labelledby="logs-tab">
+
+    <div class="card border-0 shadow-sm rounded-3 overflow-hidden bg-white mb-4">
+      <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h6 class="fw-bold mb-0 text-dark">Access &amp; Security Activity Logs</h6>
+          <span class="text-muted small">Historical audit record of administrative actions, account activations, suspensions, and role changes</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-light text-dark border px-2 py-1 small">
+            {{ access_logs|length }} Record{% if access_logs|length != 1 %}s{% endif %} Logged
+          </span>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-4">Timestamp</th>
+              <th>Responsible Admin</th>
+              <th>Action Performed</th>
+              <th>Target Account</th>
+              <th>Details &amp; Notes</th>
+              <th class="text-end pe-4">IP Address</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in access_logs %}
+            <tr>
+              <td class="ps-4 small text-muted text-nowrap">
+                <i class="bi bi-clock me-1"></i>{{ log.created_at }}
+              </td>
+              <td>
+                <span class="fw-semibold text-dark small">{{ log.performed_by_name or 'Admin' }}</span>
+              </td>
+              <td>
+                {% if log.action == 'Account Suspended' %}
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
+                    <i class="bi bi-pause-circle me-1"></i>{{ log.action }}
+                  </span>
+                {% elif log.action == 'Account Activated' %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                    <i class="bi bi-check-circle me-1"></i>{{ log.action }}
+                  </span>
+                {% elif log.action == 'Role Updated' %}
+                  <span class="badge bg-warning-subtle text-dark border border-warning-subtle px-2 py-1">
+                    <i class="bi bi-arrow-repeat me-1"></i>{{ log.action }}
+                  </span>
+                {% else %}
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                    <i class="bi bi-person-plus me-1"></i>{{ log.action }}
+                  </span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="fw-bold small text-dark">{{ log.affected_user_name or '—' }}</div>
+                <div class="text-muted" style="font-size: 0.75rem;">{{ log.affected_user_email or '' }}</div>
+              </td>
+              <td class="small text-muted">{{ log.details or '—' }}</td>
+              <td class="text-end pe-4 small text-muted font-monospace">{{ log.ip_address or '127.0.0.1' }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="6" class="text-center py-5 text-muted">
+                <div class="py-4">
+                  <div class="rounded-circle bg-light d-inline-flex p-3 mb-2">
+                    <i class="bi bi-shield-check fs-2 text-muted"></i>
+                  </div>
+                  <h6 class="fw-bold text-dark mb-1">No Activity Logged Yet</h6>
+                  <p class="small text-muted mb-0">
+                    Administrative operations such as account activations, suspensions, role changes, and staff registrations will appear here automatically.
+                  </p>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer bg-light py-2 px-4 border-top text-muted small">
+        <i class="bi bi-shield-lock me-1"></i> Genuine persistent audit logging records real actions performed by administrators without fabricated data.
+      </div>
+    </div>
+  </div>
+
 </div>
 
-<!-- Modal: Add Staff or Driver Account -->
-<div class="modal fade" id="addUserModal" tabindex="-1">
-  <div class="modal-dialog">
-    <form method="POST" action="{{ url_for('main.admin_access') }}" class="modal-content">
+<!-- ================================================================= -->
+<!-- MODAL: ADD STAFF OR DRIVER ACCOUNT                                -->
+<!-- ================================================================= -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="POST" action="{{ url_for('main.admin_access') }}" class="modal-content border-0 shadow">
       <input type="hidden" name="action" value="add_staff">
-      <div class="modal-header">
-        <h5 class="modal-title fw-bold">Add Staff or Driver Account</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <input type="hidden" name="target_tab" value="accounts">
+
+      <div class="modal-header border-bottom">
+        <h5 class="modal-title fw-bold text-dark" id="addUserModalLabel">Add Staff or Driver Account</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
+
       <div class="modal-body p-4">
         <div class="mb-3">
-          <label class="form-label small fw-semibold">Full Name *</label>
+          <label class="form-label small fw-semibold text-secondary">Full Name *</label>
           <input type="text" name="name" class="form-control" required placeholder="e.g. Roberto Santos">
         </div>
+
         <div class="row g-3 mb-3">
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Email Address *</label>
+            <label class="form-label small fw-semibold text-secondary">Email Address *</label>
             <input type="email" name="email" class="form-control" required placeholder="name@rml.com">
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Phone Number *</label>
+            <label class="form-label small fw-semibold text-secondary">Phone Number *</label>
             <input type="tel" name="phone" class="form-control" required placeholder="0917 555 0100">
           </div>
         </div>
+
         <div class="row g-3 mb-3">
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Role *</label>
+            <label class="form-label small fw-semibold text-secondary">Role Assignment *</label>
             <select name="role" class="form-select">
-              <option value="driver">Driver (Limited Access)</option>
-              <option value="admin">Admin (Full Control)</option>
+              <option value="driver">Delivery Driver (Field Ops)</option>
+              <option value="admin">Administrator (Full Control)</option>
             </select>
           </div>
           <div class="col-md-6">
-            <label class="form-label small fw-semibold">Staff ID (Auto if blank)</label>
-            <input type="text" name="staff_id" class="form-control" placeholder="RML-DRV-016">
+            <label class="form-label small fw-semibold text-secondary">Staff ID (Auto if blank)</label>
+            <input type="text" name="staff_id" class="form-control" placeholder="RML-DRV-021">
           </div>
         </div>
+
         <div class="mb-2">
-          <label class="form-label small fw-semibold">Temporary Password *</label>
-          <input type="text" name="password" class="form-control" value="rml12345" required>
+          <label class="form-label small fw-semibold text-secondary">Temporary Password *</label>
+          <input type="text" name="password" class="form-control font-monospace" value="rml12345" required>
+          <small class="text-muted">User can update password upon first signing into their workspace.</small>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="submit" class="btn btn-rml">Create Staff Account</button>
+
+      <div class="modal-footer border-top bg-light">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-rml btn-sm px-4">Create Staff Account</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- MODAL: ACCOUNT DETAILS VIEW                                       -->
+<!-- ================================================================= -->
+<div class="modal fade" id="accountDetailsModal" tabindex="-1" aria-labelledby="accountDetailsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom">
+        <h5 class="modal-title fw-bold text-dark" id="accountDetailsModalLabel">Account Information</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <!-- Account Header Card -->
+        <div class="d-flex align-items-center gap-3 p-3 bg-light rounded-3 mb-3 border">
+          <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white fs-4" id="detailAvatar" style="width: 52px; height: 52px; background: #142235;">
+            JD
+          </div>
+          <div>
+            <h5 class="fw-bold mb-0 text-dark" id="detailName">Juan Dela Cruz</h5>
+            <div class="d-flex align-items-center gap-2 mt-1">
+              <span class="badge bg-dark" id="detailRoleBadge">Driver</span>
+              <span class="badge bg-success-subtle text-success border border-success-subtle" id="detailStatusBadge">Active</span>
+              <span class="small text-muted font-monospace" id="detailStaffId">RML-DRV-014</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detail Grid -->
+        <div class="row g-3 small">
+          <div class="col-6">
+            <span class="text-muted d-block">Email Address</span>
+            <strong class="text-dark" id="detailEmail">driver@rml.com</strong>
+          </div>
+          <div class="col-6">
+            <span class="text-muted d-block">Phone Number</span>
+            <strong class="text-dark" id="detailPhone">0917 555 0140</strong>
+          </div>
+          <div class="col-12">
+            <span class="text-muted d-block">Registered Address</span>
+            <span class="text-dark" id="detailAddress">Lipa City Central Depot</span>
+          </div>
+          <div class="col-6">
+            <span class="text-muted d-block">Member Since</span>
+            <span class="text-dark" id="detailCreated">2026-11-13</span>
+          </div>
+          <div class="col-6">
+            <span class="text-muted d-block">Operational Metric</span>
+            <strong class="text-dark" id="detailMetric">4 Deliveries Assigned</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer border-top bg-light d-flex justify-content-between">
+        <div id="detailSelfNotice" class="small text-muted d-none">
+          <i class="bi bi-shield-lock me-1"></i>Current Administrator Account
+        </div>
+        <div class="ms-auto d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-sm" id="detailActionBtn">Toggle Status</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- MODAL: CONFIRM ACTION (SUSPEND / ACTIVATE)                         -->
+<!-- ================================================================= -->
+<div class="modal fade" id="confirmActionModal" tabindex="-1" aria-labelledby="confirmActionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="POST" action="{{ url_for('main.admin_access') }}" class="modal-content border-0 shadow">
+      <input type="hidden" name="action" value="toggle_active">
+      <input type="hidden" name="target_tab" value="accounts">
+      <input type="hidden" name="user_id" id="confirmUserId" value="">
+      <input type="hidden" name="status" id="confirmTargetStatus" value="">
+
+      <div class="modal-header border-bottom">
+        <h5 class="modal-title fw-bold text-dark" id="confirmModalTitle">Confirm Action</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-4 text-center">
+        <div class="rounded-circle d-inline-flex p-3 mb-3" id="confirmIconWrapper" style="background: rgba(220, 38, 38, 0.1); color: #DC2626;">
+          <i class="bi bi-exclamation-triangle-fill fs-2" id="confirmIcon"></i>
+        </div>
+        <h5 class="fw-bold mb-2 text-dark" id="confirmActionHeadline">Suspend User Account?</h5>
+        <p class="small text-muted mb-0" id="confirmActionMessage">
+          Are you sure you want to suspend this account? The user will be immediately prevented from logging into the system.
+        </p>
+      </div>
+
+      <div class="modal-footer border-top bg-light">
+        <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-danger btn-sm px-4" id="confirmSubmitBtn">
+          Confirm Action
+        </button>
       </div>
     </form>
   </div>
@@ -218,59 +816,335 @@
 
 {% block scripts %}
 <script>
-  function onStaffSelected() {
-    const sel = document.getElementById("staffUserSelect");
+  // -------------------------------------------------------------
+  // Dynamic Tab Switching & URL Sync
+  // -------------------------------------------------------------
+  document.addEventListener("DOMContentLoaded", function () {
+    // Select tab based on query param or hash
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    const hash = window.location.hash.replace('#', '');
+
+    const targetTab = tabParam || hash;
+    if (targetTab === 'roles') {
+      const btn = document.getElementById('roles-tab');
+      if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
+    } else if (targetTab === 'logs') {
+      const btn = document.getElementById('logs-tab');
+      if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
+    } else {
+      const btn = document.getElementById('accounts-tab');
+      if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
+    }
+
+    // Initialize Staff Selector
+    handleStaffChange();
+
+    // Initialize Table Filter & Pagination
+    setupAccountFilter();
+  });
+
+  // -------------------------------------------------------------
+  // Client-Side Search, Filter & Pagination
+  // -------------------------------------------------------------
+  const PAGE_SIZE = 10;
+  let currentPage = 1;
+
+  function setupAccountFilter() {
+    const searchInput = document.getElementById('accountSearchInput');
+    const roleSelect = document.getElementById('roleFilterSelect');
+    const statusSelect = document.getElementById('statusFilterSelect');
+    const resetBtn = document.getElementById('resetFiltersBtn');
+
+    if (searchInput) searchInput.addEventListener('input', () => { currentPage = 1; applyFilters(); });
+    if (roleSelect) roleSelect.addEventListener('change', () => { currentPage = 1; applyFilters(); });
+    if (statusSelect) statusSelect.addEventListener('change', () => { currentPage = 1; applyFilters(); });
+
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function () {
+        if (searchInput) searchInput.value = '';
+        if (roleSelect) roleSelect.value = 'all';
+        if (statusSelect) statusSelect.value = 'all';
+        currentPage = 1;
+        applyFilters();
+      });
+    }
+
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const searchVal = (document.getElementById('accountSearchInput')?.value || '').toLowerCase().trim();
+    const roleVal = document.getElementById('roleFilterSelect')?.value || 'all';
+    const statusVal = document.getElementById('statusFilterSelect')?.value || 'all';
+
+    const rows = Array.from(document.querySelectorAll('.account-row'));
+    let matchedRows = [];
+
+    rows.forEach(row => {
+      const name = row.getAttribute('data-name') || '';
+      const email = row.getAttribute('data-email') || '';
+      const phone = row.getAttribute('data-phone') || '';
+      const staffid = (row.getAttribute('data-staffid') || '').toLowerCase();
+      const id = row.getAttribute('data-id') || '';
+      const role = row.getAttribute('data-role') || '';
+      const status = row.getAttribute('data-status') || '';
+
+      const matchSearch = !searchVal || 
+        name.includes(searchVal) || 
+        email.includes(searchVal) || 
+        phone.includes(searchVal) || 
+        staffid.includes(searchVal) || 
+        id.includes(searchVal);
+
+      const matchRole = (roleVal === 'all') || (role === roleVal);
+      const matchStatus = (statusVal === 'all') || (status === statusVal);
+
+      if (matchSearch && matchRole && matchStatus) {
+        matchedRows.push(row);
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    // Update match count badge
+    const countBadge = document.getElementById('accountsMatchCount');
+    if (countBadge) {
+      countBadge.textContent = `Showing ${matchedRows.length} of ${rows.length} Accounts`;
+    }
+
+    // Handle Empty State
+    const emptyRow = document.getElementById('emptyTableRow');
+    if (emptyRow) {
+      emptyRow.style.display = matchedRows.length === 0 ? '' : 'none';
+    }
+
+    // Pagination
+    const totalPages = Math.ceil(matchedRows.length / PAGE_SIZE) || 1;
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    const startIdx = (currentPage - 1) * PAGE_SIZE;
+    const endIdx = startIdx + PAGE_SIZE;
+
+    matchedRows.forEach((row, idx) => {
+      if (idx >= startIdx && idx < endIdx) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    // Update pagination info
+    const pagStart = document.getElementById('pagStart');
+    const pagEnd = document.getElementById('pagEnd');
+    const pagTotal = document.getElementById('pagTotal');
+
+    if (pagStart) pagStart.textContent = matchedRows.length > 0 ? (startIdx + 1) : 0;
+    if (pagEnd) pagEnd.textContent = Math.min(endIdx, matchedRows.length);
+    if (pagTotal) pagTotal.textContent = matchedRows.length;
+
+    renderPaginationNav(totalPages);
+  }
+
+  function renderPaginationNav(totalPages) {
+    const nav = document.getElementById('accountsPagination');
+    if (!nav) return;
+    nav.innerHTML = '';
+
+    if (totalPages <= 1) return;
+
+    // Previous Button
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<button class="page-link" type="button" aria-label="Previous">&laquo;</button>`;
+    prevLi.onclick = () => { if (currentPage > 1) { currentPage--; applyFilters(); } };
+    nav.appendChild(prevLi);
+
+    // Page Numbers
+    for (let p = 1; p <= totalPages; p++) {
+      const pLi = document.createElement('li');
+      pLi.className = `page-item ${p === currentPage ? 'active' : ''}`;
+      pLi.innerHTML = `<button class="page-link" type="button">${p}</button>`;
+      pLi.onclick = () => { currentPage = p; applyFilters(); };
+      nav.appendChild(pLi);
+    }
+
+    // Next Button
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<button class="page-link" type="button" aria-label="Next">&raquo;</button>`;
+    nextLi.onclick = () => { if (currentPage < totalPages) { currentPage++; applyFilters(); } };
+    nav.appendChild(nextLi);
+  }
+
+  // -------------------------------------------------------------
+  // Account Details Modal Populator
+  // -------------------------------------------------------------
+  function openAccountDetails(btn) {
+    const id = btn.getAttribute('data-id');
+    const staffid = btn.getAttribute('data-staffid');
+    const name = btn.getAttribute('data-name');
+    const email = btn.getAttribute('data-email');
+    const phone = btn.getAttribute('data-phone');
+    const address = btn.getAttribute('data-address');
+    const role = btn.getAttribute('data-role');
+    const active = btn.getAttribute('data-active') === '1';
+    const created = btn.getAttribute('data-created') || 'Active';
+    const orders = btn.getAttribute('data-orders');
+    const spent = btn.getAttribute('data-spent');
+    const deliveries = btn.getAttribute('data-deliveries');
+    const isSelf = btn.getAttribute('data-isself') === '1';
+
+    // Populate modal elements
+    document.getElementById('detailAvatar').textContent = name.substring(0, 2).toUpperCase();
+    document.getElementById('detailAvatar').style.background = role === 'admin' ? '#142235' : (role === 'driver' ? '#0D9488' : '#2563EB');
+    document.getElementById('detailName').textContent = name;
+    document.getElementById('detailStaffId').textContent = staffid;
+    document.getElementById('detailEmail').textContent = email;
+    document.getElementById('detailPhone').textContent = phone;
+    document.getElementById('detailAddress').textContent = address;
+    document.getElementById('detailCreated').textContent = created.substring(0, 10);
+
+    const roleBadge = document.getElementById('detailRoleBadge');
+    roleBadge.textContent = role.toUpperCase();
+    roleBadge.className = 'badge ' + (role === 'admin' ? 'bg-dark' : (role === 'driver' ? 'bg-info-subtle text-dark border' : 'bg-primary-subtle text-primary border'));
+
+    const statusBadge = document.getElementById('detailStatusBadge');
+    if (active) {
+      statusBadge.textContent = 'Active';
+      statusBadge.className = 'badge bg-success-subtle text-success border border-success-subtle';
+    } else {
+      statusBadge.textContent = 'Suspended';
+      statusBadge.className = 'badge bg-danger-subtle text-danger border border-danger-subtle';
+    }
+
+    const metric = document.getElementById('detailMetric');
+    if (role === 'customer') {
+      metric.textContent = `${orders} Orders placed (₱${spent})`;
+    } else if (role === 'driver') {
+      metric.textContent = `${deliveries} Dispatches assigned`;
+    } else {
+      metric.textContent = 'Full System Governance';
+    }
+
+    const selfNotice = document.getElementById('detailSelfNotice');
+    const actionBtn = document.getElementById('detailActionBtn');
+
+    if (isSelf) {
+      selfNotice.classList.remove('d-none');
+      actionBtn.classList.add('d-none');
+    } else {
+      selfNotice.classList.add('d-none');
+      actionBtn.classList.remove('d-none');
+      if (active) {
+        actionBtn.className = 'btn btn-outline-danger btn-sm';
+        actionBtn.innerHTML = '<i class="bi bi-pause-circle me-1"></i>Suspend Account';
+        actionBtn.onclick = () => {
+          bootstrap.Modal.getInstance(document.getElementById('accountDetailsModal')).hide();
+          promptStatusToggle(id, name, email, 'suspend');
+        };
+      } else {
+        actionBtn.className = 'btn btn-outline-success btn-sm';
+        actionBtn.innerHTML = '<i class="bi bi-play-circle me-1"></i>Activate Account';
+        actionBtn.onclick = () => {
+          bootstrap.Modal.getInstance(document.getElementById('accountDetailsModal')).hide();
+          promptStatusToggle(id, name, email, 'activate');
+        };
+      }
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('accountDetailsModal'));
+    modal.show();
+  }
+
+  // -------------------------------------------------------------
+  // Confirmation Dialog for Status Toggle
+  // -------------------------------------------------------------
+  function promptStatusToggle(userId, name, email, actionType) {
+    document.getElementById('confirmUserId').value = userId;
+    document.getElementById('confirmTargetStatus').value = actionType === 'suspend' ? 'suspended' : 'active';
+
+    const title = document.getElementById('confirmModalTitle');
+    const headline = document.getElementById('confirmActionHeadline');
+    const message = document.getElementById('confirmActionMessage');
+    const submitBtn = document.getElementById('confirmSubmitBtn');
+    const iconWrapper = document.getElementById('confirmIconWrapper');
+    const icon = document.getElementById('confirmIcon');
+
+    if (actionType === 'suspend') {
+      title.textContent = 'Confirm Account Suspension';
+      headline.textContent = `Suspend account for ${name}?`;
+      message.innerHTML = `Are you sure you want to suspend <strong>${name}</strong> (${email})?<br>This user will be immediately blocked from signing in across all portals.`;
+      submitBtn.className = 'btn btn-danger btn-sm px-4';
+      submitBtn.innerHTML = '<i class="bi bi-pause-circle me-1"></i>Yes, Suspend Account';
+      iconWrapper.style.background = 'rgba(220, 38, 38, 0.1)';
+      iconWrapper.style.color = '#DC2626';
+      icon.className = 'bi bi-slash-circle-fill fs-2';
+    } else {
+      title.textContent = 'Confirm Account Activation';
+      headline.textContent = `Activate account for ${name}?`;
+      message.innerHTML = `Are you sure you want to activate <strong>${name}</strong> (${email})?<br>This user will regain access to sign in to their authorized portal.`;
+      submitBtn.className = 'btn btn-success btn-sm px-4';
+      submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Yes, Activate Account';
+      iconWrapper.style.background = 'rgba(16, 185, 129, 0.1)';
+      iconWrapper.style.color = '#10B981';
+      icon.className = 'bi bi-check-circle-fill fs-2';
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('confirmActionModal'));
+    modal.show();
+  }
+
+  // -------------------------------------------------------------
+  // Staff Role Management Tool
+  // -------------------------------------------------------------
+  function handleStaffChange() {
+    const sel = document.getElementById('staffSelectBox');
+    if (!sel || !sel.options.length) return;
     const opt = sel.options[sel.selectedIndex];
     if (!opt) return;
 
-    const role = opt.getAttribute("data-role");
-    const active = opt.getAttribute("data-active") === "1";
+    const role = opt.getAttribute('data-role');
+    const isSelf = opt.getAttribute('data-isself') === '1';
 
-    if (role === "admin") {
-      document.getElementById("roleAdmin").checked = true;
+    if (role === 'admin') {
+      document.getElementById('targetAdmin').checked = true;
     } else {
-      document.getElementById("roleDriver").checked = true;
+      document.getElementById('targetDriver').checked = true;
     }
 
-    const badge = document.getElementById("staffStatusBadge");
-    const suspendBtn = document.getElementById("suspendBtn");
-    if (active) {
-      badge.textContent = "Active";
-      badge.className = "badge badge-instock";
-      suspendBtn.textContent = "Suspend account";
+    const selfAlert = document.getElementById('selfProtectionAlert');
+    const submitBtn = document.getElementById('saveRoleSubmitBtn');
+    const targetAdminRadio = document.getElementById('targetAdmin');
+    const targetDriverRadio = document.getElementById('targetDriver');
+
+    if (isSelf) {
+      if (selfAlert) selfAlert.classList.remove('d-none');
+      if (targetDriverRadio) targetDriverRadio.disabled = true;
+      if (submitBtn) submitBtn.disabled = true;
     } else {
-      badge.textContent = "Suspended";
-      badge.className = "badge badge-danger";
-      suspendBtn.textContent = "Activate account";
+      if (selfAlert) selfAlert.classList.add('d-none');
+      if (targetDriverRadio) targetDriverRadio.disabled = false;
+      if (submitBtn) submitBtn.disabled = false;
     }
 
-    updateRoleDescription();
+    renderRoleDescription();
   }
 
-  function updateRoleDescription() {
-    const isAdmin = document.getElementById("roleAdmin").checked;
-    const title = document.getElementById("roleDescTitle");
-    const text = document.getElementById("roleDescText");
+  function renderRoleDescription() {
+    const isAdmin = document.getElementById('targetAdmin')?.checked;
+    const title = document.getElementById('staffRoleTitle');
+    const text = document.getElementById('staffRoleSummary');
+
+    if (!title || !text) return;
 
     if (isAdmin) {
-      title.textContent = "Admin · Full control";
-      text.textContent = "Admin has full overview and control of every customer and driver page. Can assign deliveries, manage inventory, record payments, and grant roles.";
+      title.textContent = "Administrator · Full Enterprise Control";
+      text.textContent = "Admin has full overview and control of every customer, order, payment, and driver dispatch. Can manage inventory, assign roles, configure delivery windows, and view financial reports.";
     } else {
-      title.textContent = "Driver · Limited access";
-      text.textContent = "Can view and update only assigned deliveries, routes, site contacts, and recipient confirmations. Cannot view other drivers, customer accounts, payment records, inventory, reports, or role settings.";
+      title.textContent = "Delivery Driver · Field Operations";
+      text.textContent = "Can view and update only assigned deliveries, delivery routes, recipient details, and delivery confirmations. Cannot view other drivers, customer accounts, payment records, inventory, reports, or role settings.";
     }
   }
-
-  function setToggleActiveAction() {
-    document.getElementById("staffAction").value = "toggle_active";
-  }
-
-  function setUpdateRoleAction() {
-    document.getElementById("staffAction").value = "update_role";
-  }
-
-  document.addEventListener("DOMContentLoaded", function () {
-    onStaffSelected();
-  });
 </script>
 {% endblock %}

@@ -361,6 +361,28 @@ def init_db():
     )
     cur.execute("CREATE INDEX IF NOT EXISTS idx_cart_items_user ON cart_items(user_id);")
 
+    # Ensure access_logs table exists for access & role management audit
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS access_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action TEXT NOT NULL,
+            affected_user_id INTEGER,
+            affected_user_name TEXT,
+            affected_user_email TEXT,
+            affected_user_role TEXT,
+            performed_by INTEGER,
+            performed_by_name TEXT,
+            details TEXT,
+            ip_address TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+            FOREIGN KEY (affected_user_id) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE SET NULL
+        );
+        """
+    )
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_access_logs_created ON access_logs(created_at);")
+
     # Seed default delivery settings
     cur.executemany(
         "INSERT OR IGNORE INTO delivery_settings (setting_key, setting_value) VALUES (?, ?)",

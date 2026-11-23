@@ -3709,58 +3709,250 @@ def admin_reports():
     )
 
 
+def log_access_event(conn, action, affected_user, performed_by_id, performed_by_name, details=""):
+    """Helper to safely record an access or permission management event."""
+    try:
+        aff_id = None
+        aff_name = ""
+        aff_email = ""
+        aff_role = ""
+        if affected_user is not None:
+            try:
+                aff_id = affected_user["id"]
+            except Exception:
+                pass
+            try:
+                aff_name = affected_user["name"] or ""
+            except Exception:
+                pass
+            try:
+                aff_email = affected_user["email"] or ""
+            except Exception:
+                pass
+            try:
+                aff_role = affected_user["role"] or ""
+            except Exception:
+                pass
+
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "127.0.0.1")
+        if ip and "," in ip:
+            ip = ip.split(",")[0].strip()
+
+        conn.execute(
+            """
+            INSERT INTO access_logs (action, affected_user_id, affected_user_name, affected_user_email, affected_user_role, performed_by, performed_by_name, details, ip_address)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (action, aff_id, aff_name, aff_email, aff_role, performed_by_id, performed_by_name, details, ip),
+        )
+    except Exception:
+        pass
+
+
 @main_bp.route("/admin/access", methods=["GET", "POST"])
 @login_required("admin")
 def admin_access():
     conn = get_db()
+    current_admin_id = session.get("user_id")
+    current_admin_name = session.get("user_name", "Admin")
 
     if request.method == "POST":
         action = request.form.get("action")
+        target_tab = request.form.get("target_tab", "accounts")
 
         if action == "add_staff":
             name = request.form.get("name", "").strip()
             role = request.form.get("role", "driver")
             staff_id = request.form.get("staff_id", "").strip()
-            email = request.form.get("email", "").strip()
+            email = request.form.get("email", "").strip().lower()
             phone = request.form.get("phone", "").strip()
             password = request.form.get("password", "rml12345")
+
+            if role not in ("admin", "driver", "staff"):
+                role = "driver"
 
             if not staff_id:
                 prefix = "RML-ADM" if role == "admin" else "RML-DRV"
                 staff_id = f"{prefix}-{random.randint(100, 999)}"
 
-            # Ensure unique staff_id
-            existing = conn.execute("SELECT id FROM users WHERE staff_id = ? OR email = ?", (staff_id, email)).fetchone()
+            # Ensure unique staff_id and email
+            existing = conn.execute("SELECT id FROM users WHERE staff_id = ? OR LOWER(email) = ?", (staff_id, email)).fetchone()
             if existing:
-                flash(f"Staff ID '{staff_id}' or Email '{email}' already exists.", "danger")
+                flash(f"Staff ID '{staff_id}' or Email '{email}' is already in use.", "danger")
             else:
                 conn.execute(
-                    "INSERT INTO users (staff_id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO users (staff_id, name, email, phone, password_hash, role, is_active, is_verified) VALUES (?, ?, ?, ?, ?, ?, 1, 1)",
                     (staff_id, name, email, phone, generate_password_hash(password), role),
                 )
                 conn.commit()
-                flash(f"Created {role} account for {name} ({staff_id}).", "success")
+                new_u = conn.execute("SELECT * FROM users WHERE staff_id = ?", (staff_id,)).fetchone()
+                log_access_event(
+                    conn,
+                    "Staff Account Created",
+                    new_u,
+                    current_admin_id,
+                    current_admin_name,
+                    f"Created {role.title()} account '{name}' ({staff_id}) with temporary password.",
+                )
+                conn.commit()
+                flash(f"Created {role.title()} account for {name} ({staff_id}) successfully.", "success")
+                target_tab = "accounts"
 
         elif action == "update_role":
-            uid = int(request.form.get("user_id"))
+            uid = int(request.form.get("user_id", 0))
             new_role = request.form.get("role", "driver")
-            conn.execute("UPDATE users SET role = ? WHERE id = ?", (new_role, uid))
-            conn.commit()
-            flash("Staff role updated successfully.", "success")
+
+            # Self-demotion protection: prevent admins from locking themselves out
+            if uid == current_admin_id and new_role != "admin":
+                flash("Protection active: Administrators cannot remove their own administrative privileges.", "danger")
+                target_tab = "roles"
+            elif new_role not in ("admin", "driver", "staff"):
+                flash("Invalid role selection.", "danger")
+                target_tab = "roles"
+            else:
+                u = conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+                if u:
+                    old_role = u["role"]
+                    if old_role != new_role:
+                        conn.execute("UPDATE users SET role = ? WHERE id = ?", (new_role, uid))
+                        conn.commit()
+                        log_access_event(
+                            conn,
+                            "Role Updated",
+                            u,
+                            current_admin_id,
+                            current_admin_name,
+                            f"Role changed from {old_role.title()} to {new_role.title()}.",
+                        )
+                        conn.commit()
+                        flash(f"Role for {u['name']} successfully changed to {new_role.title()}.", "success")
+                    else:
+                        flash(f"{u['name']} is already assigned the {new_role.title()} role.", "info")
+                else:
+                    flash("User account not found.", "danger")
+                target_tab = "roles"
 
         elif action == "toggle_active":
-            uid = int(request.form.get("user_id"))
-            conn.execute("UPDATE users SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END WHERE id = ?", (uid,))
-            conn.commit()
-            flash("Account active status updated.", "info")
+            uid = int(request.form.get("user_id", 0))
+            explicit_status = request.form.get("status")  # Optional: 'active' or 'suspended'
+
+            # Self-lockout protection: prevent administrator from suspending their own active session
+            if uid == current_admin_id:
+                flash("Protection active: You cannot suspend your own active administrator account.", "danger")
+                target_tab = "accounts"
+            else:
+                u = conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+                if u:
+                    if explicit_status == "suspended":
+                        new_status = 0
+                    elif explicit_status == "active":
+                        new_status = 1
+                    else:
+                        new_status = 0 if u["is_active"] == 1 else 1
+
+                    conn.execute("UPDATE users SET is_active = ? WHERE id = ?", (new_status, uid))
+                    conn.commit()
+
+                    status_label = "Active" if new_status == 1 else "Suspended"
+                    action_name = "Account Activated" if new_status == 1 else "Account Suspended"
+                    log_access_event(
+                        conn,
+                        action_name,
+                        u,
+                        current_admin_id,
+                        current_admin_name,
+                        f"Account status set to {status_label} by administrator.",
+                    )
+                    conn.commit()
+                    flash(f"Account for {u['name']} is now {status_label}.", "success" if new_status == 1 else "warning")
+                else:
+                    flash("User account not found.", "danger")
+                target_tab = "accounts"
 
         conn.close()
-        return redirect(url_for("main.admin_access"))
+        return redirect(url_for("main.admin_access", tab=target_tab))
 
-    users = conn.execute("SELECT * FROM users ORDER BY role, name").fetchall()
-    staff_users = [u for u in users if u["role"] in ("admin", "driver", "staff")]
+    # GET Request: Fetch users and compute stats
+    active_tab = request.args.get("tab", "accounts")
+    search_q = request.args.get("search", "").strip()
+    role_f = request.args.get("role_filter", "all").strip().lower()
+    status_f = request.args.get("status_filter", "all").strip().lower()
+
+    # Query enriched users with order and delivery metrics
+    users_query = """
+        SELECT u.*,
+               (SELECT COUNT(*) FROM orders WHERE customer_id = u.id) AS order_count,
+               (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE customer_id = u.id AND order_status != 'rejected') AS total_spent,
+               (SELECT COUNT(*) FROM deliveries WHERE driver_id = u.id) AS delivery_count,
+               (SELECT COUNT(*) FROM deliveries WHERE driver_id = u.id AND delivery_status = 'delivered') AS completed_deliveries
+        FROM users u
+        ORDER BY 
+            CASE WHEN u.role = 'admin' THEN 1 WHEN u.role = 'driver' THEN 2 ELSE 3 END,
+            u.id ASC
+    """
+    all_users = conn.execute(users_query).fetchall()
+
+    # Apply backend filters if requested
+    filtered_users = []
+    for u in all_users:
+        # Search match
+        if search_q:
+            q_lower = search_q.lower()
+            u_id_str = str(u["id"])
+            staff_id_str = (u["staff_id"] or "").lower()
+            name_str = (u["name"] or "").lower()
+            email_str = (u["email"] or "").lower()
+            phone_str = (u["phone"] or "").lower()
+            if not (q_lower in name_str or q_lower in email_str or q_lower in phone_str or q_lower in staff_id_str or q_lower in u_id_str):
+                continue
+
+        # Role match
+        if role_f and role_f != "all":
+            if u["role"].lower() != role_f:
+                continue
+
+        # Status match
+        if status_f and status_f != "all":
+            if status_f == "active" and u["is_active"] != 1:
+                continue
+            if status_f == "suspended" and u["is_active"] != 0:
+                continue
+
+        filtered_users.append(u)
+
+    # Calculate statistics across all accounts
+    stats = {
+        "total": len(all_users),
+        "admin": sum(1 for u in all_users if u["role"] == "admin"),
+        "driver": sum(1 for u in all_users if u["role"] == "driver"),
+        "customer": sum(1 for u in all_users if u["role"] == "customer"),
+        "active": sum(1 for u in all_users if u["is_active"] == 1),
+        "suspended": sum(1 for u in all_users if u["is_active"] == 0),
+    }
+
+    staff_users = [u for u in all_users if u["role"] in ("admin", "driver", "staff")]
+
+    # Fetch real access logs
+    access_logs = conn.execute(
+        """
+        SELECT * FROM access_logs ORDER BY id DESC LIMIT 100
+        """
+    ).fetchall()
+
     conn.close()
-    return render_template("admin/access.html", users=users, staff_users=staff_users)
+
+    return render_template(
+        "admin/access.html",
+        users=filtered_users,
+        all_users=all_users,
+        staff_users=staff_users,
+        access_logs=access_logs,
+        stats=stats,
+        active_tab=active_tab,
+        search_query=search_q,
+        role_filter=role_f,
+        status_filter=status_f,
+    )
 
 
 # -------------------------------------------------------------------------
