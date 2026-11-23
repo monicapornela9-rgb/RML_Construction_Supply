@@ -3638,32 +3638,63 @@ def admin_reports():
         "SELECT * FROM products WHERE stock_quantity <= low_stock_threshold"
     ).fetchall()
 
-    # Sales by category for chart
-    cat_sales = conn.execute(
-        """
+    # Sales by category for chart (filtered by date if provided)
+    cat_query = """
         SELECT c.name, COALESCE(SUM(oi.subtotal), 0) AS revenue
         FROM categories c
         LEFT JOIN products p ON c.id = p.category_id
-        LEFT JOIN order_items oi ON p.id = oi.product_id
-        LEFT JOIN orders o ON oi.order_id = o.id AND o.order_status != 'rejected'
+        LEFT JOIN (
+            SELECT oi.product_id, oi.subtotal
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.id
+            WHERE o.order_status != 'rejected'
+    """
+    cat_params = []
+    if start_date:
+        cat_query += " AND date(o.created_at) >= date(?)"
+        cat_params.append(start_date)
+    if end_date:
+        cat_query += " AND date(o.created_at) <= date(?)"
+        cat_params.append(end_date)
+    cat_query += """
+        ) oi ON p.id = oi.product_id
         GROUP BY c.id
         ORDER BY revenue DESC
-        """
-    ).fetchall()
+    """
+    cat_sales = conn.execute(cat_query, cat_params).fetchall()
 
-    # Daily orders for trend
-    daily_orders = conn.execute(
-        """
+    # Daily orders for trend (filtered by date if provided, latest 7 days)
+    daily_query = """
         SELECT date(created_at) AS order_date, COUNT(*) AS count,
                SUM(CASE WHEN order_status IN ('approved', 'in_transit', 'delivered') THEN 1 ELSE 0 END) AS approved_count
         FROM orders
+        WHERE 1=1
+    """
+    daily_params = []
+    if start_date:
+        daily_query += " AND date(created_at) >= date(?)"
+        daily_params.append(start_date)
+    if end_date:
+        daily_query += " AND date(created_at) <= date(?)"
+        daily_params.append(end_date)
+    daily_query += """
         GROUP BY date(created_at)
         ORDER BY order_date DESC
         LIMIT 7
-        """
-    ).fetchall()
+    """
+    daily_orders_raw = conn.execute(daily_query, daily_params).fetchall()
+    daily_orders = list(reversed(daily_orders_raw))
 
     conn.close()
+
+    max_cat_rev = max([float(c["revenue"] or 0) for c in cat_sales] or [1.0])
+    if max_cat_rev <= 0:
+        max_cat_rev = 1.0
+
+    max_daily_count = max([int(d["count"] or 0) for d in daily_orders] or [1])
+    if max_daily_count <= 0:
+        max_daily_count = 1
+
     return render_template(
         "admin/reports.html",
         orders=orders,
@@ -3671,6 +3702,8 @@ def admin_reports():
         low_stock_items=low_stock_items,
         cat_sales=cat_sales,
         daily_orders=daily_orders,
+        max_cat_rev=max_cat_rev,
+        max_daily_count=max_daily_count,
         start_date=start_date,
         end_date=end_date,
     )
