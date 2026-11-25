@@ -12,7 +12,7 @@
 <ul class="nav nav-pills mb-3 flex-wrap gap-1">
   <li class="nav-item">
     <a class="nav-link {% if tab == 'awaiting' %}active btn-rml{% else %}text-dark bg-white border{% endif %}" href="{{ url_for('main.admin_payments', tab='awaiting') }}">
-      Awaiting Verification ({{ counts.awaiting }})
+      Awaiting Verification / Collection ({{ counts.awaiting }})
     </a>
   </li>
   <li class="nav-item">
@@ -41,11 +41,11 @@
           <th>Order</th>
           <th>Customer &amp; Site</th>
           <th>Method</th>
-          <th>Transaction Reference</th>
           <th>Amount</th>
-          <th>Payment Status</th>
-          <th>Order State</th>
-          <th class="text-end">Verification Actions</th>
+          <th>Assigned Driver</th>
+          <th>Payment Status &amp; Collection</th>
+          <th>Delivery Status</th>
+          <th class="text-end">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -56,59 +56,94 @@
             {% if p.assigned_date %}
               <small class="text-muted">{{ p.assigned_date }} ({{ p.assigned_time_slot }})</small>
             {% endif %}
+            {% if p.delivery_code %}
+              <div><code class="smaller">{{ p.delivery_code }}</code></div>
+            {% endif %}
           </td>
           <td>
             <div class="fw-semibold">{{ p.recipient_name }}</div>
+            <small class="text-muted d-block">{{ p.customer_phone or 'No phone' }}</small>
             <small class="text-muted">{{ p.delivery_address|truncate(32) }}</small>
           </td>
           <td>
             {% if p.method == 'cash' %}
-              <span class="badge text-bg-light border"><i class="bi bi-cash me-1"></i> Cash on Delivery</span>
+              <span class="badge text-bg-light border"><i class="bi bi-cash me-1 text-success"></i> Cash on Delivery</span>
             {% elif p.method == 'qr' %}
               <span class="badge text-bg-primary border"><i class="bi bi-qr-code me-1"></i> Online QR</span>
             {% else %}
               <span class="badge text-bg-secondary text-uppercase">{{ p.method }}</span>
             {% endif %}
-          </td>
-          <td>
             {% if p.reference_number %}
-              <code class="fw-bold">{{ p.reference_number }}</code>
-            {% else %}
-              <span class="text-muted smaller">Pending on site</span>
-            {% endif %}
-            {% if p.payer_name %}
-              <div class="smaller text-muted">Payer: {{ p.payer_name }} {% if p.bank_used %}({{ p.bank_used }}){% endif %}</div>
+              <div class="smaller text-muted mt-1">Ref: <code>{{ p.reference_number }}</code></div>
             {% endif %}
           </td>
-          <td class="fw-bold fs-6">&#8369;{{ "{:,.2f}".format(p.amount) }}</td>
+          <td class="fw-bold fs-6 text-dark">&#8369;{{ "{:,.2f}".format(p.amount) }}</td>
           <td>
-            {% if p.payment_status in ('verified', 'paid') %}
-              <span class="badge badge-instock"><i class="bi bi-check-circle me-1"></i> Paid / Verified</span>
-              {% if p.verified_by_name %}
-                <div class="smaller text-muted mt-1">By {{ p.verified_by_name }}</div>
-              {% endif %}
-            {% elif p.payment_status == 'payment_due' %}
-              <span class="badge bg-info text-dark"><i class="bi bi-hourglass-split me-1"></i> COD Approved &middot; Due on Site</span>
-            {% elif p.payment_status in ('pending', 'pending_verification') %}
-              <span class="badge badge-check"><i class="bi bi-clock-history me-1"></i> Awaiting Verification</span>
-            {% elif p.payment_status == 'rejected' %}
-              <span class="badge badge-danger">Payment Rejected</span>
-              {% if p.rejection_reason %}
-                <div class="smaller text-danger mt-1">{{ p.rejection_reason }}</div>
+            {% if p.assigned_driver_name %}
+              <div class="fw-semibold small text-dark"><i class="bi bi-person-badge text-primary me-1"></i>{{ p.assigned_driver_name }}</div>
+              {% if p.truck_code %}
+                <small class="text-muted">{{ p.truck_code }} ({{ p.plate_number or 'Plate N/A' }})</small>
               {% endif %}
             {% else %}
-              <span class="badge text-bg-light border text-muted">{{ p.payment_status|title }}</span>
+              <span class="badge text-bg-light border text-muted smaller">
+                <i class="bi bi-person-x me-1"></i> Not Assigned
+              </span>
             {% endif %}
           </td>
           <td>
-            <span class="badge {% if p.order_status in ('ready_for_dispatch', 'delivered') %}badge-instock{% elif p.order_status in ('cancelled', 'payment_rejected') %}badge-danger{% else %}badge-check{% endif %} text-uppercase">
-              {{ p.order_status|replace('_', ' ') }}
+            {% if p.method == 'cash' %}
+              {% if p.payment_status == 'paid' %}
+                <span class="badge badge-instock"><i class="bi bi-check-circle-fill me-1"></i> Paid (Collected)</span>
+                <div class="smaller text-success fw-semibold mt-1">
+                  <i class="bi bi-person-check me-1"></i>{{ p.collected_by_driver_name or p.verified_by_name or 'Assigned Driver' }}
+                </div>
+                <div class="smaller text-muted">
+                  <i class="bi bi-clock-history me-1"></i>{{ p.collected_at or p.paid_at }}
+                </div>
+              {% elif p.payment_status == 'payment_due' %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i> Pending Collection</span>
+                <div class="smaller text-muted mt-1"><i class="bi bi-truck me-1"></i>Due to driver upon delivery</div>
+              {% elif p.payment_status in ('pending', 'pending_verification') %}
+                <span class="badge badge-check"><i class="bi bi-clock me-1"></i> Awaiting Approval</span>
+                <div class="smaller text-muted mt-1">COD arrangement submitted</div>
+              {% else %}
+                <span class="badge text-bg-light border text-muted">{{ p.payment_status|title }}</span>
+              {% endif %}
+            {% else %}
+              <!-- Online QR Payment -->
+              {% if p.payment_status in ('verified', 'paid') %}
+                <span class="badge badge-instock"><i class="bi bi-check-circle-fill me-1"></i> Paid / Verified</span>
+                {% if p.verified_by_name %}
+                  <div class="smaller text-muted mt-1"><i class="bi bi-shield-check me-1"></i>By {{ p.verified_by_name }}</div>
+                {% endif %}
+                {% if p.paid_at %}
+                  <div class="smaller text-muted">{{ p.paid_at }}</div>
+                {% endif %}
+              {% elif p.payment_status in ('pending', 'pending_verification') %}
+                <span class="badge badge-check"><i class="bi bi-clock-history me-1"></i> Awaiting Verification</span>
+                {% if p.payer_name %}
+                  <div class="smaller text-muted">Payer: {{ p.payer_name }}</div>
+                {% endif %}
+              {% elif p.payment_status == 'rejected' %}
+                <span class="badge badge-danger">Payment Rejected</span>
+                {% if p.rejection_reason %}
+                  <div class="smaller text-danger mt-1">{{ p.rejection_reason }}</div>
+                {% endif %}
+              {% else %}
+                <span class="badge text-bg-light border text-muted">{{ p.payment_status|title }}</span>
+              {% endif %}
+            {% endif %}
+          </td>
+          <td>
+            {% set d_status = p.delivery_status or p.order_status %}
+            <span class="badge {% if d_status in ('delivered', 'ready_for_dispatch') %}badge-instock{% elif d_status in ('cancelled', 'payment_rejected') %}badge-danger{% else %}badge-check{% endif %} text-uppercase">
+              {{ d_status|replace('_', ' ') }}
             </span>
           </td>
           <td class="text-end">
             <div class="d-flex justify-content-end align-items-center gap-1">
               {% if p.payment_status in ('pending', 'pending_verification') %}
-                <!-- Confirm Payment Button -->
+                <!-- Approve COD / Confirm QR Payment Button -->
                 <form method="POST" action="{{ url_for('main.admin_payments') }}" class="d-inline">
                   <input type="hidden" name="action" value="confirm_payment">
                   <input type="hidden" name="payment_id" value="{{ p.id }}">
@@ -121,13 +156,13 @@
                 <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal{{ p.id }}">
                   <i class="bi bi-x-circle me-1"></i> Reject
                 </button>
-              {% elif p.method == 'cash' and p.payment_status == 'payment_due' and p.order_status == 'delivered' %}
-                <!-- COD Collection Recorded -->
+              {% elif p.method == 'cash' and p.payment_status != 'paid' %}
+                <!-- Manual Admin Backup for COD Collection (if driver turned over cash to yard) -->
                 <form method="POST" action="{{ url_for('main.admin_payments') }}" class="d-inline">
                   <input type="hidden" name="action" value="record_cod_collected">
                   <input type="hidden" name="payment_id" value="{{ p.id }}">
-                  <button type="submit" class="btn btn-sm btn-primary fw-semibold">
-                    <i class="bi bi-cash me-1"></i> Record Collected
+                  <button type="submit" class="btn btn-sm btn-outline-primary fw-semibold" title="Manual admin confirmation of cash collection">
+                    <i class="bi bi-cash me-1"></i> Record Paid
                   </button>
                 </form>
               {% endif %}

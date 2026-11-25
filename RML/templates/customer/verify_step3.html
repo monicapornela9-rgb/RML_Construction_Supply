@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Step 3: Confirm Information - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="container py-3" style="max-width: 900px;">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h2 class="fw-bold mb-1">Customer Identity Verification</h2>
+      <p class="text-muted small mb-0">Step 3 of 3 &middot; Confirm Information (Steps 1 &amp; 2)</p>
+    </div>
+    <form method="POST" action="{{ url_for('verify.wizard') }}">
+      <input type="hidden" name="nav" value="back_to_2">
+      <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill px-3">&larr; Back to Step 2</button>
+    </form>
+  </div>
+
+  <!-- 3-Step Progress Bar -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+      <div class="row text-center g-2">
+        <div class="col-4">
+          <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-3 py-2">1. Facial Recognition &amp; ID OCR</span>
+        </div>
+        <div class="col-4">
+          <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-3 py-2">2. Basic Information</span>
+        </div>
+        <div class="col-4">
+          <span class="badge rounded-pill bg-primary px-3 py-2">3. Confirm Information (1 &amp; 2)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <!-- Summary of Step 1 -->
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+            <h5 class="fw-bold mb-0">1. Facial Recognition &amp; ID OCR</h5>
+            <form method="POST" action="{{ url_for('verify.wizard') }}">
+              <input type="hidden" name="nav" value="back_to_1">
+              <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none">Edit</button>
+            </form>
+          </div>
+          <p class="small mb-2">
+            <strong>Face ID Status:</strong>
+            {% if customer.face_descriptor %}
+              <span class="badge bg-success-subtle text-success">Enrolled</span>
+            {% else %}
+              <span class="badge bg-secondary-subtle text-secondary">Not Enrolled</span>
+            {% endif %}
+          </p>
+          <p class="small mb-2"><strong>ID Type:</strong> {{ step1_data.id_type or 'N/A' }}</p>
+          <p class="small mb-2"><strong>ID Number:</strong> {{ step1_data.id_number or 'N/A' }}</p>
+          <p class="small mb-0"><strong>Name on ID:</strong> {{ step1_data.id_ocr_name or 'N/A' }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary of Step 2 -->
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+            <h5 class="fw-bold mb-0">2. Basic Information</h5>
+            <form method="POST" action="{{ url_for('verify.wizard') }}">
+              <input type="hidden" name="nav" value="back_to_2">
+              <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none">Edit</button>
+            </form>
+          </div>
+          <p class="small mb-2"><strong>Full Name:</strong> {{ step2_data.name }}</p>
+          <p class="small mb-2"><strong>Email:</strong> {{ step2_data.email }}</p>
+          <p class="small mb-2"><strong>Mobile Number:</strong> {{ step2_data.phone }}</p>
+          <p class="small mb-2"><strong>Birthdate:</strong> {{ step2_data.birthdate or 'N/A' }} &middot; <strong>Gender:</strong> {{ step2_data.gender or 'N/A' }}</p>
+          <p class="small mb-0"><strong>Delivery Address:</strong> {{ step2_data.address }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Final Confirmation Submit -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div class="small text-muted">
+        By confirming, your verified ID details and basic information will be saved to your RML Construction Supply account.
+      </div>
+      <form method="POST" action="{{ url_for('verify.wizard') }}">
+        <input type="hidden" name="wizard_step" value="3">
+        <button type="submit" class="btn btn-success px-4 fw-semibold">
+          <i class="bi bi-check2-circle me-1"></i> Confirm &amp; Save Information
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

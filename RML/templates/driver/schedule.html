@@ -81,8 +81,25 @@
           </div>
           <h5 class="fw-bold mb-1">{{ d.recipient_name }}</h5>
           <div class="small text-muted mb-2"><i class="bi bi-geo-alt me-1"></i>{{ d.delivery_address }}</div>
-          <div class="small text-muted">
+          <div class="small text-muted mb-2">
             <code>{{ d.delivery_code }}</code> &middot; Order {{ d.order_code|order_code }} &middot; {{ d.truck_code or 'Truck' }} ({{ d.plate_number or '' }})
+          </div>
+          <div>
+            {% if d.payment_method == 'cash' %}
+              {% if d.payment_status == 'paid' %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle smaller">
+                  <i class="bi bi-check-circle-fill me-1"></i> COD Paid (&#8369;{{ "{:,.2f}".format(d.payment_amount or d.total_amount) }})
+                </span>
+              {% else %}
+                <span class="badge bg-warning-subtle text-danger border border-warning-subtle smaller fw-bold">
+                  <i class="bi bi-cash me-1"></i> COD Due: &#8369;{{ "{:,.2f}".format(d.payment_amount or d.total_amount) }}
+                </span>
+              {% endif %}
+            {% elif d.payment_method == 'qr' %}
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle smaller">
+                <i class="bi bi-qr-code me-1"></i> Online QR ({{ 'Paid' if d.payment_status in ('verified', 'paid') else 'Pending Verification' }})
+              </span>
+            {% endif %}
           </div>
         </div>
         <div class="text-end">

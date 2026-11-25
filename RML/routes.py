@@ -1,5 +1,5 @@
 from functools import wraps
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 import random
 import os
 import re
@@ -22,6 +22,15 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from db import get_db, create_notification, sync_customer_notifications
+
+try:
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_transport_requests
+    HAS_GOOGLE_AUTH = True
+except ImportError:
+    google_id_token = None
+    google_transport_requests = None
+    HAS_GOOGLE_AUTH = False
 
 main_bp = Blueprint("main", __name__)
 
@@ -482,7 +491,238 @@ def login():
             conn.close()
             flash("Invalid email or password.", "danger")
 
-    return render_template("auth/login.html")
+    return render_template("auth/login.html", google_client_id=os.environ.get("GOOGLE_CLIENT_ID", ""))
+
+
+@main_bp.route("/auth/google", methods=["POST"])
+def google_auth():
+    """Verify Google OAuth 2.0 ID token and authenticate or register customer account."""
+    is_ajax = (
+        request.is_json
+        or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or "application/json" in request.headers.get("Accept", "")
+    )
+
+    # 1. Extract payload & token
+    credential = None
+    g_csrf_token_body = None
+    next_url = None
+
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        credential = (data.get("credential") or data.get("id_token") or "").strip()
+        g_csrf_token_body = (data.get("g_csrf_token") or "").strip()
+        next_url = data.get("next")
+    else:
+        credential = (request.form.get("credential") or request.form.get("id_token") or "").strip()
+        g_csrf_token_body = (request.form.get("g_csrf_token") or "").strip()
+        next_url = request.form.get("next")
+
+    if not credential:
+        msg = "Missing Google ID token credential."
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("main.login"))
+
+    # 2. CSRF Token verification if provided by Google Identity Services
+    g_csrf_cookie = request.cookies.get("g_csrf_token")
+    if g_csrf_cookie and g_csrf_token_body:
+        if g_csrf_cookie != g_csrf_token_body:
+            msg = "CSRF verification failed for Google Sign-In request."
+            if is_ajax:
+                return jsonify({"success": False, "error": msg}), 400
+            flash(msg, "danger")
+            return redirect(url_for("main.login"))
+
+    # 3. Verify ID Token using Google's official authentication library
+    google_client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+
+    if not HAS_GOOGLE_AUTH:
+        msg = "Google authentication service library is not installed on the server."
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 500
+        flash(msg, "danger")
+        return redirect(url_for("main.login"))
+
+    try:
+        transport_req = google_transport_requests.Request()
+        # verify_oauth2_token validates cryptographic signature against Google's certs,
+        # checks expiration (exp), and verifies audience (aud) if client_id is provided
+        id_info = google_id_token.verify_oauth2_token(
+            credential,
+            transport_req,
+            audience=google_client_id if google_client_id else None,
+        )
+    except ValueError as val_err:
+        msg = f"Invalid Google ID token: {str(val_err)}"
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("main.login"))
+    except Exception as err:
+        msg = f"Google token verification failed: {str(err)}"
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("main.login"))
+
+    # 4. Validate Issuer explicitly
+    issuer = id_info.get("iss", "")
+    if issuer not in ("accounts.google.com", "https://accounts.google.com"):
+        msg = "Invalid token issuer. Token was not issued by Google."
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("main.login"))
+
+    # 5. Validate Audience explicitly if configured
+    if google_client_id and id_info.get("aud") != google_client_id:
+        msg = "Token audience does not match configured Google OAuth Client ID."
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("main.login"))
+
+    # 6. Retrieve verified email, name, and profile picture
+    email = (id_info.get("email") or "").strip().lower()
+    if not email:
+        msg = "Verified Google token does not contain an email address."
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("main.login"))
+
+    # Validate that Google verified the email address
+    is_verified_by_google = id_info.get("email_verified")
+    if not is_verified_by_google:
+        msg = "Your Google account email has not been verified by Google. Unverified emails cannot be linked."
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("main.login"))
+
+    google_sub = str(id_info.get("sub", "")).strip()
+    full_name = (id_info.get("name") or id_info.get("given_name") or email.split("@")[0]).strip()
+    profile_pic = (id_info.get("picture") or "").strip()
+
+    # 7. Check whether email exists in the database
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE LOWER(email) = ?", (email,)).fetchone()
+
+    # 8. Role protection: Never allow Google Sign-In to assign Admin or Driver privileges
+    if user:
+        if user["role"] in ("admin", "staff"):
+            conn.close()
+            msg = "Admin and staff accounts must sign in using credentials via the restricted Admin Portal."
+            if is_ajax:
+                return jsonify({"success": False, "error": msg, "redirect": url_for("main.admin_login")}), 403
+            flash(msg, "warning")
+            return redirect(url_for("main.admin_login"))
+        elif user["role"] == "driver":
+            conn.close()
+            msg = "Driver accounts must sign in using credentials via the restricted Driver Portal."
+            if is_ajax:
+                return jsonify({"success": False, "error": msg, "redirect": url_for("main.driver_login")}), 403
+            flash(msg, "warning")
+            return redirect(url_for("main.driver_login"))
+        elif user["role"] != "customer":
+            conn.close()
+            msg = "Google Sign-In is only permitted for customer accounts."
+            if is_ajax:
+                return jsonify({"success": False, "error": msg}), 403
+            flash(msg, "danger")
+            return redirect(url_for("main.login"))
+
+        # Account status check
+        if not user["is_active"]:
+            conn.close()
+            msg = "Your customer account is currently inactive. Please contact support."
+            if is_ajax:
+                return jsonify({"success": False, "error": msg}), 403
+            flash(msg, "danger")
+            return redirect(url_for("main.login"))
+
+        # Rate limiting check
+        is_locked, rem_min = check_login_rate_limit(conn, user)
+        if is_locked:
+            conn.close()
+            msg = f"Account temporarily locked due to too many failed attempts. Please try again in {rem_min} minute(s)."
+            if is_ajax:
+                return jsonify({"success": False, "error": msg}), 429
+            flash(msg, "danger")
+            return redirect(url_for("main.login"))
+
+        # Safe customer authentication: update google_id and avatar_url, reset failed attempts
+        reset_login_failures(conn, user["id"])
+        conn.execute(
+            """
+            UPDATE users
+            SET google_id = COALESCE(NULLIF(?, ''), google_id),
+                avatar_url = CASE WHEN ? != '' THEN ? ELSE avatar_url END,
+                is_verified = 1
+            WHERE id = ?
+            """,
+            (google_sub, profile_pic, profile_pic, user["id"]),
+        )
+        conn.commit()
+        user_id = user["id"]
+        user_name = user["name"]
+        conn.close()
+    else:
+        # 9. New customer: automatically create customer account
+        # Generate secure random unguessable password hash to satisfy NOT NULL constraint
+        pwd_hash = generate_password_hash(secrets.token_urlsafe(32))
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO users (name, email, phone, address, password_hash, role, is_active, is_verified, google_id, avatar_url, auth_provider)
+            VALUES (?, ?, '', '', ?, 'customer', 1, 1, ?, ?, 'google')
+            """,
+            (full_name, email, pwd_hash, google_sub, profile_pic),
+        )
+        user_id = cur.lastrowid
+        user_name = full_name
+        conn.commit()
+
+        # Send welcome notification to new customer
+        create_notification(
+            conn,
+            user_id,
+            "Welcome to RML Construction Supply!",
+            "Your customer account was successfully created via Google Sign-In. You can now browse our catalog, place orders, and track site deliveries.",
+            "account",
+        )
+        conn.commit()
+        conn.close()
+
+    # 10. Establish authenticated Flask session
+    session.clear()
+    session["user_id"] = user_id
+    session["role"] = "customer"
+    session["user_name"] = user_name
+    session.permanent = True
+
+    # 11. Redirect customer to customer dashboard
+    target_url = next_url or request.args.get("next")
+    if not target_url or not target_url.startswith("/") or target_url.startswith("//"):
+        target_url = url_for("main.customer_dashboard")
+
+    if is_ajax:
+        return jsonify({
+            "success": True,
+            "message": f"Welcome back, {user_name}!" if user else f"Welcome to RML Construction Supply, {user_name}!",
+            "redirect_url": target_url,
+            "user": {
+                "id": user_id,
+                "name": user_name,
+                "email": email,
+                "role": "customer",
+            },
+        })
+    else:
+        flash(f"Welcome back, {user_name}!" if user else f"Welcome to RML Construction Supply, {user_name}!", "success")
+        return redirect(target_url)
 
 
 @main_bp.route("/register", methods=["GET", "POST"])
@@ -1078,6 +1318,23 @@ def customer_notifications_mark_all_read():
     return redirect(url_for("main.customer_notifications"))
 
 
+def normalize_image_url(url):
+    """Normalize local product image paths for static serving while preserving full URLs."""
+    if not url:
+        return "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500"
+    u = str(url).strip()
+    if u.startswith(("http://", "https://", "/")):
+        return u
+    if u.startswith("static/"):
+        return "/" + u
+    return "/static/" + u.lstrip("/")
+
+
+@main_bp.app_template_filter("product_img")
+def product_img_filter(url):
+    return normalize_image_url(url)
+
+
 def get_customer_cart_details(conn, user_id):
     """
     Retrieve customer's active cart items with real-time product prices and stocks from database.
@@ -1089,7 +1346,7 @@ def get_customer_cart_details(conn, user_id):
                p.name AS product_name, p.unit AS product_unit, p.price AS product_base_price,
                p.stock_quantity AS product_stock, p.image_url, p.is_active,
                pv.variation_name, pv.price AS variation_price, pv.unit AS variation_unit,
-               pv.stock_quantity AS variation_stock, pv.is_available AS variation_available
+               pv.stock_quantity AS variation_stock, pv.image_url AS variation_image_url, pv.is_available AS variation_available
         FROM cart_items ci
         JOIN products p ON ci.product_id = p.id
         LEFT JOIN product_variations pv ON ci.variation_id = pv.id
@@ -1124,7 +1381,7 @@ def get_customer_cart_details(conn, user_id):
                    p.name AS product_name, p.unit AS product_unit, p.price AS product_base_price,
                    p.stock_quantity AS product_stock, p.image_url, p.is_active,
                    pv.variation_name, pv.price AS variation_price, pv.unit AS variation_unit,
-                   pv.stock_quantity AS variation_stock, pv.is_available AS variation_available
+                   pv.stock_quantity AS variation_stock, pv.image_url AS variation_image_url, pv.is_available AS variation_available
             FROM cart_items ci
             JOIN products p ON ci.product_id = p.id
             LEFT JOIN product_variations pv ON ci.variation_id = pv.id
@@ -1177,7 +1434,7 @@ def get_customer_cart_details(conn, user_id):
             "stock": available_stock,
             "quantity": qty,
             "line_total": line_total,
-            "image_url": r["image_url"] or "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+            "image_url": normalize_image_url((r["variation_image_url"] if var_id and r["variation_image_url"] else None) or r["image_url"]),
             "is_in_stock": available_stock > 0,
             "product": {
                 "id": r["product_id"],
@@ -3517,7 +3774,7 @@ def admin_inventory():
             price = float(request.form.get("price", 0))
             stock_quantity = int(request.form.get("stock_quantity", 0))
             low_stock_threshold = int(request.form.get("low_stock_threshold", 20))
-            image_url = request.form.get("image_url", "").strip() or "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500&auto=format&fit=crop"
+            image_url = normalize_image_url(request.form.get("image_url", "").strip()) if request.form.get("image_url", "").strip() else "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500&auto=format&fit=crop"
 
             conn.execute(
                 "INSERT INTO products (category_id, name, description, unit, price, stock_quantity, low_stock_threshold, image_url, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
@@ -3535,7 +3792,8 @@ def admin_inventory():
             price = float(request.form.get("price", 0))
             stock_quantity = int(request.form.get("stock_quantity", 0))
             low_stock_threshold = int(request.form.get("low_stock_threshold", 20))
-            image_url = request.form.get("image_url", "").strip()
+            raw_img = request.form.get("image_url", "").strip()
+            image_url = normalize_image_url(raw_img) if raw_img else ""
 
             if image_url:
                 conn.execute(
@@ -4205,11 +4463,13 @@ def admin_payments():
                     UPDATE payments
                     SET payment_status = 'paid',
                         paid_at = ?,
+                        collected_at = COALESCE(collected_at, ?),
+                        collected_by = COALESCE(collected_by, ?),
                         verified_by = ?,
                         verified_at = ?
                     WHERE id = ?
                     """,
-                    (now_str, session["user_id"], now_str, payment_id),
+                    (now_str, now_str, session["user_id"], session["user_id"], now_str, payment_id),
                 )
                 conn.commit()
                 flash(f"Cash on Delivery collection for Order {clean_order_code(p_row['order_code'])} officially confirmed as Paid.", "success")
@@ -4224,22 +4484,25 @@ def admin_payments():
 
             existing = conn.execute("SELECT id FROM payments WHERE order_id = ?", (order_id,)).fetchone()
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            collected_by = session["user_id"] if (method == "cash" and status == "paid") else None
+            collected_at = now_str if (method == "cash" and status == "paid") else None
             if existing:
                 conn.execute(
                     """
                     UPDATE payments
-                    SET method=?, reference_number=?, payment_status=?, receipt_note=?, amount=?, verified_by=?, verified_at=?
+                    SET method=?, reference_number=?, payment_status=?, receipt_note=?, amount=?, verified_by=?, verified_at=?,
+                        collected_by=COALESCE(collected_by, ?), collected_at=COALESCE(collected_at, ?)
                     WHERE order_id=?
                     """,
-                    (method, ref, status, notes, amount, session["user_id"], now_str, order_id),
+                    (method, ref, status, notes, amount, session["user_id"], now_str, collected_by, collected_at, order_id),
                 )
             else:
                 conn.execute(
                     """
-                    INSERT INTO payments (order_id, method, reference_number, payment_status, receipt_note, amount, verified_by, verified_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO payments (order_id, method, reference_number, payment_status, receipt_note, amount, verified_by, verified_at, collected_by, collected_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (order_id, method, ref, status, notes, amount, session["user_id"], now_str),
+                    (order_id, method, ref, status, notes, amount, session["user_id"], now_str, collected_by, collected_at),
                 )
 
             if status in ("verified", "paid") or (method == "cash" and status == "payment_due"):
@@ -4267,15 +4530,23 @@ def admin_payments():
     base_sql = """
         SELECT p.*, p.reference_number, o.order_code, o.recipient_name, o.phone AS customer_phone, o.delivery_address,
                o.total_amount AS order_total, o.order_status, o.assigned_date, o.assigned_time_slot,
-               u_ver.name AS verified_by_name
+               u_ver.name AS verified_by_name,
+               d.id AS delivery_id, d.delivery_code, d.delivery_status,
+               u_driver.name AS assigned_driver_name,
+               u_col.name AS collected_by_driver_name,
+               t.truck_code, t.plate_number
         FROM payments p
         JOIN orders o ON p.order_id = o.id
+        LEFT JOIN deliveries d ON o.id = d.order_id
+        LEFT JOIN users u_driver ON d.driver_id = u_driver.id
+        LEFT JOIN users u_col ON p.collected_by = u_col.id
         LEFT JOIN users u_ver ON p.verified_by = u_ver.id
+        LEFT JOIN trucks t ON d.truck_id = t.id
     """
     if tab == "awaiting":
-        where = " WHERE p.payment_status IN ('pending', 'pending_verification') OR (p.method = 'cash' AND o.order_status = 'pending_payment_verification')"
+        where = " WHERE (p.method = 'qr' AND p.payment_status IN ('pending', 'pending_verification')) OR (p.method = 'cash' AND p.payment_status != 'paid')"
     elif tab == "verified":
-        where = " WHERE p.payment_status IN ('verified', 'paid') OR (p.method = 'cash' AND o.order_status IN ('payment_verified', 'ready_for_dispatch', 'out_for_delivery', 'delivered'))"
+        where = " WHERE p.payment_status IN ('verified', 'paid')"
     elif tab == "rejected":
         where = " WHERE p.payment_status = 'rejected' OR o.order_status = 'payment_rejected'"
     else:
@@ -4288,8 +4559,8 @@ def admin_payments():
             """
             SELECT COUNT(*) FROM payments p
             JOIN orders o ON p.order_id = o.id
-            WHERE p.payment_status IN ('pending', 'pending_verification')
-               OR (p.method = 'cash' AND o.order_status = 'pending_payment_verification')
+            WHERE (p.method = 'qr' AND p.payment_status IN ('pending', 'pending_verification'))
+               OR (p.method = 'cash' AND p.payment_status != 'paid')
             """
         ).fetchone()[0],
         "verified": conn.execute(
@@ -4297,7 +4568,6 @@ def admin_payments():
             SELECT COUNT(*) FROM payments p
             JOIN orders o ON p.order_id = o.id
             WHERE p.payment_status IN ('verified', 'paid')
-               OR (p.method = 'cash' AND o.order_status IN ('payment_verified', 'ready_for_dispatch', 'out_for_delivery', 'delivered'))
             """
         ).fetchone()[0],
         "rejected": conn.execute(
@@ -4687,11 +4957,13 @@ def driver_schedule():
     uid = session["user_id"]
 
     query = """
-        SELECT d.*, o.order_code, o.recipient_name, o.delivery_address, o.phone, o.order_status,
-               t.truck_code, t.plate_number
+        SELECT d.*, o.order_code, o.recipient_name, o.delivery_address, o.phone, o.order_status, o.total_amount,
+               t.truck_code, t.plate_number,
+               p.method AS payment_method, p.payment_status AS payment_status, p.amount AS payment_amount
         FROM deliveries d
         JOIN orders o ON d.order_id = o.id
         LEFT JOIN trucks t ON d.truck_id = t.id
+        LEFT JOIN payments p ON o.id = p.order_id
     """
     if session.get("role") == "admin":
         deliveries = conn.execute(query + " ORDER BY d.id DESC").fetchall()
@@ -4821,23 +5093,74 @@ def driver_delivery_task(delivery_id):
                     ord_cust["id"],
                 )
 
-            # Special Handling for Cash on Delivery:
-            # When driver completes COD delivery, record that COD payment was collected
+            # NOTE: Delivery status and payment status are maintained independently.
+            # Completing delivery on-site does NOT automatically mark payment as paid.
+            # Cash on Delivery collection is confirmed independently by the assigned driver.
+            conn.commit()
+            flash("Delivery confirmed and marked as Delivered!", "success")
+
+        elif action == "confirm_cash_payment":
+            # Security / RBAC check: only assigned driver or admin can confirm payment
+            if session.get("role") != "admin" and delivery_check["driver_id"] != session["user_id"]:
+                conn.close()
+                flash("Unauthorized access: You can only confirm COD payments for deliveries assigned to your own account.", "danger")
+                return redirect(url_for("main.driver_schedule"))
+
+            if not is_authorized:
+                conn.close()
+                flash("Dispatch Restricted: Payment cannot be collected on an unauthorized delivery task.", "danger")
+                return redirect(url_for("main.driver_delivery_task", delivery_id=delivery_id))
+
             payment = conn.execute("SELECT * FROM payments WHERE order_id = ?", (delivery_check["order_id"],)).fetchone()
-            if payment and payment["method"] == "cash":
-                conn.execute(
-                    """
-                    UPDATE payments
-                    SET payment_status = 'paid',
-                        paid_at = datetime('now', 'localtime'),
-                        receipt_note = COALESCE(receipt_note, '') || ' [Collected on site by driver upon delivery]'
-                    WHERE id = ?
-                    """,
-                    (payment["id"],),
+            if not payment:
+                conn.close()
+                flash("No payment record found for this order.", "danger")
+                return redirect(url_for("main.driver_delivery_task", delivery_id=delivery_id))
+
+            # Strictly verify this is a cash / COD payment
+            # Drivers must not have access to QR payment verification!
+            if payment["method"] != "cash":
+                conn.close()
+                flash("Permission Denied: Delivery drivers cannot verify or approve QR code payments. Only Cash on Delivery payments can be collected.", "danger")
+                return redirect(url_for("main.driver_delivery_task", delivery_id=delivery_id))
+
+            if payment["payment_status"] == "paid":
+                conn.close()
+                flash("This Cash on Delivery payment has already been confirmed as Paid.", "info")
+                return redirect(url_for("main.driver_delivery_task", delivery_id=delivery_id))
+
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            driver_notes = request.form.get("payment_notes", "").strip()
+            collected_note = f" [Cash of ₱{payment['amount']:,.2f} collected on-site by driver {session.get('user_name', 'Driver')}]"
+            if driver_notes:
+                collected_note += f" Note: {driver_notes}"
+
+            conn.execute(
+                """
+                UPDATE payments
+                SET payment_status = 'paid',
+                    paid_at = ?,
+                    collected_at = ?,
+                    collected_by = ?,
+                    receipt_note = COALESCE(receipt_note, '') || ?
+                WHERE id = ?
+                """,
+                (now_str, now_str, session["user_id"], collected_note, payment["id"]),
+            )
+
+            ord_cust = conn.execute("SELECT customer_id, order_code, id FROM orders WHERE id = ?", (delivery_check["order_id"],)).fetchone()
+            if ord_cust:
+                create_notification(
+                    conn,
+                    ord_cust["customer_id"],
+                    "COD Payment Received",
+                    f"Cash payment of ₱{payment['amount']:,.2f} for order {clean_order_code(ord_cust['order_code'])} was collected on-site by driver {session.get('user_name', 'Driver')}.",
+                    "payment",
+                    ord_cust["id"],
                 )
 
             conn.commit()
-            flash("Delivery confirmed and marked as Delivered!", "success")
+            flash(f"Cash on Delivery payment of ₱{payment['amount']:,.2f} successfully confirmed and recorded as Paid!", "success")
 
         conn.close()
         return redirect(url_for("main.driver_delivery_task", delivery_id=delivery_id))
@@ -4878,6 +5201,22 @@ def driver_delivery_task(delivery_id):
         """,
         (delivery["order_id"],),
     ).fetchall()
+
+    payment = conn.execute(
+        """
+        SELECT p.*, u_col.name AS collected_by_driver_name
+        FROM payments p
+        LEFT JOIN users u_col ON p.collected_by = u_col.id
+        WHERE p.order_id = ?
+        """,
+        (delivery["order_id"],),
+    ).fetchone()
     conn.close()
 
-    return render_template("driver/delivery_task.html", delivery=delivery, items=items)
+    return render_template(
+        "driver/delivery_task.html",
+        delivery=delivery,
+        items=items,
+        payment=payment,
+        is_authorized=is_authorized,
+    )

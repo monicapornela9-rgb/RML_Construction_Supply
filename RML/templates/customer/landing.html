@@ -36,19 +36,25 @@
         </div>
 
         <!-- Right Side CTA Actions -->
-        <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items-center gap-2">
           {% if session.get('role') == 'customer' %}
-            <a href="{{ url_for('main.customer_dashboard') }}" class="figma-landing-btn-login">
+            <a href="{{ url_for('main.customer_dashboard') }}" class="figma-landing-btn-register">
               <i class="bi bi-speedometer2 me-1"></i> Customer Portal
             </a>
+            <a href="{{ url_for('main.logout') }}" class="figma-landing-btn-login-outline d-none d-sm-inline-flex">
+              <i class="bi bi-box-arrow-right me-1"></i> Sign out
+            </a>
           {% else %}
-            <a href="{{ url_for('main.login') }}" class="figma-landing-btn-login">
-              Customer login
+            <a href="{{ url_for('main.login') }}" class="figma-landing-btn-login-outline">
+              <i class="bi bi-box-arrow-in-right me-1"></i> Login
+            </a>
+            <a href="{{ url_for('main.register') }}" class="figma-landing-btn-register">
+              <i class="bi bi-person-plus me-1"></i> Register
             </a>
           {% endif %}
           
           <!-- Mobile Menu Toggle Button -->
-          <button class="btn btn-outline-dark d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#mobileMenu" aria-label="Toggle navigation">
+          <button class="btn btn-outline-dark d-lg-none ms-1" type="button" data-bs-toggle="collapse" data-bs-target="#mobileMenu" aria-label="Toggle navigation">
             <i class="bi bi-list fs-5"></i>
           </button>
         </div>
@@ -63,11 +69,21 @@
           <a href="#contact" class="text-navy fw-semibold py-1 text-decoration-none">Contact</a>
           <hr class="my-2">
           {% if session.get('role') == 'customer' %}
-            <a href="{{ url_for('main.customer_dashboard') }}" class="btn btn-outline-dark btn-sm text-start">Open Dashboard</a>
-            <a href="{{ url_for('main.logout') }}" class="btn btn-outline-secondary btn-sm text-start">Sign out</a>
+            <a href="{{ url_for('main.customer_dashboard') }}" class="btn btn-outline-dark btn-sm text-start">
+              <i class="bi bi-speedometer2 me-1"></i> Open Dashboard
+            </a>
+            <a href="{{ url_for('main.logout') }}" class="btn btn-outline-secondary btn-sm text-start">
+              <i class="bi bi-box-arrow-right me-1"></i> Sign out
+            </a>
           {% else %}
-            <a href="{{ url_for('main.login') }}" class="btn btn-rml btn-sm text-center">Customer Login</a>
-            <a href="{{ url_for('main.register') }}" class="btn btn-outline-dark btn-sm text-center">Register Account</a>
+            <div class="d-grid gap-2 pt-1">
+              <a href="{{ url_for('main.login') }}" class="btn btn-outline-dark py-2 text-center fw-semibold">
+                <i class="bi bi-box-arrow-in-right me-1"></i> Customer Login
+              </a>
+              <a href="{{ url_for('main.register') }}" class="btn btn-rml py-2 text-center fw-bold">
+                <i class="bi bi-person-plus me-1"></i> Register Account
+              </a>
+            </div>
           {% endif %}
         </div>
       </div>
@@ -305,12 +321,17 @@
             <div>
               <h3 class="figma-landing-access-title">Ready to get started?</h3>
               <p class="text-muted small mt-2 mb-4">
-                Use the customer portal to manage your orders.
+                Register a new customer account or sign in to manage your construction orders, delivery schedules, and receipts.
               </p>
             </div>
-            <a href="{{ url_for('main.login') }}" class="figma-landing-btn-access">
-              Continue to customer sign-in &rarr;
-            </a>
+            <div class="d-flex flex-column gap-2 w-100">
+              <a href="{{ url_for('main.register') }}" class="figma-landing-btn-access">
+                Register Customer Account &rarr;
+              </a>
+              <a href="{{ url_for('main.login') }}" class="figma-landing-btn-secondary text-center">
+                Already registered? Sign in &rarr;
+              </a>
+            </div>
           </div>
         </div>
       </section>

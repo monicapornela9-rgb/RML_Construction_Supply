@@ -119,7 +119,7 @@
         {% for p in products %}
         <div class="b2b-product-card position-relative">
           <div class="position-relative overflow-hidden cursor-pointer" data-bs-toggle="modal" data-bs-target="#productModal{{ p.id }}">
-            <img src="{{ p.image_url }}" class="b2b-product-img" alt="{{ p.name }}"
+            <img src="{{ p.image_url }}" id="cardImg{{ p.id }}" class="b2b-product-img" alt="{{ p.name }}"
                  onerror="this.src='https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400';">
             <span class="position-absolute top-0 end-0 m-2 badge bg-dark bg-opacity-75 text-white smaller" style="cursor: pointer;">
               <i class="bi bi-arrows-fullscreen me-1"></i> Details
@@ -152,6 +152,7 @@
                             data-price="{{ v.price }}"
                             data-unit="{{ v.unit or p.unit }}"
                             data-stock="{{ v.stock_quantity }}"
+                            data-image="{{ v.image_url or p.image_url }}"
                             {% if loop.first %}selected{% endif %}>
                       {{ v.variation_name }} &middot; &#8369;{{ "{:,.2f}".format(v.price) }}
                     </option>
@@ -222,7 +223,7 @@
           <!-- Left: Product Photo & Badges -->
           <div class="col-md-5">
             <div class="position-relative rounded overflow-hidden border mb-3" style="background: #F8FAFC;">
-              <img src="{{ p.image_url }}" alt="{{ p.name }}" class="w-100 object-fit-cover" style="height: 280px;"
+              <img src="{{ p.image_url }}" id="modalImg{{ p.id }}" alt="{{ p.name }}" class="w-100 object-fit-cover" style="height: 280px;"
                    onerror="this.src='https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500';">
               <span class="position-absolute bottom-0 start-0 m-2 badge bg-navy text-white smaller px-2 py-1">
                 {{ p.category_name }}
@@ -285,7 +286,7 @@
                     </thead>
                     <tbody>
                       {% for v in p.variations %}
-                      <tr style="cursor: pointer;" onclick="selectModalVariation({{ p.id }}, {{ v.id }}, {{ v.price }}, '{{ v.unit or p.unit }}', {{ v.stock_quantity }}, '{{ v.variation_name }}')">
+                      <tr style="cursor: pointer;" onclick="selectModalVariation({{ p.id }}, {{ v.id }}, {{ v.price }}, '{{ v.unit or p.unit }}', {{ v.stock_quantity }}, '{{ v.variation_name }}', '{{ v.image_url or p.image_url }}')">
                         <td class="ps-3 py-2 fw-semibold text-navy">{{ v.variation_name }}</td>
                         <td class="py-2 text-muted">{{ v.stock_quantity }} {{ v.unit or p.unit }}</td>
                         <td class="pe-3 py-2 text-end fw-bold text-navy">&#8369;{{ "{:,.2f}".format(v.price) }}</td>
@@ -300,7 +301,7 @@
                   {% for v in p.variations %}
                     <button type="button" class="btn btn-sm btn-outline-secondary modal-var-pill-{{ p.id }} {% if loop.first %}active{% endif %}"
                             id="modalPill_{{ p.id }}_{{ v.id }}"
-                            onclick="selectModalVariation({{ p.id }}, {{ v.id }}, {{ v.price }}, '{{ v.unit or p.unit }}', {{ v.stock_quantity }}, '{{ v.variation_name }}')">
+                            onclick="selectModalVariation({{ p.id }}, {{ v.id }}, {{ v.price }}, '{{ v.unit or p.unit }}', {{ v.stock_quantity }}, '{{ v.variation_name }}', '{{ v.image_url or p.image_url }}')">
                       {{ v.variation_name }}
                     </button>
                   {% endfor %}
@@ -351,6 +352,7 @@ function onVariationChange(productId) {
   const price = parseFloat(opt.getAttribute('data-price'));
   const unit = opt.getAttribute('data-unit');
   const stock = parseInt(opt.getAttribute('data-stock'), 10);
+  const imgUrl = opt.getAttribute('data-image');
   const varId = opt.value;
 
   const priceEl = document.getElementById('priceDisplay' + productId);
@@ -359,6 +361,9 @@ function onVariationChange(productId) {
   const stockBadge = document.getElementById('stockBadge' + productId);
   const qtyInput = document.getElementById('qtyInput' + productId);
   const addBtn = document.getElementById('addBtn' + productId);
+  const cardImg = document.getElementById('cardImg' + productId);
+
+  if (cardImg && imgUrl) cardImg.src = imgUrl;
 
   if (priceEl) priceEl.innerHTML = '&#8369;' + price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
   if (unitEl) unitEl.textContent = '/ ' + unit;
@@ -380,12 +385,15 @@ function onVariationChange(productId) {
   }
 }
 
-function selectModalVariation(productId, varId, price, unit, stock, name) {
+function selectModalVariation(productId, varId, price, unit, stock, name, imgUrl) {
   const modalPrice = document.getElementById('modalPrice' + productId);
   const modalStock = document.getElementById('modalStockStatus' + productId);
   const modalVarId = document.getElementById('modalFormVarId' + productId);
   const modalQty = document.getElementById('modalQtyInput' + productId);
   const modalBtn = document.getElementById('modalAddBtn' + productId);
+  const modalImg = document.getElementById('modalImg' + productId);
+
+  if (modalImg && imgUrl) modalImg.src = imgUrl;
 
   if (modalPrice) modalPrice.innerHTML = '&#8369;' + price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' <span class="fs-6 fw-normal text-muted">/ ' + unit + '</span>';
   if (modalVarId) modalVarId.value = varId;

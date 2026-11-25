@@ -24,8 +24,12 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
       <div class="d-flex align-items-center gap-3">
         <!-- Avatar / Initials in soft blue container -->
-        <div class="settings-avatar-box">
-          {{ customer.name[:1]|upper }}
+        <div class="settings-avatar-box overflow-hidden">
+          {% if customer.avatar_url %}
+            <img src="{{ customer.avatar_url }}" alt="{{ customer.name }}" class="w-100 h-100 object-fit-cover rounded-circle" referrerpolicy="no-referrer">
+          {% else %}
+            {{ customer.name[:1]|upper }}
+          {% endif %}
         </div>
         <div>
           <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
@@ -187,6 +191,41 @@
           </form>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- 4. Identity & Biometric Verification (3-Step Wizard Link) -->
+  <div class="settings-card mt-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <div class="settings-icon-badge" style="background: #EFF6FF; color: #2563EB;">
+          <i class="bi bi-person-badge"></i>
+        </div>
+        <div>
+          <h5 class="fw-bold mb-1" style="color: #0F172A; font-size: 1.05rem;">Identity &amp; Facial Recognition Verification</h5>
+          <div class="d-flex flex-wrap gap-2 small">
+            {% if customer.face_descriptor %}
+              <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle">
+                <i class="bi bi-person-bounding-box me-1"></i> Face ID Enrolled
+              </span>
+            {% else %}
+              <span class="badge rounded-pill bg-secondary-subtle text-secondary">Face ID Not Enrolled</span>
+            {% endif %}
+
+            {% if customer.id_verified %}
+              <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle">
+                <i class="bi bi-patch-check-fill me-1"></i> {{ customer.id_type or 'Government ID' }} Verified ({{ customer.id_number }})
+              </span>
+            {% else %}
+              <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis">ID OCR Unverified</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <a href="{{ url_for('verify.wizard') }}" class="btn settings-btn-primary px-4">
+        <i class="bi bi-shield-check me-1"></i> Open 3-Step Verification &rarr;
+      </a>
     </div>
   </div>
 

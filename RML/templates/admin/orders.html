@@ -91,17 +91,25 @@
             <td class="fw-semibold">&#8369;{{ "{:,.2f}".format(o.total_amount) }}</td>
             <td>
               {% if o.payment_method %}
-                <div class="small fw-semibold text-capitalize">{{ 'COD' if o.payment_method == 'cash' else 'Online QR' }}</div>
-                {% if o.payment_status in ('verified', 'paid') %}
-                  <span class="badge badge-instock smaller"><i class="bi bi-check-circle"></i> Paid / Verified</span>
-                {% elif o.payment_status == 'payment_due' %}
-                  <span class="badge bg-info text-dark smaller"><i class="bi bi-cash"></i> COD Approved</span>
-                {% elif o.payment_status in ('pending', 'pending_verification') %}
-                  <span class="badge badge-check smaller"><i class="bi bi-clock-history"></i> Verification Pending</span>
-                {% elif o.payment_status == 'rejected' %}
-                  <span class="badge badge-danger smaller">Payment Rejected</span>
+                <div class="small fw-semibold text-capitalize">{{ 'Cash on Delivery (COD)' if o.payment_method == 'cash' else 'Online QR' }}</div>
+                {% if o.payment_method == 'cash' %}
+                  {% if o.payment_status == 'paid' %}
+                    <span class="badge badge-instock smaller"><i class="bi bi-check-circle-fill"></i> COD Paid (Collected)</span>
+                  {% elif o.payment_status == 'payment_due' %}
+                    <span class="badge bg-warning text-dark smaller"><i class="bi bi-hourglass-split"></i> COD Due on Site</span>
+                  {% else %}
+                    <span class="badge badge-check smaller"><i class="bi bi-clock-history"></i> COD Pending Approval</span>
+                  {% endif %}
                 {% else %}
-                  <span class="badge text-bg-light border smaller text-muted">{{ o.payment_status|title }}</span>
+                  {% if o.payment_status in ('verified', 'paid') %}
+                    <span class="badge badge-instock smaller"><i class="bi bi-check-circle"></i> Paid / Verified</span>
+                  {% elif o.payment_status in ('pending', 'pending_verification') %}
+                    <span class="badge badge-check smaller"><i class="bi bi-clock-history"></i> Verification Pending</span>
+                  {% elif o.payment_status == 'rejected' %}
+                    <span class="badge badge-danger smaller">Payment Rejected</span>
+                  {% else %}
+                    <span class="badge text-bg-light border smaller text-muted">{{ o.payment_status|title }}</span>
+                  {% endif %}
                 {% endif %}
               {% else %}
                 <span class="badge text-bg-light border text-muted smaller">Unpaid</span>

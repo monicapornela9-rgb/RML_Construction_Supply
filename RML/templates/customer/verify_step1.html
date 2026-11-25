@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% block title %}Step 1: Facial Recognition &amp; ID OCR - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="container py-3" style="max-width: 960px;">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h2 class="fw-bold mb-1">Customer Identity Verification</h2>
+      <p class="text-muted small mb-0">Step 1 of 3 &middot; Facial Recognition &amp; Government ID OCR</p>
+    </div>
+    <a href="{{ url_for('main.customer_settings') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+      &larr; Back to Settings
+    </a>
+  </div>
+
+  <!-- 3-Step Progress Bar -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+      <div class="row text-center g-2">
+        <div class="col-4">
+          <span class="badge rounded-pill bg-primary px-3 py-2">1. Facial Recognition &amp; ID OCR</span>
+        </div>
+        <div class="col-4">
+          <span class="badge rounded-pill bg-light text-muted border px-3 py-2">2. Basic Information</span>
+        </div>
+        <div class="col-4">
+          <span class="badge rounded-pill bg-light text-muted border px-3 py-2">3. Confirm Information (1 &amp; 2)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Left: Facial Recognition (face-api.js) -->
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-4 d-flex flex-column">
+          <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+            <div>
+              <h5 class="fw-bold mb-0"><i class="bi bi-person-bounding-box me-2 text-primary"></i>Facial Recognition *</h5>
+              <small class="text-muted">Required: scan your face to continue</small>
+            </div>
+            <span id="faceBadge" class="badge {% if customer.face_descriptor %}bg-success-subtle text-success border border-success-subtle{% else %}bg-secondary-subtle text-secondary{% endif %}">
+              {% if customer.face_descriptor %}Enrolled{% else %}Not Enrolled{% endif %}
+            </span>
+          </div>
+
+          <div class="bg-light border rounded p-3 text-center mb-3">
+            <video id="enrollFaceVideo" autoplay muted playsinline class="rounded bg-dark w-100" style="max-height: 230px; object-fit: cover; display: none;"></video>
+            <div id="enrollFacePlaceholder" class="py-4 text-muted small">
+              <i class="bi bi-camera-video fs-2 d-block mb-2"></i>
+              {% if customer.face_enrolled_at %}
+                Enrolled on {{ customer.face_enrolled_at }}. You can re-capture anytime.
+              {% else %}
+                Click <strong>Start Camera</strong> to capture your 128-d face descriptor.
+              {% endif %}
+            </div>
+          </div>
+
+          <div id="enrollFaceStatus" class="small text-muted mb-3"></div>
+
+          <div class="d-flex flex-wrap gap-2 mt-auto">
+            <button type="button" class="btn btn-outline-dark btn-sm flex-grow-1" onclick="startEnrollCamera()">
+              <i class="bi bi-camera me-1"></i> Start Camera
+            </button>
+            <button type="button" class="btn btn-primary btn-sm flex-grow-1" id="btnCaptureFace" onclick="captureAndEnrollFace()" disabled>
+              <i class="bi bi-person-check me-1"></i> Capture &amp; Enroll Face
+            </button>
+            {% if customer.face_descriptor %}
+              <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeEnrolledFace()" title="Remove Face ID">
+                <i class="bi bi-trash"></i>
+              </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: ID OCR (tesseract.js) -->
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+            <div>
+              <h5 class="fw-bold mb-0"><i class="bi bi-card-heading me-2 text-primary"></i>Government ID OCR *</h5>
+              <small class="text-muted">Required: upload &amp; scan your ID via Tesseract.js</small>
+            </div>
+            <span id="ocrBadge" class="badge {% if customer.id_ocr_text %}bg-success-subtle text-success border border-success-subtle{% else %}bg-warning-subtle text-warning-emphasis{% endif %}">
+              {% if customer.id_ocr_text %}Scanned{% else %}Scan Required{% endif %}
+            </span>
+          </div>
+
+          <form method="POST" action="{{ url_for('verify.wizard') }}" id="step1Form">
+            <input type="hidden" name="wizard_step" value="1">
+            <input type="hidden" name="id_ocr_text" id="idOcrRawText" value="{{ customer.id_ocr_text or '' }}">
+
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">ID Type *</label>
+              <select name="id_type" class="form-select form-select-sm" required>
+                <option value="PhilSys National ID" {% if customer.id_type == 'PhilSys National ID' %}selected{% endif %}>PhilSys National ID</option>
+                <option value="Driver's License" {% if customer.id_type == "Driver's License" %}selected{% endif %}>Driver's License</option>
+                <option value="UMID / SSS" {% if customer.id_type == 'UMID / SSS' %}selected{% endif %}>UMID / SSS</option>
+                <option value="Passport" {% if customer.id_type == 'Passport' %}selected{% endif %}>Passport</option>
+                <option value="Postal / Voter ID" {% if customer.id_type == 'Postal / Voter ID' %}selected{% endif %}>Postal / Voter ID</option>
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">Upload ID Photo *</label>
+              <input type="file" id="idImageInput" accept="image/*" class="form-control form-control-sm">
+            </div>
+
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <button type="button" class="btn btn-outline-dark btn-sm" onclick="runIdOcr()">
+                <i class="bi bi-upc-scan me-1"></i> Scan ID with OCR
+              </button>
+              <span id="ocrStatusText" class="small text-muted"></span>
+            </div>
+
+            <div class="progress mb-2 d-none" id="ocrProgressWrap" style="height: 6px;">
+              <div class="progress-bar bg-primary" id="ocrProgressBar" style="width: 0%;"></div>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">Extracted Full Name * <span class="text-muted fw-normal">(Locked to ID scan)</span></label>
+              <input type="text" name="id_ocr_name" id="idOcrName" class="form-control form-control-sm bg-light"
+                     required readonly minlength="2" maxlength="60"
+                     value="{{ customer.id_ocr_name or '' }}" placeholder="Auto-filled from OCR scan">
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">Extracted ID Number * <span class="text-muted fw-normal">(Locked to ID scan)</span></label>
+              <input type="text" name="id_number" id="idOcrNumber" class="form-control form-control-sm bg-light"
+                     required readonly minlength="4" maxlength="40"
+                     value="{{ customer.id_number or '' }}" placeholder="Auto-filled from OCR scan">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small fw-semibold">Extracted Address <span class="text-muted fw-normal">(Locked to ID scan)</span></label>
+              <input type="text" name="ocr_address" id="idOcrAddress" class="form-control form-control-sm bg-light" readonly maxlength="200" placeholder="Auto-filled from ID (if detected)">
+            </div>
+
+            <div id="step1GateMsg" class="small text-muted mb-2"></div>
+
+            <button type="submit" id="btnStep1Next" class="btn btn-primary w-100">
+              Continue to Step 2: Basic Information &rarr;
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const FACE_MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/";
+let faceModelsLoaded = false;
+let enrollStream = null;
+let isFaceEnrolled = {{ 'true' if customer.face_descriptor else 'false' }};
+let isIdScanned = {{ 'true' if customer.id_ocr_text else 'false' }};
+
+function updateStep1ButtonState() {
+  const btn = document.getElementById("btnStep1Next");
+  const msg = document.getElementById("step1GateMsg");
+  if (isFaceEnrolled && isIdScanned) {
+    btn.disabled = false;
+    msg.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Face scan and ID OCR ready. You can proceed to Step 2.</span>';
+  } else {
+    btn.disabled = true;
+    const missing = [];
+    if (!isFaceEnrolled) missing.push("Facial Recognition scan");
+    if (!isIdScanned) missing.push("Government ID OCR scan");
+    msg.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-circle me-1"></i>Required before continuing: ' + missing.join(" &amp; ") + '.</span>';
+  }
+}
+updateStep1ButtonState();
+
+async function ensureFaceModels() {
+  if (faceModelsLoaded) return;
+  await Promise.all([
+    faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODEL_URL),
+    faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODEL_URL),
+    faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODEL_URL),
+  ]);
+  faceModelsLoaded = true;
+}
+
+async function startEnrollCamera() {
+  const statusEl = document.getElementById("enrollFaceStatus");
+  const video = document.getElementById("enrollFaceVideo");
+  const placeholder = document.getElementById("enrollFacePlaceholder");
+  const btnCapture = document.getElementById("btnCaptureFace");
+
+  try {
+    statusEl.textContent = "Opening camera and loading face-api.js models...";
+    enrollStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+    video.srcObject = enrollStream;
+    video.style.display = "block";
+    placeholder.style.display = "none";
+    await ensureFaceModels();
+    btnCapture.disabled = false;
+    statusEl.innerHTML = '<span class="text-success">Camera ready. Center your face and click Capture &amp; Enroll Face.</span>';
+  } catch (err) {
+    statusEl.innerHTML = '<span class="text-danger">Error: ' + err.message + '</span>';
+  }
+}
+
+async function captureAndEnrollFace() {
+  const statusEl = document.getElementById("enrollFaceStatus");
+  const video = document.getElementById("enrollFaceVideo");
+  const btnCapture = document.getElementById("btnCaptureFace");
+
+  btnCapture.disabled = true;
+  statusEl.textContent = "Detecting face & extracting 128-d descriptor...";
+
+  try {
+    await ensureFaceModels();
+    const detection = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    if (!detection) {
+      statusEl.innerHTML = '<span class="text-warning">No face detected. Ensure good lighting and try again.</span>';
+      btnCapture.disabled = false;
+      return;
+    }
+
+    const res = await fetch("/api/customer/face/enroll", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ descriptor: Array.from(detection.descriptor) }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (enrollStream) enrollStream.getTracks().forEach((t) => t.stop());
+      isFaceEnrolled = true;
+      const badge = document.getElementById("faceBadge");
+      badge.className = "badge bg-success-subtle text-success border border-success-subtle";
+      badge.textContent = "Enrolled";
+      statusEl.innerHTML = '<span class="text-success fw-semibold">Face ID enrolled!</span>';
+      updateStep1ButtonState();
+    } else {
+      statusEl.innerHTML = '<span class="text-danger">' + (data.error || "Failed.") + '</span>';
+      btnCapture.disabled = false;
+    }
+  } catch (err) {
+    statusEl.innerHTML = '<span class="text-danger">Error: ' + err.message + '</span>';
+    btnCapture.disabled = false;
+  }
+}
+
+async function removeEnrolledFace() {
+  if (!confirm("Remove enrolled Face ID?")) return;
+  const res = await fetch("/api/customer/face/remove", { method: "POST" });
+  const data = await res.json();
+  if (data.ok) window.location.reload();
+}
+
+async function runIdOcr() {
+  const fileInput = document.getElementById("idImageInput");
+  const statusEl = document.getElementById("ocrStatusText");
+  const wrap = document.getElementById("ocrProgressWrap");
+  const bar = document.getElementById("ocrProgressBar");
+
+  if (!fileInput.files || !fileInput.files[0]) {
+    statusEl.innerHTML = '<span class="text-warning">Please choose an ID image first.</span>';
+    return;
+  }
+
+  wrap.classList.remove("d-none");
+  bar.style.width = "10%";
+  statusEl.textContent = "Running Tesseract.js OCR...";
+
+  try {
+    const result = await Tesseract.recognize(fileInput.files[0], "eng", {
+      logger: (m) => {
+        if (m.status === "recognizing text" && typeof m.progress === "number") {
+          bar.style.width = Math.round(m.progress * 100) + "%";
+        }
+      },
+    });
+    const text = (result.data.text || "").trim();
+    if (text.length < 10) {
+      statusEl.innerHTML = '<span class="text-danger">Could not read enough text from that image. Please upload a clearer Government ID photo.</span>';
+      return;
+    }
+
+    document.getElementById("idOcrRawText").value = text;
+
+    const idNumMatch = text.match(/\b(?:\d{4}[-\s]?\d{4}[-\s]?\d{4}(?:[-\s]?\d{4})?|[A-Z]\d{2}-\d{2}-\d{6}|\d{2}-\d{7}-\d)\b/);
+    if (idNumMatch) {
+      document.getElementById("idOcrNumber").value = idNumMatch[0].trim().slice(0, 40);
+    }
+
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 3);
+    const ignoreWords = /(REPUBLIC|PHILIPPINES|PHILSYS|IDENTIFICATION|DRIVER|LICENSE|ADDRESS|BIRTH|SEX|NATIONALITY|SIGNATURE)/i;
+    const nameCandidate = lines.find((l) => !ignoreWords.test(l) && /^[A-Za-z.,\s-]{5,45}$/.test(l) && l.includes(" "));
+    if (nameCandidate) {
+      document.getElementById("idOcrName").value = nameCandidate.slice(0, 60);
+    }
+
+    const addrCandidate = lines.find((l) => /(BRGY|BARANGAY|CITY|BATANGAS|ST\.|PUROK|LOT|BLK)/i.test(l));
+    if (addrCandidate) {
+      document.getElementById("idOcrAddress").value = addrCandidate.slice(0, 200);
+    }
+
+    isIdScanned = true;
+    const badge = document.getElementById("ocrBadge");
+    badge.className = "badge bg-success-subtle text-success border border-success-subtle";
+    badge.textContent = "Scanned";
+    bar.style.width = "100%";
+    statusEl.innerHTML = '<span class="text-success">OCR complete! Review fields and continue.</span>';
+    updateStep1ButtonState();
+  } catch (err) {
+    statusEl.innerHTML = '<span class="text-danger">OCR failed: ' + err.message + '</span>';
+  }
+}
+</script>
+{% endblock %}

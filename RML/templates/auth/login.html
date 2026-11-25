@@ -2,6 +2,9 @@
 {% block title %}Customer Sign-in - RML Construction Supply{% endblock %}
 
 {% block content %}
+<!-- Google Identity Services Library -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
 <div class="figma-auth-screen-layout">
   <!-- 1. Header (80px Figma Specification) -->
   <header class="figma-auth-header">
@@ -57,6 +60,7 @@
         <h2 class="figma-auth-card-title">Customer Portal</h2>
         <p class="figma-auth-card-subtitle">Sign in to manage your construction orders, delivery schedules, and jobsite receipts.</p>
 
+        <div id="authAlertContainer">
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
@@ -67,6 +71,7 @@
             {% endfor %}
           {% endif %}
         {% endwith %}
+        </div>
 
         <form method="POST" action="{{ url_for('main.login', next=request.args.get('next')) if request.args.get('next') else url_for('main.login') }}" id="customerLoginForm">
           <input type="hidden" name="next" value="{{ request.args.get('next', '') or request.form.get('next', '') }}">
@@ -116,14 +121,45 @@
         </div>
 
         <!-- SSO Federation Options -->
-        <div class="figma-auth-sso-group">
-          <button type="button" class="figma-auth-sso-btn" onclick="showSsoNotice('Google Workspace')">
-            <img src="{{ url_for('static', filename='images/google_icon.svg') }}" class="figma-auth-sso-icon" alt="Google">
-            <span>Continue with Google</span>
-          </button>
+        <div class="figma-auth-sso-group mx-auto" style="max-width: 400px;">
+          <!-- Google Sign-In Area -->
+          <div id="googleSignInArea" class="w-100">
+            <!-- Loading Feedback -->
+            <div id="googleAuthLoading" class="alert alert-info py-2 px-3 small d-none text-center mb-2" role="alert">
+              <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              <span>Verifying Google account... Please wait.</span>
+            </div>
+
+            <!-- Google Identity Services Element -->
+            <div id="g_id_onload"
+                 data-client_id="{{ google_client_id }}"
+                 data-context="signin"
+                 data-ux_mode="popup"
+                 data-callback="handleGoogleCredentialResponse"
+                 data-auto_prompt="false">
+            </div>
+
+            <!-- GSI Official Render Container -->
+            <div id="googleGsiBtnContainer" class="w-100 d-flex justify-content-center {% if not google_client_id %}d-none{% endif %}"></div>
+
+            <!-- Figma-styled Branded Google Button (Active fallback & manual trigger) -->
+            <button type="button"
+                    id="googleCustomBtn"
+                    class="figma-auth-sso-btn {% if google_client_id %}d-none{% endif %}"
+                    onclick="triggerGoogleSignIn()">
+              <img src="{{ url_for('static', filename='images/google_icon.svg') }}" class="figma-auth-sso-icon" alt="Google">
+              <span>Continue with Google</span>
+            </button>
+          </div>
+
           <button type="button" class="figma-auth-sso-btn" onclick="showSsoNotice('Microsoft 365')">
             <img src="{{ url_for('static', filename='images/microsoft_icon.svg') }}" class="figma-auth-sso-icon" alt="Microsoft">
             <span>Continue with Microsoft</span>
+          </button>
+
+          <button type="button" class="figma-auth-sso-btn" onclick="openFaceLoginModal()">
+            <i class="bi bi-person-bounding-box me-2 text-primary"></i>
+            <span>Sign in with Face Recognition</span>
           </button>
         </div>
 
@@ -181,6 +217,264 @@ function togglePassword(inputId, btn) {
 
 function showSsoNotice(provider) {
   alert('Enterprise Single Sign-On via ' + provider + ' is configured for approved corporate contractor accounts. Please sign in with your email and password, or contact logistics@rml.com for corporate SSO federation.');
+}
+
+// Google Sign-In Integration
+function triggerGoogleSignIn() {
+  const clientId = "{{ google_client_id }}";
+  if (!clientId) {
+    showAuthNotice("Google Sign-In configuration: GOOGLE_CLIENT_ID is not configured yet. Please set your Google OAuth Client ID in your .env or server environment.");
+    return;
+  }
+  if (window.google && google.accounts && google.accounts.id) {
+    google.accounts.id.prompt();
+  } else {
+    showAuthError("Google Identity Services is still loading. Please refresh and try again.");
+  }
+}
+
+function initGoogleSignIn() {
+  const clientId = "{{ google_client_id }}";
+  if (!clientId) return;
+
+  if (window.google && google.accounts && google.accounts.id) {
+    try {
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+
+      const container = document.getElementById("googleGsiBtnContainer");
+      if (container) {
+        const containerWidth = Math.min(Math.max(container.offsetWidth || 340, 240), 400);
+        google.accounts.id.renderButton(container, {
+          type: "standard",
+          shape: "rectangular",
+          theme: "outline",
+          text: "continue_with",
+          size: "large",
+          logo_alignment: "left",
+          width: containerWidth
+        });
+        container.classList.remove("d-none");
+        const customBtn = document.getElementById("googleCustomBtn");
+        if (customBtn) customBtn.classList.add("d-none");
+      }
+    } catch (e) {
+      console.warn("Google Sign-In button render error:", e);
+    }
+  }
+}
+
+window.onGoogleLibraryLoad = initGoogleSignIn;
+window.addEventListener("load", function() {
+  setTimeout(initGoogleSignIn, 300);
+});
+
+async function handleGoogleCredentialResponse(response) {
+  if (!response || !response.credential) {
+    showAuthError("Google authentication was cancelled or failed to retrieve credentials.");
+    return;
+  }
+
+  showAuthLoading(true);
+
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const nextUrl = urlParams.get("next") || "";
+
+    const res = await fetch("{{ url_for('main.google_auth') }}", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({
+        credential: response.credential,
+        next: nextUrl
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      window.location.href = data.redirect_url || "{{ url_for('main.customer_dashboard') }}";
+    } else {
+      showAuthLoading(false);
+      if (data.redirect) {
+        window.location.href = data.redirect;
+      } else {
+        showAuthError(data.error || "Google Sign-In failed. Please try again.");
+      }
+    }
+  } catch (err) {
+    showAuthLoading(false);
+    showAuthError("Unable to connect to authentication server. Please check your connection.");
+    console.error("Google Auth error:", err);
+  }
+}
+
+function showAuthLoading(show) {
+  const loader = document.getElementById("googleAuthLoading");
+  if (loader) {
+    if (show) loader.classList.remove("d-none");
+    else loader.classList.add("d-none");
+  }
+}
+
+function showAuthError(message) {
+  const container = document.getElementById("authAlertContainer");
+  if (container) {
+    container.innerHTML = `
+      <div class="alert alert-danger alert-dismissible fade show py-2 px-3 small mb-3" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i> ${message}
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+      </div>
+    `;
+    container.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } else {
+    alert(message);
+  }
+}
+
+function showAuthNotice(message) {
+  const container = document.getElementById("authAlertContainer");
+  if (container) {
+    container.innerHTML = `
+      <div class="alert alert-warning alert-dismissible fade show py-2 px-3 small mb-3" role="alert">
+        <i class="bi bi-info-circle-fill me-1"></i> ${message}
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+      </div>
+    `;
+    container.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } else {
+    alert(message);
+  }
+}
+</script>
+
+<!-- Face Recognition Login Modal -->
+<div class="modal fade" id="faceLoginModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold"><i class="bi bi-person-bounding-box me-2 text-primary"></i>Face Recognition Sign-In</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="stopFaceLoginCamera()"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Email Address (Optional)</label>
+          <input type="email" id="faceLoginEmail" class="form-control form-control-sm" placeholder="Leave blank for automatic face match">
+        </div>
+        <div class="bg-light border rounded p-2 text-center mb-2">
+          <video id="faceLoginVideo" autoplay muted playsinline class="rounded bg-dark w-100" style="max-height: 240px; object-fit: cover;"></video>
+        </div>
+        <div id="faceLoginStatus" class="small text-muted text-center">Starting camera...</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" onclick="stopFaceLoginCamera()">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btnFaceLoginScan" onclick="performFaceLogin()" disabled>
+          <i class="bi bi-camera me-1"></i> Scan Face &amp; Sign In
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
+<script>
+const LOGIN_FACE_MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/";
+let loginFaceStream = null;
+let loginFaceModelsLoaded = false;
+
+async function openFaceLoginModal() {
+  const emailInput = document.getElementById("loginEmail");
+  const faceEmail = document.getElementById("faceLoginEmail");
+  if (emailInput && emailInput.value && faceEmail) {
+    faceEmail.value = emailInput.value;
+  }
+
+  const modalEl = document.getElementById("faceLoginModal");
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
+
+  const statusEl = document.getElementById("faceLoginStatus");
+  const video = document.getElementById("faceLoginVideo");
+  const btn = document.getElementById("btnFaceLoginScan");
+  btn.disabled = true;
+
+  try {
+    statusEl.textContent = "Opening camera and loading face models...";
+    loginFaceStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+    video.srcObject = loginFaceStream;
+
+    if (!loginFaceModelsLoaded) {
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(LOGIN_FACE_MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(LOGIN_FACE_MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(LOGIN_FACE_MODEL_URL),
+      ]);
+      loginFaceModelsLoaded = true;
+    }
+
+    btn.disabled = false;
+    statusEl.innerHTML = '<span class="text-success">Camera ready. Center your face and click Scan Face &amp; Sign In.</span>';
+  } catch (err) {
+    statusEl.innerHTML = '<span class="text-danger">Camera/model error: ' + err.message + '</span>';
+  }
+}
+
+function stopFaceLoginCamera() {
+  if (loginFaceStream) {
+    loginFaceStream.getTracks().forEach((t) => t.stop());
+    loginFaceStream = null;
+  }
+}
+
+async function performFaceLogin() {
+  const statusEl = document.getElementById("faceLoginStatus");
+  const video = document.getElementById("faceLoginVideo");
+  const btn = document.getElementById("btnFaceLoginScan");
+  const email = document.getElementById("faceLoginEmail").value.trim();
+
+  btn.disabled = true;
+  statusEl.textContent = "Verifying your face...";
+
+  try {
+    const detection = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    if (!detection) {
+      statusEl.innerHTML = '<span class="text-warning">No face detected. Try better lighting and look at the camera.</span>';
+      btn.disabled = false;
+      return;
+    }
+
+    const res = await fetch("/api/auth/face-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        descriptor: Array.from(detection.descriptor),
+        email: email,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      stopFaceLoginCamera();
+      statusEl.innerHTML = '<span class="text-success fw-semibold">Welcome, ' + data.name + '! Redirecting...</span>';
+      window.location.href = data.redirect || "/customer/dashboard";
+    } else {
+      statusEl.innerHTML = '<span class="text-danger">' + (data.error || "Face not recognized.") + '</span>';
+      btn.disabled = false;
+    }
+  } catch (err) {
+    statusEl.innerHTML = '<span class="text-danger">Error: ' + err.message + '</span>';
+    btn.disabled = false;
+  }
 }
 </script>
 {% endblock %}

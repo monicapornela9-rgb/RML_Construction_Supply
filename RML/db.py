@@ -79,6 +79,7 @@ def seed_catalog(cur):
             v_name = v["name"].strip()
             v_price = float(v["price"])
             v_unit = v.get("unit", p_unit).strip()
+            v_img = v.get("image_url")
 
             v_exist = cur.execute(
                 "SELECT id FROM product_variations WHERE product_id = ? AND LOWER(variation_name) = LOWER(?)",
@@ -87,14 +88,14 @@ def seed_catalog(cur):
             if v_exist:
                 cur.execute("""
                     UPDATE product_variations
-                    SET price = ?, unit = ?, is_available = 1
+                    SET price = ?, unit = ?, image_url = COALESCE(?, image_url), is_available = 1
                     WHERE id = ?
-                """, (v_price, v_unit, v_exist[0]))
+                """, (v_price, v_unit, v_img, v_exist[0]))
             else:
                 cur.execute("""
-                    INSERT INTO product_variations (product_id, variation_name, price, unit, stock_quantity, is_available)
-                    VALUES (?, ?, ?, ?, 50, 1)
-                """, (pid, v_name, v_price, v_unit))
+                    INSERT INTO product_variations (product_id, variation_name, price, unit, stock_quantity, image_url, is_available)
+                    VALUES (?, ?, ?, ?, 50, ?, 1)
+                """, (pid, v_name, v_price, v_unit, v_img))
 
 
 def init_db():
@@ -143,6 +144,7 @@ def init_db():
             price REAL NOT NULL,
             unit TEXT,
             stock_quantity INTEGER NOT NULL DEFAULT 50,
+            image_url TEXT,
             is_available INTEGER NOT NULL DEFAULT 1,
             created_at TEXT DEFAULT (datetime('now', 'localtime')),
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
@@ -224,8 +226,11 @@ def init_db():
             verified_by INTEGER,
             verified_at TEXT,
             rejection_reason TEXT,
+            collected_by INTEGER,
+            collected_at TEXT,
             FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-            FOREIGN KEY (verified_by) REFERENCES users(id)
+            FOREIGN KEY (verified_by) REFERENCES users(id),
+            FOREIGN KEY (collected_by) REFERENCES users(id)
         );
 
         CREATE TABLE IF NOT EXISTS deliveries (
@@ -266,7 +271,11 @@ def init_db():
         ("users", "locked_until", "TEXT"),
         ("users", "is_verified", "INTEGER DEFAULT 1"),
         ("users", "verification_token", "TEXT"),
+        ("users", "google_id", "TEXT"),
+        ("users", "avatar_url", "TEXT"),
+        ("users", "auth_provider", "TEXT DEFAULT 'local'"),
         ("products", "is_active", "INTEGER NOT NULL DEFAULT 1"),
+        ("product_variations", "image_url", "TEXT"),
         ("order_items", "variation_id", "INTEGER"),
         ("order_items", "variation_name", "TEXT"),
         ("orders", "approval_notes", "TEXT"),
@@ -283,6 +292,8 @@ def init_db():
         ("payments", "verified_by", "INTEGER"),
         ("payments", "verified_at", "TEXT"),
         ("payments", "rejection_reason", "TEXT"),
+        ("payments", "collected_by", "INTEGER"),
+        ("payments", "collected_at", "TEXT"),
         ("deliveries", "quantity_received", "TEXT"),
         ("deliveries", "completion_time", "TEXT"),
         ("deliveries", "recipient_acknowledged", "INTEGER DEFAULT 0"),
@@ -296,6 +307,16 @@ def init_db():
         ("deliveries", "estimated_distance_km", "REAL"),
         ("deliveries", "estimated_duration_min", "INTEGER"),
         ("deliveries", "tracking_active", "INTEGER DEFAULT 0"),
+        ("users", "face_descriptor", "TEXT"),
+        ("users", "face_enrolled_at", "TEXT"),
+        ("users", "id_type", "TEXT"),
+        ("users", "id_number", "TEXT"),
+        ("users", "id_ocr_name", "TEXT"),
+        ("users", "id_ocr_text", "TEXT"),
+        ("users", "id_verified", "INTEGER DEFAULT 0"),
+        ("users", "id_verified_at", "TEXT"),
+        ("users", "birthdate", "TEXT"),
+        ("users", "gender", "TEXT"),
     ]
     for tbl, col, col_def in table_migrations:
         try:

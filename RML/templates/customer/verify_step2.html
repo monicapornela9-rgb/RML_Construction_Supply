@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Step 2: Basic Information - RML Construction Supply{% endblock %}
+
+{% block content %}
+<div class="container py-3" style="max-width: 760px;">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h2 class="fw-bold mb-1">Customer Identity Verification</h2>
+      <p class="text-muted small mb-0">Step 2 of 3 &middot; Basic Information</p>
+    </div>
+    <form method="POST" action="{{ url_for('verify.wizard') }}">
+      <input type="hidden" name="nav" value="back_to_1">
+      <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill px-3">&larr; Back to Step 1</button>
+    </form>
+  </div>
+
+  <!-- 3-Step Progress Bar -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+      <div class="row text-center g-2">
+        <div class="col-4">
+          <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-3 py-2">1. Facial Recognition &amp; ID OCR</span>
+        </div>
+        <div class="col-4">
+          <span class="badge rounded-pill bg-primary px-3 py-2">2. Basic Information</span>
+        </div>
+        <div class="col-4">
+          <span class="badge rounded-pill bg-light text-muted border px-3 py-2">3. Confirm Information (1 &amp; 2)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <h5 class="fw-bold mb-1">Basic &amp; Delivery Information</h5>
+      <p class="text-muted small mb-4">Review or update your personal details and default delivery address.</p>
+
+      <form method="POST" action="{{ url_for('verify.wizard') }}">
+        <input type="hidden" name="wizard_step" value="2">
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Full / Company Name * <span class="text-muted fw-normal">(2-60 characters)</span></label>
+          <input type="text" name="name" class="form-control" required minlength="2" maxlength="60"
+                 value="{{ step2_data.get('name') or step1_data.get('id_ocr_name') or customer.name }}">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Email Address *</label>
+          <input type="email" name="email" class="form-control" required maxlength="100"
+                 value="{{ step2_data.get('email') or customer.email }}">
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Philippine Mobile Number *</label>
+            <input type="tel" name="phone" class="form-control" required pattern="^(09|\+639)\d{9}$" maxlength="13" placeholder="09171234567"
+                   value="{{ step2_data.get('phone') or customer.phone or '' }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-semibold">Birthdate *</label>
+            <input type="date" name="birthdate" class="form-control" required
+                   value="{{ step2_data.get('birthdate') or customer.birthdate or '' }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-semibold">Gender</label>
+            {% set cur_gender = step2_data.get('gender') or customer.gender or '' %}
+            <select name="gender" class="form-select">
+              <option value="Male" {% if cur_gender == 'Male' %}selected{% endif %}>Male</option>
+              <option value="Female" {% if cur_gender == 'Female' %}selected{% endif %}>Female</option>
+              <option value="Prefer not to say" {% if cur_gender == 'Prefer not to say' or not cur_gender %}selected{% endif %}>Prefer not to say</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label small fw-semibold">Default Delivery Address * <span class="text-muted fw-normal">(10-200 characters)</span></label>
+          <textarea name="address" class="form-control" rows="3" required minlength="10" maxlength="200">{{ step2_data.get('address') or step1_data.get('ocr_address') or customer.address or '' }}</textarea>
+        </div>
+
+        <div class="d-flex justify-content-end">
+          <button type="submit" class="btn btn-primary px-4">
+            Continue to Step 3: Confirm Information &rarr;
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

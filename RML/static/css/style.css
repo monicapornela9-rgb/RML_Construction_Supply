@@ -1693,6 +1693,50 @@ footer.compact-footer a:hover {
   box-shadow: 0 4px 10px rgba(200, 50, 39, 0.3);
 }
 
+.figma-landing-btn-login-outline {
+  background-color: transparent;
+  color: var(--rml-navy);
+  border: 1.5px solid #CBD5E1;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.figma-landing-btn-login-outline:hover {
+  background-color: #F8FAFC;
+  color: var(--rml-navy);
+  border-color: var(--rml-navy);
+}
+
+.figma-landing-btn-register {
+  background-color: var(--rml-red);
+  color: #FFFFFF;
+  border: 1.5px solid var(--rml-red);
+  border-radius: 6px;
+  padding: 10px 22px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(200, 50, 39, 0.25);
+}
+
+.figma-landing-btn-register:hover {
+  background-color: var(--rml-red-hover);
+  border-color: var(--rml-red-hover);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(200, 50, 39, 0.35);
+}
+
 /* 2. Hero Section */
 .figma-landing-hero {
   background-color: #132936;

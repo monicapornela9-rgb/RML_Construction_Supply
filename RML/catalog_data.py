@@ -10,7 +10,7 @@ OFFICIAL_CATALOG = [
         "description": "Standard denatured alcohol solvent for cleaning and thinning",
         "unit": "bottle",
         "price": 45.00,
-        "image_url": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+        "image_url": "/static/images/products/kb-denatured-alcohol.jpg",
         "variations": []
     },
     {
@@ -19,7 +19,7 @@ OFFICIAL_CATALOG = [
         "description": "Standard mineral paint thinner for oil-based paints and enamels",
         "unit": "bottle",
         "price": 65.00,
-        "image_url": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+        "image_url": "/static/images/products/kb-paint-thinner.jpg",
         "variations": []
     },
     {
@@ -28,7 +28,7 @@ OFFICIAL_CATALOG = [
         "description": "High-grade lacquer thinner for wood and automotive lacquers",
         "unit": "bottle",
         "price": 45.00,
-        "image_url": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+        "image_url": "/static/images/products/tower-lacquer-thinner.jpg",
         "variations": []
     },
     {
@@ -37,12 +37,12 @@ OFFICIAL_CATALOG = [
         "description": "Premium wood finish stain and protective varnish",
         "unit": "bottle",
         "price": 70.00,
-        "image_url": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+        "image_url": "/static/images/products/centro-varnish.jpg",
         "variations": [
-            {"name": "Maple", "price": 70.00, "unit": "bottle"},
-            {"name": "Brown", "price": 70.00, "unit": "bottle"},
-            {"name": "Natural", "price": 70.00, "unit": "bottle"},
-            {"name": "Mahogany", "price": 70.00, "unit": "bottle"},
+            {"name": "Maple", "price": 70.00, "unit": "bottle", "image_url": "/static/images/products/centro-varnish-maple.jpg"},
+            {"name": "Brown", "price": 70.00, "unit": "bottle", "image_url": "/static/images/products/centro-varnish-brown.jpg"},
+            {"name": "Natural", "price": 70.00, "unit": "bottle", "image_url": "/static/images/products/centro-varnish-natural.jpg"},
+            {"name": "Mahogany", "price": 70.00, "unit": "bottle", "image_url": "/static/images/products/centro-varnish-mahogany.jpg"},
         ]
     },
     {
@@ -51,7 +51,7 @@ OFFICIAL_CATALOG = [
         "description": "All-weather anti-termite and wood borer preservative",
         "unit": "can",
         "price": 860.00,
-        "image_url": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+        "image_url": "/static/images/products/solignum-wood-preservative.jpg",
         "variations": [
             {"name": "1L", "price": 860.00, "unit": "can"},
             {"name": "4L", "price": 1850.00, "unit": "can"},
@@ -67,7 +67,7 @@ OFFICIAL_CATALOG = [
         "description": "Opple high lumen energy saving daylight LED bulb",
         "unit": "pc",
         "price": 70.00,
-        "image_url": "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500",
+        "image_url": "/static/images/products/opple-led-bulb.jpg",
         "variations": [
             {"name": "5w", "price": 70.00, "unit": "pc"},
             {"name": "15w", "price": 170.00, "unit": "pc"},
@@ -123,7 +123,7 @@ OFFICIAL_CATALOG = [
         "description": "Standard electromagnetic/electronic fluorescent lamp ballast",
         "unit": "pc",
         "price": 250.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/fluorescent-ballast.jpg",
         "variations": [
             {"name": "20w", "price": 250.00, "unit": "pc"},
             {"name": "40w", "price": 310.00, "unit": "pc"},
@@ -135,7 +135,7 @@ OFFICIAL_CATALOG = [
         "description": "T8 daylight straight fluorescent tube lamp",
         "unit": "pc",
         "price": 150.00,
-        "image_url": "https://images.unsplash.com/photo-1507499739999-097706ad8914?w=500",
+        "image_url": "/static/images/products/fluorescent-tube.jpg",
         "variations": [
             {"name": "18/20w", "price": 150.00, "unit": "pc"},
             {"name": "36w", "price": 210.00, "unit": "pc"},
@@ -159,10 +159,10 @@ OFFICIAL_CATALOG = [
         "description": "Octagonal electrical wiring junction box",
         "unit": "pc",
         "price": 35.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/junction-box-with-cover.jpg",
         "variations": [
-            {"name": "Without Cover", "price": 35.00, "unit": "pc"},
-            {"name": "With Cover", "price": 65.00, "unit": "pc"},
+            {"name": "Without Cover", "price": 35.00, "unit": "pc", "image_url": "/static/images/products/junction-box.jpg"},
+            {"name": "With Cover", "price": 65.00, "unit": "pc", "image_url": "/static/images/products/junction-box-with-cover.jpg"},
         ]
     },
     {
@@ -171,7 +171,7 @@ OFFICIAL_CATALOG = [
         "description": "Standard 2x4 electrical utility flush mount switch box",
         "unit": "pc",
         "price": 35.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/utility-box.jpg",
         "variations": []
     },
 
@@ -184,7 +184,7 @@ OFFICIAL_CATALOG = [
         "description": "Original high-strength general purpose contact adhesive",
         "unit": "can",
         "price": 45.00,
-        "image_url": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+        "image_url": "/static/images/products/rugby.jpg",
         "variations": [
             {"name": "Small", "price": 45.00, "unit": "can"},
             {"name": "Big", "price": 110.00, "unit": "can"},
@@ -196,7 +196,7 @@ OFFICIAL_CATALOG = [
         "description": "High performance elastomeric sealant for roofs, gutters, and downspouts",
         "unit": "can",
         "price": 90.00,
-        "image_url": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+        "image_url": "/static/images/products/vulcaseal.jpg",
         "variations": [
             {"name": "75 ml", "price": 90.00, "unit": "pouch"},
             {"name": "1/4 l", "price": 295.00, "unit": "can"},
@@ -210,7 +210,7 @@ OFFICIAL_CATALOG = [
         "description": "High grade waterproofing elastomeric sealant pouch",
         "unit": "pouch",
         "price": 85.00,
-        "image_url": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+        "image_url": "/static/images/products/elastoseal.jpg",
         "variations": [
             {"name": "S", "price": 85.00, "unit": "pouch"},
             {"name": "M", "price": 170.00, "unit": "pouch"},
@@ -222,7 +222,7 @@ OFFICIAL_CATALOG = [
         "description": "Heavy-duty instant grab construction grab adhesive tube",
         "unit": "tube",
         "price": 65.00,
-        "image_url": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+        "image_url": "/static/images/products/no-more-nails.jpg",
         "variations": [
             {"name": "S", "price": 65.00, "unit": "tube"},
             {"name": "M", "price": 110.00, "unit": "tube"},
@@ -235,7 +235,7 @@ OFFICIAL_CATALOG = [
         "description": "Fast curing PVC solvent pipe cement",
         "unit": "can",
         "price": 95.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/solvent-cement.jpg",
         "variations": []
     },
     {
@@ -244,7 +244,7 @@ OFFICIAL_CATALOG = [
         "description": "Neltex premium pipe weld solvent cement",
         "unit": "can",
         "price": 145.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/neltex-pvc-pipe-cement.jpg",
         "variations": [
             {"name": "S", "price": 145.00, "unit": "can"},
             {"name": "M", "price": 175.00, "unit": "can"},
@@ -257,7 +257,7 @@ OFFICIAL_CATALOG = [
         "description": "Original water-resistant fast grab PVA wood glue",
         "unit": "bottle",
         "price": 65.00,
-        "image_url": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+        "image_url": "/static/images/products/stikwel.jpg",
         "variations": [
             {"name": "250g", "price": 65.00, "unit": "bottle"},
             {"name": "500g", "price": 170.00, "unit": "bottle"},
@@ -275,7 +275,7 @@ OFFICIAL_CATALOG = [
         "description": "Flame retardant electrical insulating tape",
         "unit": "roll",
         "price": 25.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/e-tape.jpg",
         "variations": [
             {"name": "S", "price": 25.00, "unit": "roll"},
             {"name": "M", "price": 70.00, "unit": "roll"},
@@ -287,7 +287,7 @@ OFFICIAL_CATALOG = [
         "description": "General purpose painter masking tape roll",
         "unit": "roll",
         "price": 40.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/masking-tape.jpg",
         "variations": [
             {"name": "1/2", "price": 40.00, "unit": "roll"},
             {"name": "3/4", "price": 55.00, "unit": "roll"},
@@ -300,7 +300,7 @@ OFFICIAL_CATALOG = [
         "description": "PTFE plumbing thread seal tape roll",
         "unit": "roll",
         "price": 15.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/teflon.jpg",
         "variations": [
             {"name": "S", "price": 15.00, "unit": "roll"},
             {"name": "M", "price": 20.00, "unit": "roll"},
@@ -312,7 +312,7 @@ OFFICIAL_CATALOG = [
         "description": "Galvanized iron tie wire for rebar tying and construction reinforcement",
         "unit": "kilo",
         "price": 100.00,
-        "image_url": "https://images.unsplash.com/photo-1535813547-99c456a41d4a?w=500",
+        "image_url": "/static/images/products/gi-wire.jpg",
         "variations": [
             {"name": "16*", "price": 100.00, "unit": "kilo"},
             {"name": "18*", "price": 110.00, "unit": "kilo"},
@@ -324,9 +324,9 @@ OFFICIAL_CATALOG = [
         "description": "Galvanized fine wire mesh sifter screen per meter",
         "unit": "meter",
         "price": 100.00,
-        "image_url": "https://images.unsplash.com/photo-1535813547-99c456a41d4a?w=500",
+        "image_url": "/static/images/products/bistayan.jpg",
         "variations": [
-            {"name": "1meter", "price": 100.00, "unit": "meter"}
+            {"name": "1meter", "price": 100.00, "unit": "meter"},
         ]
     },
 
@@ -339,10 +339,10 @@ OFFICIAL_CATALOG = [
         "description": "High-strength blended structural hydraulic cement (40kg bag)",
         "unit": "bag",
         "price": 220.00,
-        "image_url": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+        "image_url": "/static/images/products/cement-fortune.jpg",
         "variations": [
-            {"name": "Fortune", "price": 220.00, "unit": "bag"},
-            {"name": "Holcim", "price": 220.00, "unit": "bag"},
+            {"name": "Fortune", "price": 220.00, "unit": "bag", "image_url": "/static/images/products/cement-fortune.jpg"},
+            {"name": "Holcim", "price": 220.00, "unit": "bag", "image_url": "/static/images/products/cement-holcim.jpg"},
         ]
     },
     {
@@ -351,10 +351,10 @@ OFFICIAL_CATALOG = [
         "description": "Subgrade earth and filling material for ground elevation (Regular: 1800-2000 per load; D/T: Dump Truck)",
         "unit": "load",
         "price": 1800.00,
-        "image_url": "https://images.unsplash.com/photo-1508873535684-277a3cbcc4e8?w=500",
+        "image_url": "/static/images/products/panambak.jpg",
         "variations": [
-            {"name": "Regular (1800-2000)", "price": 1800.00, "unit": "load"},
-            {"name": "Panambak D/T", "price": 8000.00, "unit": "truckload"},
+            {"name": "Regular (1800-2000)", "price": 1800.00, "unit": "load", "image_url": "/static/images/products/panambak.jpg"},
+            {"name": "Panambak D/T", "price": 8000.00, "unit": "truckload", "image_url": "/static/images/products/dump-truck-10-wheeler.jpg"},
         ]
     },
     {
@@ -372,7 +372,7 @@ OFFICIAL_CATALOG = [
         "description": "Fine white plastering sand truckload",
         "unit": "truckload",
         "price": 6000.00,
-        "image_url": "https://images.unsplash.com/photo-1508873535684-277a3cbcc4e8?w=500",
+        "image_url": "/static/images/products/white-sand.jpg",
         "variations": []
     },
     {
@@ -381,7 +381,7 @@ OFFICIAL_CATALOG = [
         "description": "Screened S1 concrete masonry sand truckload",
         "unit": "truckload",
         "price": 5000.00,
-        "image_url": "https://images.unsplash.com/photo-1508873535684-277a3cbcc4e8?w=500",
+        "image_url": "/static/images/products/s1-sand.jpg",
         "variations": []
     },
     {
@@ -406,7 +406,7 @@ OFFICIAL_CATALOG = [
         "description": "Decorative ceiling and drywall composite board 1/4 inch",
         "unit": "sheet",
         "price": 500.00,
-        "image_url": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500",
+        "image_url": "/static/images/products/shena-board-quarter.jpg",
         "variations": []
     },
     {
@@ -415,7 +415,7 @@ OFFICIAL_CATALOG = [
         "description": "Interior grade ordinary hardwood plywood 4x8 ft",
         "unit": "sheet",
         "price": 550.00,
-        "image_url": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500",
+        "image_url": "/static/images/products/ordinary-plywood.jpg",
         "variations": [
             {"name": "¼", "price": 550.00, "unit": "sheet"},
             {"name": "½", "price": 950.00, "unit": "sheet"},
@@ -428,7 +428,7 @@ OFFICIAL_CATALOG = [
         "description": "Waterproof phenolic resin bonded marine plywood 4x8 ft",
         "unit": "sheet",
         "price": 600.00,
-        "image_url": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500",
+        "image_url": "/static/images/products/marine-plywood.jpg",
         "variations": [
             {"name": "¼", "price": 600.00, "unit": "sheet"},
             {"name": "½", "price": 1100.00, "unit": "sheet"},
@@ -445,7 +445,7 @@ OFFICIAL_CATALOG = [
         "description": "Galvanized smooth plain sheet metal",
         "unit": "sheet",
         "price": 580.00,
-        "image_url": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=500",
+        "image_url": "/static/images/products/plain-sheet.jpg",
         "variations": [
             {"name": "3x8", "price": 580.00, "unit": "sheet"},
             {"name": "4x8", "price": 680.00, "unit": "sheet"},
@@ -457,7 +457,7 @@ OFFICIAL_CATALOG = [
         "description": "Corrugated galvanized iron roofing sheet",
         "unit": "sheet",
         "price": 464.00,
-        "image_url": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=500",
+        "image_url": "/static/images/products/yero.jpg",
         "variations": [
             {"name": "8", "price": 464.00, "unit": "sheet"},
             {"name": "10", "price": 580.00, "unit": "sheet"},
@@ -470,7 +470,7 @@ OFFICIAL_CATALOG = [
         "description": "Standard deformed steel reinforcement rebar (6m length)",
         "unit": "pc",
         "price": 130.00,
-        "image_url": "https://images.unsplash.com/photo-1535813547-99c456a41d4a?w=500",
+        "image_url": "/static/images/products/bakal.jpg",
         "variations": [
             {"name": "9mm", "price": 130.00, "unit": "pc"},
             {"name": "10mm", "price": 170.00, "unit": "pc"},
@@ -484,11 +484,11 @@ OFFICIAL_CATALOG = [
         "description": "Shielded metal arc welding electrodes",
         "unit": "kilo",
         "price": 130.00,
-        "image_url": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500",
+        "image_url": "/static/images/products/welding-rod-ordinary.jpg",
         "variations": [
-            {"name": "ordinary", "price": 130.00, "unit": "kilo"},
-            {"name": "special", "price": 200.00, "unit": "kilo"},
-            {"name": "stainless", "price": 20.00, "unit": "pc"},
+            {"name": "ordinary", "price": 130.00, "unit": "kilo", "image_url": "/static/images/products/welding-rod-ordinary.jpg"},
+            {"name": "special", "price": 200.00, "unit": "kilo", "image_url": "/static/images/products/welding-rod-special.jpg"},
+            {"name": "stainless", "price": 20.00, "unit": "pc", "image_url": "/static/images/products/welding-rod-stainless.jpg"},
         ]
     },
 
@@ -501,7 +501,7 @@ OFFICIAL_CATALOG = [
         "description": "Neltex black PE water supply pipe",
         "unit": "pc",
         "price": 130.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/neltex-pvc-pipe-black.jpg",
         "variations": [
             {"name": "½", "price": 130.00, "unit": "pc"},
             {"name": "¾", "price": 165.00, "unit": "pc"},
@@ -513,7 +513,7 @@ OFFICIAL_CATALOG = [
         "description": "Neltex orange sanitary drainage PVC pipe",
         "unit": "pc",
         "price": 145.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/neltex-pvc-pipe-orange.jpg",
         "variations": [
             {"name": "½", "price": 145.00, "unit": "pc"},
             {"name": "1", "price": 230.00, "unit": "pc"},
@@ -528,7 +528,7 @@ OFFICIAL_CATALOG = [
         "description": "Black PE pipe 90-degree elbow fitting",
         "unit": "pc",
         "price": 20.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/elbow-black.jpg",
         "variations": [
             {"name": "2", "price": 20.00, "unit": "pc"},
             {"name": "3", "price": 40.00, "unit": "pc"},
@@ -541,7 +541,7 @@ OFFICIAL_CATALOG = [
         "description": "Black PE pipe 3-way TEE fitting",
         "unit": "pc",
         "price": 20.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/tee-black.jpg",
         "variations": [
             {"name": "2x2", "price": 20.00, "unit": "pc"},
             {"name": "2x3", "price": 35.00, "unit": "pc"},
@@ -554,7 +554,7 @@ OFFICIAL_CATALOG = [
         "description": "PVC inspection cleanout plug adapter",
         "unit": "pc",
         "price": 20.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/clean-out.jpg",
         "variations": [
             {"name": "2", "price": 20.00, "unit": "pc"},
             {"name": "3", "price": 30.00, "unit": "pc"},
@@ -567,7 +567,7 @@ OFFICIAL_CATALOG = [
         "description": "Neltex premium sanitary curve elbow fitting (90° and 45°)",
         "unit": "pc",
         "price": 65.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/elbow-neltex.jpg",
         "variations": [
             {"name": "#2 – 90°", "price": 95.00, "unit": "pc"},
             {"name": "#2 – 45°", "price": 65.00, "unit": "pc"},
@@ -583,7 +583,7 @@ OFFICIAL_CATALOG = [
         "description": "Standard sanitary water-trap sewer gas barrier fitting",
         "unit": "pc",
         "price": 90.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/p-trap.jpg",
         "variations": []
     },
     {
@@ -592,7 +592,7 @@ OFFICIAL_CATALOG = [
         "description": "Neltex threaded cleanout cap and sewer inspection cover",
         "unit": "pc",
         "price": 75.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/neltex-cover.jpg",
         "variations": [
             {"name": "2x2", "price": 75.00, "unit": "pc"},
             {"name": "3x3", "price": 90.00, "unit": "pc"},
@@ -605,7 +605,7 @@ OFFICIAL_CATALOG = [
         "description": "Heavy-duty eco sanitary drainage pipe",
         "unit": "pc",
         "price": 210.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/bio-pipe.jpg",
         "variations": [
             {"name": "2", "price": 210.00, "unit": "pc"},
             {"name": "3", "price": 380.00, "unit": "pc"},
@@ -618,7 +618,7 @@ OFFICIAL_CATALOG = [
         "description": "Sanitary branch 45-degree WYE fitting",
         "unit": "pc",
         "price": 55.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/wye.jpg",
         "variations": [
             {"name": "2x2", "price": 55.00, "unit": "pc"},
             {"name": "3x3", "price": 85.00, "unit": "pc"},
@@ -632,7 +632,7 @@ OFFICIAL_CATALOG = [
         "description": "Sanitary branch TEE fitting",
         "unit": "pc",
         "price": 55.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/tee.jpg",
         "variations": [
             {"name": "2x2", "price": 55.00, "unit": "pc"},
             {"name": "3x2", "price": 75.00, "unit": "pc"},
@@ -648,7 +648,7 @@ OFFICIAL_CATALOG = [
         "description": "Durable threaded outdoor/utility plastic bibcock faucet",
         "unit": "pc",
         "price": 50.00,
-        "image_url": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
+        "image_url": "/static/images/products/plastic-faucet.jpg",
         "variations": []
     },
 
@@ -661,7 +661,7 @@ OFFICIAL_CATALOG = [
         "description": "Heavy-duty steel door and cabinet loose-pin hinges",
         "unit": "pair",
         "price": 75.00,
-        "image_url": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500",
+        "image_url": "/static/images/products/bisagra.jpg",
         "variations": [
             {"name": "3x3", "price": 75.00, "unit": "pair"},
             {"name": "3 ½ x 3 ½", "price": 85.00, "unit": "pair"},
@@ -673,7 +673,7 @@ OFFICIAL_CATALOG = [
         "description": "Industrial site safety hard hat helmet with adjustable suspension",
         "unit": "pc",
         "price": 280.00,
-        "image_url": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500",
+        "image_url": "/static/images/products/helmet.jpg",
         "variations": []
     },
     {
@@ -682,7 +682,7 @@ OFFICIAL_CATALOG = [
         "description": "High tensile steel wire scratch brush for cleaning rust and concrete",
         "unit": "pc",
         "price": 60.00,
-        "image_url": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500",
+        "image_url": "/static/images/products/steel-brush.jpg",
         "variations": []
     },
     {
@@ -691,7 +691,7 @@ OFFICIAL_CATALOG = [
         "description": "Reinforced metal cut-off abrasive chop saw blade",
         "unit": "pc",
         "price": 200.00,
-        "image_url": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500",
+        "image_url": "/static/images/products/cut-off-blade.jpg",
         "variations": []
     },
     {
@@ -700,10 +700,10 @@ OFFICIAL_CATALOG = [
         "description": "Quality paint roller with handle or replacement refill",
         "unit": "pc",
         "price": 110.00,
-        "image_url": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
+        "image_url": "/static/images/products/roller-brush-with-handle.jpg",
         "variations": [
-            {"name": "With Handle", "price": 110.00, "unit": "pc"},
-            {"name": "Refill", "price": 45.00, "unit": "pc"},
+            {"name": "With Handle", "price": 110.00, "unit": "pc", "image_url": "/static/images/products/roller-brush-with-handle.jpg"},
+            {"name": "Refill", "price": 45.00, "unit": "pc", "image_url": "/static/images/products/roller-brush-refill.jpg"},
         ]
     },
     {
@@ -712,7 +712,7 @@ OFFICIAL_CATALOG = [
         "description": "Durable textured waterproof safety rubber gloves",
         "unit": "pair",
         "price": 50.00,
-        "image_url": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500",
+        "image_url": "/static/images/products/rubber-gloves.jpg",
         "variations": []
     },
 ]

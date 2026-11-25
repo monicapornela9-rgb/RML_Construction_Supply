@@ -225,8 +225,110 @@
     </div>
   </div>
 
-  <!-- Right Column: Site Confirmation Form -->
+  <!-- Right Column: Payment Collection & Site Confirmation Form -->
   <div class="col-lg-7">
+
+    <!-- Payment Status & COD Cash Collection Card -->
+    {% if payment and payment.method == 'cash' %}
+      <div class="card border-0 shadow-sm p-4 mb-4 {% if payment.payment_status == 'paid' %}border-start border-4 border-success{% else %}border-start border-4 border-warning{% endif %}">
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+          <h5 class="fw-bold mb-0">
+            <i class="bi bi-cash-stack text-success me-2"></i>Cash on Delivery (COD) Payment
+          </h5>
+          {% if payment.payment_status == 'paid' %}
+            <span class="badge bg-success text-white fs-6">
+              <i class="bi bi-check-circle-fill me-1"></i> Payment Collected &middot; Paid
+            </span>
+          {% else %}
+            <span class="badge bg-warning text-dark fs-6">
+              <i class="bi bi-exclamation-circle-fill me-1"></i> Awaiting Cash Collection
+            </span>
+          {% endif %}
+        </div>
+
+        <div class="p-3 bg-light rounded border my-3">
+          <div class="row g-2 align-items-center">
+            <div class="col-sm-6">
+              <div class="text-muted smaller text-uppercase fw-semibold">Payment Method</div>
+              <div class="fw-bold text-dark fs-6">
+                <i class="bi bi-cash me-1 text-success"></i> Cash on Delivery
+              </div>
+              <div class="smaller text-muted">Collect payment directly from recipient on-site</div>
+            </div>
+            <div class="col-sm-6 text-sm-end">
+              <div class="text-muted smaller text-uppercase fw-semibold">Total Amount to Collect</div>
+              <div class="fw-bold text-danger fs-3">&#8369;{{ "{:,.2f}".format(payment.amount or delivery.order_total) }}</div>
+            </div>
+          </div>
+        </div>
+
+        {% if payment.payment_status == 'paid' %}
+          <div class="alert alert-success d-flex align-items-center gap-3 mb-0 py-3">
+            <i class="bi bi-check-circle-fill fs-2 text-success flex-shrink-0"></i>
+            <div>
+              <h6 class="fw-bold mb-1">Cash Payment Successfully Collected &amp; Recorded</h6>
+              <div class="small">
+                Payment of <strong>&#8369;{{ "{:,.2f}".format(payment.amount or delivery.order_total) }}</strong> was received in cash
+                {% if payment.collected_by_driver_name %}by driver <strong>{{ payment.collected_by_driver_name }}</strong>{% endif %}
+                {% if payment.collected_at %}on <strong>{{ payment.collected_at }}</strong>{% elif payment.paid_at %}on <strong>{{ payment.paid_at }}</strong>{% endif %}.
+              </div>
+              {% if payment.receipt_note %}
+                <div class="smaller text-muted mt-1 fst-italic">{{ payment.receipt_note }}</div>
+              {% endif %}
+            </div>
+          </div>
+        {% else %}
+          <div class="alert alert-warning py-2 px-3 small mb-3">
+            <i class="bi bi-info-circle-fill me-1 text-warning-emphasis"></i>
+            <strong>Outstanding Cash Collection:</strong> You must collect the full amount of <strong>&#8369;{{ "{:,.2f}".format(payment.amount or delivery.order_total) }}</strong> in cash from the customer before confirming payment collection.
+          </div>
+
+          <form method="POST" action="{{ url_for('main.driver_delivery_task', delivery_id=delivery.id) }}">
+            <input type="hidden" name="action" value="confirm_cash_payment">
+
+            <div class="mb-3">
+              <label class="form-label small fw-semibold">Collection Notes (Optional)</label>
+              <input type="text" name="payment_notes" class="form-control form-control-sm" placeholder="e.g. Received exact cash amount from customer on-site">
+            </div>
+
+            <!-- Driver Cash Collection Confirmation Checkbox -->
+            <div class="form-check mb-3 p-3 bg-light rounded border ms-0">
+              <input class="form-check-input ms-0 me-2" type="checkbox" id="driverCashAckCheck" required>
+              <label class="form-check-label small fw-semibold" for="driverCashAckCheck">
+                I confirm that I have physically received and verified the exact cash payment of &#8369;{{ "{:,.2f}".format(payment.amount or delivery.order_total) }} from the customer for this delivery.
+              </label>
+            </div>
+
+            <button type="submit" class="btn btn-success fw-bold px-4 py-2 w-100" {% if not is_authorized %}disabled{% endif %}>
+              <i class="bi bi-cash-coin me-2"></i> Confirm Cash Collection (Mark as Paid)
+            </button>
+            {% if not is_authorized %}
+              <div class="smaller text-muted text-center mt-1">Cash collection button will be enabled once delivery is officially authorized by administrator.</div>
+            {% endif %}
+          </form>
+        {% endif %}
+      </div>
+    {% elif payment and payment.method == 'qr' %}
+      <div class="card border-0 shadow-sm p-3 mb-4 border-start border-4 border-primary">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div>
+            <span class="badge text-bg-primary"><i class="bi bi-qr-code me-1"></i> Online QR Payment</span>
+            <span class="ms-2 small text-muted">Order Total: <strong>&#8369;{{ "{:,.2f}".format(payment.amount or delivery.order_total) }}</strong></span>
+          </div>
+          <div>
+            {% if payment.payment_status in ('verified', 'paid') %}
+              <span class="badge bg-success text-white"><i class="bi bi-check-circle me-1"></i> Paid &middot; Verified by Admin</span>
+            {% else %}
+              <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i> Pending Admin Verification</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="smaller text-muted mt-2">
+          <i class="bi bi-info-circle me-1"></i> Online QR payment is verified directly by dispatch administrators. Drivers do not collect cash for QR payments.
+        </div>
+      </div>
+    {% endif %}
+
     <div class="card border-0 shadow-sm p-4">
       <h5 class="fw-bold mb-1">Confirm delivery at site</h5>
       <p class="text-muted small mb-3">
